@@ -56,7 +56,7 @@ constexpr DWORD BLINK_MS = 120;
 
 static constexpr Layout layout;
 
-constexpr int MAX_TIMERS = 3;
+// Use Config::MAX_TIMERS everywhere (defined in config.ixx)
 
 // ─── Action IDs ───────────────────────────────────────────────────────────────
 enum Act {
@@ -80,6 +80,7 @@ static int tmr_act(int i, int off) { return A_TMR_BASE + i * TMR_STRIDE + off; }
 struct TimerSlot {
     Timer   t;
     seconds dur{60s};
+    bool    notified = false;  // true once expiry alert has fired
 };
 
 struct App {
@@ -103,6 +104,7 @@ static App   app;
 static FILE* g_log_file = nullptr;
 static std::vector<std::pair<RECT,int>> g_btns;
 static HFONT hFontBig, hFontLarge, hFontSm;
+static bool  g_fonts_custom = false;  // true if fonts were created (not stock objects)
 static HWND  g_hwnd;
 static int   g_timer_ms = 100;
 
@@ -120,7 +122,12 @@ static int client_height() {
 }
 
 static void sync_timer(HWND hwnd) {
-    int want = (app.show_sw && app.sw.is_running()) ? 20 : 100;
+    bool any_timer_running = false;
+    for (auto& ts : app.timers)
+        if (ts.t.is_running()) { any_timer_running = true; break; }
+    int want = (app.show_sw && app.sw.is_running()) ? 20
+             : any_timer_running ? 100
+             : 1000;
     if (want != g_timer_ms) { g_timer_ms = want; SetTimer(hwnd, 1, want, nullptr); }
 }
 
@@ -175,7 +182,7 @@ static void load_config(HWND hwnd) {
     app.show_sw  = cfg.show_sw;
     app.show_tmr = cfg.show_tmr;
     app.topmost  = cfg.topmost;
-    int n = std::min(cfg.num_timers, MAX_TIMERS);
+    int n = std::min(cfg.num_timers, Config::MAX_TIMERS);
     app.timers.resize(n);
     for (int i = 0; i < n; ++i) {
         app.timers[i].dur = seconds{cfg.timer_secs[i]};
@@ -387,7 +394,7 @@ static void paint_all(HDC hdc, int cw) {
 
             constexpr int pm_sz = 22, pm_margin = 6;
             int pm_top = y + layout.tmr_h - pm_sz - 4;
-            if ((int)app.timers.size() < MAX_TIMERS)
+            if ((int)app.timers.size() < Config::MAX_TIMERS)
                 btn(hdc, {cw-pm_margin-pm_sz, pm_top, cw-pm_margin, pm_top+pm_sz},
                     false, L"+", tmr_act(i, A_TMR_ADD));
             if ((int)app.timers.size() > 1)
@@ -435,10 +442,11 @@ static void handle(HWND hwnd, int act) {
         if (!app.sw.is_running()) {
             if (app.sw_lap_file.empty()) {
                 SYSTEMTIME st; GetLocalTime(&st);
-                app.sw_lap_file = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt",
-                                              st.wYear, st.wMonth, st.wDay,
-                                              st.wHour, st.wMinute, st.wSecond,
-                                              st.wMilliseconds);
+                auto lap_name = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt",
+                                            st.wYear, st.wMonth, st.wDay,
+                                            st.wHour, st.wMinute, st.wSecond,
+                                            st.wMilliseconds);
+                app.sw_lap_file = (config_path().parent_path() / lap_name).wstring();
             }
             app.sw.start(now);
         } else {
@@ -485,9 +493,9 @@ static void handle(HWND hwnd, int act) {
                 else if (ts.t.is_running())   ts.t.pause(now);
                 else                          ts.t.start(now);
             } else if (off == A_TMR_RST) {
-                ts.t.reset(); ts.t.set(ts.dur);
+                ts.t.reset(); ts.t.set(ts.dur); ts.notified = false;
             } else if (off == A_TMR_ADD) {
-                if ((int)app.timers.size() < MAX_TIMERS) {
+                if ((int)app.timers.size() < Config::MAX_TIMERS) {
                     TimerSlot ns; ns.t.set(ns.dur);
                     app.timers.insert(app.timers.begin() + idx + 1, ns);
                     resize_window(hwnd); do_save = true;
@@ -538,9 +546,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         hFontBig   = make_font(26, true);
         hFontLarge = make_font(34, true);
         hFontSm    = make_font(11, false);
-        if (!hFontBig)   hFontBig   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        if (!hFontLarge) hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        if (!hFontSm)    hFontSm   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        // If any font fails, delete successfully created ones and fall back to stock
+        if (!hFontBig || !hFontLarge || !hFontSm) {
+            if (hFontBig)   { DeleteObject(hFontBig);   hFontBig   = nullptr; }
+            if (hFontLarge) { DeleteObject(hFontLarge); hFontLarge = nullptr; }
+            if (hFontSm)    { DeleteObject(hFontSm);   hFontSm    = nullptr; }
+            hFontBig   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            hFontSm    = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            g_fonts_custom = false;
+        } else {
+            g_fonts_custom = true;
+        }
         SetTimer(hwnd, 1, 100, nullptr);
         BOOL dark = system_prefers_dark() ? TRUE : FALSE;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
@@ -549,10 +566,45 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         resize_window(hwnd);
         return 0;
     }
-    case WM_TIMER:
+    case WM_TIMER: {
+        auto now = sc::now();
+        for (auto& ts : app.timers) {
+            if (ts.t.touched() && ts.t.expired(now) && !ts.notified) {
+                ts.notified = true;
+                MessageBeep(MB_ICONASTERISK);
+                FLASHWINFO fi{};
+                fi.cbSize    = sizeof(fi);
+                fi.hwnd      = hwnd;
+                fi.dwFlags   = FLASHW_ALL | FLASHW_TIMERNOFG;
+                fi.uCount    = 3;
+                fi.dwTimeout = 0;
+                FlashWindowEx(&fi);
+            }
+        }
+        // Update window title: running timer > running stopwatch > current time
+        {
+            std::wstring title;
+            for (auto& ts : app.timers) {
+                if (ts.t.is_running()) {
+                    title = format_timer_display(ts.t.remaining(now));
+                    if (ts.t.expired(now)) title = L"EXPIRED " + title;
+                    break;
+                }
+            }
+            if (title.empty() && app.sw.is_running()) {
+                title = format_stopwatch_display(app.sw.elapsed(now));
+            }
+            if (title.empty()) {
+                SYSTEMTIME st; GetLocalTime(&st);
+                title = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
+            }
+            title += L" — Chronos";
+            SetWindowTextW(hwnd, title.c_str());
+        }
         InvalidateRect(hwnd, nullptr, FALSE);
         sync_timer(hwnd);
         return 0;
+    }
     case WM_ERASEBKGND:
         return 1;
     case WM_PAINT: {
@@ -625,13 +677,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         m->ptMinTrackSize.y = adj_h.bottom - adj_h.top;
         return 0;
     }
+    case WM_SETTINGCHANGE:
+        if (lp && wcscmp((LPCWSTR)lp, L"ImmersiveColorSet") == 0) {
+            BOOL dark = system_prefers_dark() ? TRUE : FALSE;
+            DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
+                                  &dark, sizeof(dark));
+        }
+        return 0;
     case WM_EXITSIZEMOVE:
         save_config();
         return 0;
     case WM_DESTROY:
         save_config();
         KillTimer(hwnd, 1);
-        DeleteObject(hFontBig); DeleteObject(hFontLarge); DeleteObject(hFontSm);
+        if (g_fonts_custom) {
+            DeleteObject(hFontBig); DeleteObject(hFontLarge); DeleteObject(hFontSm);
+        }
         PostQuitMessage(0);
         return 0;
     }
