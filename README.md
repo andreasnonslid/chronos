@@ -44,6 +44,8 @@ Run with `--debug` to write logs to `debug.log` in the executable directory.
 src/
   main.cpp       — entry point, window creation, rendering (Win32 GDI)
   config.ixx     — config persistence (INI format)
+  formatting.ixx — shared stopwatch/timer/lap display formatting helpers
+  layout.ixx     — shared layout and client-height calculations
   stopwatch.ixx  — stopwatch logic and lap tracking
   timer.ixx      — countdown timer logic
 ```
