@@ -28,5 +28,5 @@ target_link_options(chronos PRIVATE
 
 target_link_libraries(chronos PRIVATE
     -Wl,-Bstatic winpthread -Wl,-Bdynamic
-    gdi32 user32 dwmapi shell32
+    gdi32 user32 dwmapi shell32 advapi32
 )
