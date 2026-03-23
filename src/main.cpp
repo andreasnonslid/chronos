@@ -8,12 +8,20 @@
 // Forward-declare DWM to avoid MinGW header chain issues (uxtheme.h missing commctrl.h).
 extern "C" __declspec(dllimport) HRESULT __stdcall
 DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
-// Forward-declare DPI APIs for MinGW compatibility (Windows 10 1607+/1703+).
-extern "C" __declspec(dllimport) UINT __stdcall GetDpiForWindow(HWND hwnd);
-extern "C" __declspec(dllimport) BOOL __stdcall
-SetProcessDpiAwarenessContext(HANDLE value);
+// DPI APIs loaded dynamically to avoid hard dependency on Windows 10 1607+/1703+.
+using GetDpiForWindow_t = UINT (WINAPI *)(HWND);
+using SetProcessDpiAwarenessContext_t = BOOL (WINAPI *)(HANDLE);
+static GetDpiForWindow_t pGetDpiForWindow = nullptr;
+static SetProcessDpiAwarenessContext_t pSetProcessDpiAwarenessContext = nullptr;
 // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = ((HANDLE)-4)
 static const HANDLE DPI_CTX_PER_MONITOR_V2 = ((HANDLE)(LONG_PTR)-4);
+static void load_dpi_apis() {
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    if (user32) {
+        pGetDpiForWindow = (GetDpiForWindow_t)GetProcAddress(user32, "GetDpiForWindow");
+        pSetProcessDpiAwarenessContext = (SetProcessDpiAwarenessContext_t)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+    }
+}
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
@@ -215,8 +223,14 @@ static void load_config(HWND hwnd) {
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     if (cfg.pos_valid) {
         RECT cur; GetWindowRect(hwnd, &cur);
+        // Clamp restored width against the DPI-scaled minimum
+        DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
+        RECT adj{0, 0, layout.bar_min_client_w(), 0};
+        AdjustWindowRectEx(&adj, ws, FALSE, 0);
+        int min_w = adj.right - adj.left;
+        int w = cfg.win_w < min_w ? min_w : cfg.win_w;
         SetWindowPos(hwnd, nullptr, cfg.win_x, cfg.win_y,
-                     cfg.win_w, cur.bottom - cur.top, SWP_NOZORDER);
+                     w, cur.bottom - cur.top, SWP_NOZORDER);
     }
 }
 
@@ -595,8 +609,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CREATE: {
         g_hwnd = hwnd;
         // Get actual DPI for this window's monitor
-        UINT wdpi = GetDpiForWindow(hwnd);
-        if (wdpi != 0) g_dpi = (int)wdpi;
+        if (pGetDpiForWindow) {
+            UINT wdpi = pGetDpiForWindow(hwnd);
+            if (wdpi != 0) g_dpi = (int)wdpi;
+        }
         update_layout_for_dpi();
         recreate_fonts();
         SetTimer(hwnd, 1, 100, nullptr);
@@ -737,8 +753,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     }
     LocalFree(argv);
 
-    // Set per-monitor DPI awareness v2
-    SetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
+    // Load DPI APIs dynamically and set per-monitor DPI awareness v2
+    load_dpi_apis();
+    if (pSetProcessDpiAwarenessContext)
+        pSetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
 
     // Get initial DPI from primary monitor before window exists
     HDC dc = GetDC(nullptr);
