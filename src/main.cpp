@@ -33,32 +33,46 @@ struct GdiObj {
     operator HGDIOBJ() const { return h; }
 };
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
-constexpr COLORREF C_BG     = RGB( 26,  26,  26);
-constexpr COLORREF C_BAR    = RGB( 35,  35,  38);
-constexpr COLORREF C_BTN    = RGB( 40,  40,  44);
-constexpr COLORREF C_ACT    = RGB( 80,  80,  88);
-constexpr COLORREF C_TEXT   = RGB(204, 204, 204);
-constexpr COLORREF C_DIM    = RGB( 90,  90,  90);
-constexpr COLORREF C_WARN   = RGB(240, 140,  30);
-constexpr COLORREF C_EXPIRE = RGB(200,  50,  50);
-constexpr COLORREF C_BLINK  = RGB(110, 110, 118);
-constexpr COLORREF C_FILL   = RGB( 38,  38,  50);
-constexpr COLORREF C_FILL_EX= RGB( 72,  18,  18);
+// ─── Theme ────────────────────────────────────────────────────────────────────
+struct Theme {
+    COLORREF bg       = RGB( 26,  26,  26);
+    COLORREF bar      = RGB( 35,  35,  38);
+    COLORREF btn      = RGB( 40,  40,  44);
+    COLORREF active   = RGB( 80,  80,  88);
+    COLORREF text     = RGB(204, 204, 204);
+    COLORREF dim      = RGB( 90,  90,  90);
+    COLORREF warn     = RGB(240, 140,  30);
+    COLORREF expire   = RGB(200,  50,  50);
+    COLORREF blink    = RGB(110, 110, 118);
+    COLORREF fill     = RGB( 38,  38,  50);
+    COLORREF fill_exp = RGB( 72,  18,  18);
+};
+static constexpr Theme theme;
 
 // ─── Blink ────────────────────────────────────────────────────────────────────
 constexpr DWORD BLINK_MS = 120;
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
-constexpr int BAR_H  =  36;
-constexpr int CLK_H  =  62;
-constexpr int SW_H   = 100;
-constexpr int TMR_H  = 118;
-constexpr int BTN_H  =  28;
-constexpr int MAX_TIMERS = 3;
+struct Layout {
+    int bar_h  =  36;
+    int clk_h  =  62;
+    int sw_h   = 100;
+    int tmr_h  = 118;
+    int btn_h  =  28;
 
-constexpr int W_PIN=44, W_CLK=48, W_SW=76, W_TMR=54, BAR_GAP=6;
-constexpr int BAR_MIN_CLIENT_W = W_PIN + W_CLK + W_SW + W_TMR + 3*BAR_GAP + 2*8;
+    int w_pin  = 44;
+    int w_clk  = 48;
+    int w_sw   = 76;
+    int w_tmr  = 54;
+    int bar_gap = 6;
+
+    int bar_min_client_w() const {
+        return w_pin + w_clk + w_sw + w_tmr + 3 * bar_gap + 2 * 8;
+    }
+};
+static constexpr Layout layout;
+
+constexpr int MAX_TIMERS = 3;
 
 // ─── Action IDs ───────────────────────────────────────────────────────────────
 enum Act {
@@ -216,9 +230,9 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
                 COLORREF override_col = 0) {
     bool blinking = id && app.blink_act == id &&
                     (GetTickCount() - app.blink_t) < BLINK_MS;
-    COLORREF col = blinking      ? C_BLINK
+    COLORREF col = blinking      ? theme.blink
                  : override_col  ? override_col
-                 : (active       ? C_ACT : C_BTN);
+                 : (active       ? theme.active : theme.btn);
     GdiObj br{CreateSolidBrush(col)};
     GdiObj pn{CreatePen(PS_NULL, 0, 0)};
     auto*  obr = (HBRUSH)SelectObject(hdc, br);
@@ -226,7 +240,7 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
     RoundRect(hdc, r.left, r.top, r.right, r.bottom, 6, 6);
     SelectObject(hdc, obr); SelectObject(hdc, opn);
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, C_TEXT);
+    SetTextColor(hdc, theme.text);
     DrawTextW(hdc, label, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     if (id) g_btns.push_back({r, id});
     return r;
@@ -241,10 +255,10 @@ static void divider(HDC hdc, int y, int cw) {
 }
 
 static void resize_window(HWND hwnd) {
-    int h = BAR_H;
-    if (app.show_clk) h += CLK_H;
-    if (app.show_sw)  h += SW_H;
-    if (app.show_tmr) h += (int)app.timers.size() * TMR_H;
+    int h = layout.bar_h;
+    if (app.show_clk) h += layout.clk_h;
+    if (app.show_sw)  h += layout.sw_h;
+    if (app.show_tmr) h += (int)app.timers.size() * layout.tmr_h;
     RECT wr, cr;
     GetWindowRect(hwnd, &wr);
     GetClientRect(hwnd, &cr);
@@ -261,23 +275,23 @@ static void paint_all(HDC hdc, int cw) {
     SetBkMode(hdc, TRANSPARENT);
 
     RECT all{0, 0, cw, 9999};
-    GdiObj bgbr{CreateSolidBrush(C_BG)};
+    GdiObj bgbr{CreateSolidBrush(theme.bg)};
     FillRect(hdc, &all, (HBRUSH)bgbr.h);
 
     // ── Top bar ─────────────────────────────────────────────────────────────
-    RECT bar{0, 0, cw, BAR_H};
-    GdiObj barbr{CreateSolidBrush(C_BAR)};
+    RECT bar{0, 0, cw, layout.bar_h};
+    GdiObj barbr{CreateSolidBrush(theme.bar)};
     FillRect(hdc, &bar, (HBRUSH)barbr.h);
 
     SelectObject(hdc, hFontSm);
-    int by = (BAR_H - BTN_H) / 2;
-    int bx = (cw - (W_PIN + W_CLK + W_SW + W_TMR + 3*BAR_GAP)) / 2;
-    btn(hdc, {bx, by, bx+W_PIN, by+BTN_H}, app.topmost,  L"Pin",       A_TOPMOST);  bx += W_PIN+BAR_GAP;
-    btn(hdc, {bx, by, bx+W_CLK, by+BTN_H}, app.show_clk, L"Clock",     A_SHOW_CLK); bx += W_CLK+BAR_GAP;
-    btn(hdc, {bx, by, bx+W_SW,  by+BTN_H}, app.show_sw,  L"Stopwatch", A_SHOW_SW);  bx += W_SW +BAR_GAP;
-    btn(hdc, {bx, by, bx+W_TMR, by+BTN_H}, app.show_tmr, L"Timers",    A_SHOW_TMR);
+    int by = (layout.bar_h - layout.btn_h) / 2;
+    int bx = (cw - (layout.w_pin + layout.w_clk + layout.w_sw + layout.w_tmr + 3*layout.bar_gap)) / 2;
+    btn(hdc, {bx, by, bx+layout.w_pin, by+layout.btn_h}, app.topmost,  L"Pin",       A_TOPMOST);  bx += layout.w_pin+layout.bar_gap;
+    btn(hdc, {bx, by, bx+layout.w_clk, by+layout.btn_h}, app.show_clk, L"Clock",     A_SHOW_CLK); bx += layout.w_clk+layout.bar_gap;
+    btn(hdc, {bx, by, bx+layout.w_sw,  by+layout.btn_h}, app.show_sw,  L"Stopwatch", A_SHOW_SW);  bx += layout.w_sw +layout.bar_gap;
+    btn(hdc, {bx, by, bx+layout.w_tmr, by+layout.btn_h}, app.show_tmr, L"Timers",    A_SHOW_TMR);
 
-    int y = BAR_H;
+    int y = layout.bar_h;
     auto now = sc::now();
 
     // ── Clock ────────────────────────────────────────────────────────────────
@@ -287,10 +301,10 @@ static void paint_all(HDC hdc, int cw) {
         GetLocalTime(&st);
         auto buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
         SelectObject(hdc, hFontBig);
-        SetTextColor(hdc, C_TEXT);
-        RECT tr{0, y, cw, y + CLK_H};
+        SetTextColor(hdc, theme.text);
+        RECT tr{0, y, cw, y + layout.clk_h};
         DrawTextW(hdc, buf.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        y += CLK_H;
+        y += layout.clk_h;
     }
 
     // ── Stopwatch ────────────────────────────────────────────────────────────
@@ -300,7 +314,7 @@ static void paint_all(HDC hdc, int cw) {
         std::wstring etime = (elap >= 1h) ? fmt_hms(elap) : fmt_sw(elap);
 
         SelectObject(hdc, hFontBig);
-        SetTextColor(hdc, C_TEXT);
+        SetTextColor(hdc, theme.text);
         RECT tr{0, y + 4, cw, y + 44};
         DrawTextW(hdc, etime.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
@@ -317,8 +331,8 @@ static void paint_all(HDC hdc, int cw) {
         int  gbw = 100, gbh = 18;
         btn(hdc, {(cw-gbw)/2, by0+bh+4, (cw+gbw)/2, by0+bh+4+gbh},
             false, L"Get Laps", has_file ? A_SW_GET : 0,
-            has_file ? C_BTN : C_DIM);
-        y += SW_H;
+            has_file ? theme.btn : theme.dim);
+        y += layout.sw_h;
     }
 
     // ── Timers ───────────────────────────────────────────────────────────────
@@ -337,14 +351,14 @@ static void paint_all(HDC hdc, int cw) {
             bool  expired = touched && ts.t.expired(now);
 
             if (touched) {
-                COLORREF fillcol = expired ? C_FILL_EX : C_FILL;
+                COLORREF fillcol = expired ? theme.fill_exp : theme.fill;
                 int fw = cw;
                 if (!expired) {
                     auto total = duration_cast<microseconds>(ts.dur).count();
                     auto rem   = duration_cast<microseconds>(ts.t.remaining(now)).count();
                     fw = total > 0 ? (int)(cw * (double)(total - rem) / total) : 0;
                 }
-                RECT fr{0, y, fw, y + TMR_H};
+                RECT fr{0, y, fw, y + layout.tmr_h};
                 GdiObj fbr{CreateSolidBrush(fillcol)};
                 FillRect(hdc, &fr, (HBRUSH)fbr.h);
             }
@@ -359,12 +373,12 @@ static void paint_all(HDC hdc, int cw) {
 
             std::wstring tstr = touched ? fmt_ms(ts.t.remaining(now))
                                         : fmt_ms(duration_cast<Timer::dur>(ts.dur));
-            COLORREF tcol = expired ? C_EXPIRE
-                : (touched && ts.t.remaining(now) < 10s) ? C_WARN
-                : C_TEXT;
+            COLORREF tcol = expired ? theme.expire
+                : (touched && ts.t.remaining(now) < 10s) ? theme.warn
+                : theme.text;
             if (touched) {
                 SelectObject(hdc, hFontSm);
-                SetTextColor(hdc, C_DIM);
+                SetTextColor(hdc, theme.dim);
                 std::wstring sstr = fmt_ms(duration_cast<Timer::dur>(ts.dur));
                 RECT sr{0, y + up_off, cw, y + up_off + 20};
                 DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -380,7 +394,7 @@ static void paint_all(HDC hdc, int cw) {
             }
 
             SelectObject(hdc, hFontSm);
-            SetTextColor(hdc, C_TEXT);
+            SetTextColor(hdc, theme.text);
             if (!touched) {
                 btn(hdc, {mm_cx-abw/2, y+dn_off, mm_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_MDN));
                 btn(hdc, {ss_cx-abw/2, y+dn_off, ss_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_SDN));
@@ -394,7 +408,7 @@ static void paint_all(HDC hdc, int cw) {
                 tmr_act(i, A_TMR_RST));
 
             constexpr int pm_sz = 22, pm_margin = 6;
-            int pm_top = y + TMR_H - pm_sz - 4;
+            int pm_top = y + layout.tmr_h - pm_sz - 4;
             if ((int)app.timers.size() < MAX_TIMERS)
                 btn(hdc, {cw-pm_margin-pm_sz, pm_top, cw-pm_margin, pm_top+pm_sz},
                     false, L"+", tmr_act(i, A_TMR_ADD));
@@ -402,7 +416,7 @@ static void paint_all(HDC hdc, int cw) {
                 btn(hdc, {pm_margin, pm_top, pm_margin+pm_sz, pm_top+pm_sz},
                     false, L"−", tmr_act(i, A_TMR_DEL));
 
-            y += TMR_H;
+            y += layout.tmr_h;
         }
     }
 }
@@ -617,10 +631,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         RECT wr, cr;
         GetWindowRect(hwnd, &wr); GetClientRect(hwnd, &cr);
         int nc_h = (wr.bottom - wr.top) - cr.bottom;
-        int h = BAR_H;
-        if (app.show_clk) h += CLK_H;
-        if (app.show_sw)  h += SW_H;
-        if (app.show_tmr) h += (int)app.timers.size() * TMR_H;
+        int h = layout.bar_h;
+        if (app.show_clk) h += layout.clk_h;
+        if (app.show_sw)  h += layout.sw_h;
+        if (app.show_tmr) h += (int)app.timers.size() * layout.tmr_h;
         int want_h = h + nc_h;
         auto* r = (RECT*)lp;
         if (wp == WMSZ_TOP || wp == WMSZ_TOPLEFT || wp == WMSZ_TOPRIGHT)
@@ -632,13 +646,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_GETMINMAXINFO: {
         auto* m = (MINMAXINFO*)lp;
         DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
-        RECT adj{0, 0, BAR_MIN_CLIENT_W, 0};
+        RECT adj{0, 0, layout.bar_min_client_w(), 0};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         m->ptMinTrackSize.x = adj.right - adj.left;
-        int ch = BAR_H;
-        if (app.show_clk) ch += CLK_H;
-        if (app.show_sw)  ch += SW_H;
-        if (app.show_tmr) ch += (int)app.timers.size() * TMR_H;
+        int ch = layout.bar_h;
+        if (app.show_clk) ch += layout.clk_h;
+        if (app.show_sw)  ch += layout.sw_h;
+        if (app.show_tmr) ch += (int)app.timers.size() * layout.tmr_h;
         RECT adj_h{0, 0, 0, ch};
         AdjustWindowRectEx(&adj_h, ws, FALSE, 0);
         m->ptMinTrackSize.y = adj_h.bottom - adj_h.top;
@@ -682,8 +696,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     RegisterClassExW(&wc);
 
     constexpr DWORD ws = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_THICKFRAME;
-    int init_h = BAR_H + CLK_H + SW_H + (int)app.timers.size() * TMR_H;
-    RECT wr{0, 0, BAR_MIN_CLIENT_W, init_h};
+    int init_h = layout.bar_h + layout.clk_h + layout.sw_h + (int)app.timers.size() * layout.tmr_h;
+    RECT wr{0, 0, layout.bar_min_client_w(), init_h};
     AdjustWindowRect(&wr, ws, FALSE);
 
     HWND hwnd = CreateWindowExW(
