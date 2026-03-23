@@ -443,9 +443,10 @@ static void handle(HWND hwnd, int act) {
         if (!app.sw.is_running()) {
             if (app.sw_lap_file.empty()) {
                 SYSTEMTIME st; GetLocalTime(&st);
-                app.sw_lap_file = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}.txt",
+                app.sw_lap_file = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt",
                                               st.wYear, st.wMonth, st.wDay,
-                                              st.wHour, st.wMinute, st.wSecond);
+                                              st.wHour, st.wMinute, st.wSecond,
+                                              st.wMilliseconds);
             }
             app.sw.start(now);
         } else {
