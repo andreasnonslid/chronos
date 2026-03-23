@@ -17,6 +17,8 @@ DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
 #include <vector>
 #include <cstdio>
 import config;
+import formatting;
+import layout;
 import stopwatch;
 import timer;
 
@@ -52,24 +54,6 @@ static constexpr Theme theme;
 // ─── Blink ────────────────────────────────────────────────────────────────────
 constexpr DWORD BLINK_MS = 120;
 
-// ─── Layout ───────────────────────────────────────────────────────────────────
-struct Layout {
-    int bar_h  =  36;
-    int clk_h  =  62;
-    int sw_h   = 100;
-    int tmr_h  = 118;
-    int btn_h  =  28;
-
-    int w_pin  = 44;
-    int w_clk  = 48;
-    int w_sw   = 76;
-    int w_tmr  = 54;
-    int bar_gap = 6;
-
-    int bar_min_client_w() const {
-        return w_pin + w_clk + w_sw + w_tmr + 3 * bar_gap + 2 * 8;
-    }
-};
 static constexpr Layout layout;
 
 constexpr int MAX_TIMERS = 3;
@@ -121,6 +105,19 @@ static std::vector<std::pair<RECT,int>> g_btns;
 static HFONT hFontBig, hFontLarge, hFontSm;
 static HWND  g_hwnd;
 static int   g_timer_ms = 100;
+
+static LayoutState layout_state() {
+    return {
+        .show_clk = app.show_clk,
+        .show_sw = app.show_sw,
+        .show_tmr = app.show_tmr,
+        .timer_count = (int)app.timers.size(),
+    };
+}
+
+static int client_height() {
+    return client_height_for(layout, layout_state());
+}
 
 static void sync_timer(HWND hwnd) {
     int want = (app.show_sw && app.sw.is_running()) ? 20 : 100;
@@ -205,24 +202,11 @@ static HFONT make_font(int pt, bool bold) {
                        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
 }
 
-static std::wstring fmt_sw(sc::duration d) {
-    auto total_ms = duration_cast<milliseconds>(d).count();
-    auto ms      = total_ms % 1000;
-    auto total_s = total_ms / 1000;
-    auto s = total_s % 60, m = total_s / 60;
-    return std::format(L"{:02}:{:02}.{:03}", m, s, ms);
-}
-
-static std::wstring fmt_hms(sc::duration d) {
-    auto total_s = duration_cast<seconds>(d).count();
-    auto s = total_s % 60, m = (total_s / 60) % 60, h = total_s / 3600;
-    return std::format(L"{:02}:{:02}:{:02}", h, m, s);
-}
-
-static std::wstring fmt_ms(Timer::dur d) {
-    auto total_s = duration_cast<seconds>(d).count();
-    auto s = total_s % 60, m = total_s / 60;
-    return std::format(L"{:02}:{:02}", m, s);
+static int nonclient_height(HWND hwnd) {
+    RECT wr, cr;
+    GetWindowRect(hwnd, &wr);
+    GetClientRect(hwnd, &cr);
+    return (wr.bottom - wr.top) - cr.bottom;
 }
 
 // Draw a rounded button, record rect for hit testing, return rect.
@@ -255,17 +239,11 @@ static void divider(HDC hdc, int y, int cw) {
 }
 
 static void resize_window(HWND hwnd) {
-    int h = layout.bar_h;
-    if (app.show_clk) h += layout.clk_h;
-    if (app.show_sw)  h += layout.sw_h;
-    if (app.show_tmr) h += (int)app.timers.size() * layout.tmr_h;
-    RECT wr, cr;
+    RECT wr;
     GetWindowRect(hwnd, &wr);
-    GetClientRect(hwnd, &cr);
-    int nc_h = (wr.bottom - wr.top) - cr.bottom;
     int cur_w = wr.right - wr.left;
     SetWindowPos(hwnd, nullptr, 0, 0,
-                 cur_w, h + nc_h,
+                 cur_w, client_height() + nonclient_height(hwnd),
                  SWP_NOMOVE | SWP_NOZORDER);
 }
 
@@ -311,7 +289,7 @@ static void paint_all(HDC hdc, int cw) {
     if (app.show_sw) {
         divider(hdc, y, cw);
         auto elap = app.sw.elapsed(now);
-        std::wstring etime = (elap >= 1h) ? fmt_hms(elap) : fmt_sw(elap);
+        std::wstring etime = format_stopwatch_display(elap);
 
         SelectObject(hdc, hFontBig);
         SetTextColor(hdc, theme.text);
@@ -371,15 +349,15 @@ static void paint_all(HDC hdc, int cw) {
                 btn(hdc, {ss_cx-abw/2, y+up_off, ss_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_SUP));
             }
 
-            std::wstring tstr = touched ? fmt_ms(ts.t.remaining(now))
-                                        : fmt_ms(duration_cast<Timer::dur>(ts.dur));
+            std::wstring tstr = touched ? format_timer_display(ts.t.remaining(now))
+                                        : format_timer_display(duration_cast<Timer::dur>(ts.dur));
             COLORREF tcol = expired ? theme.expire
                 : (touched && ts.t.remaining(now) < 10s) ? theme.warn
                 : theme.text;
             if (touched) {
                 SelectObject(hdc, hFontSm);
                 SetTextColor(hdc, theme.dim);
-                std::wstring sstr = fmt_ms(duration_cast<Timer::dur>(ts.dur));
+                std::wstring sstr = format_timer_display(duration_cast<Timer::dur>(ts.dur));
                 RECT sr{0, y + up_off, cw, y + up_off + 20};
                 DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
                 SelectObject(hdc, hFontLarge);
@@ -477,8 +455,8 @@ static void handle(HWND hwnd, int act) {
                     auto n = laps.size();
                     sc::duration cum{};
                     for (auto& l : laps) cum += l;
-                    fwprintf(f, L"Lap %-3zu   split %-14ls   total %ls\n",
-                             n, fmt_sw(laps.back()).c_str(), fmt_sw(cum).c_str());
+                    auto row = format_lap_row(n, laps.back(), cum);
+                    fwprintf(f, L"%ls\n", row.c_str());
                     fclose(f);
                 } else {
                     MessageBoxW(hwnd, L"Could not write lap file.\nLap data may be lost.",
@@ -628,14 +606,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_SIZING: {
-        RECT wr, cr;
-        GetWindowRect(hwnd, &wr); GetClientRect(hwnd, &cr);
-        int nc_h = (wr.bottom - wr.top) - cr.bottom;
-        int h = layout.bar_h;
-        if (app.show_clk) h += layout.clk_h;
-        if (app.show_sw)  h += layout.sw_h;
-        if (app.show_tmr) h += (int)app.timers.size() * layout.tmr_h;
-        int want_h = h + nc_h;
+        int want_h = client_height() + nonclient_height(hwnd);
         auto* r = (RECT*)lp;
         if (wp == WMSZ_TOP || wp == WMSZ_TOPLEFT || wp == WMSZ_TOPRIGHT)
             r->top = r->bottom - want_h;
@@ -649,11 +620,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         RECT adj{0, 0, layout.bar_min_client_w(), 0};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         m->ptMinTrackSize.x = adj.right - adj.left;
-        int ch = layout.bar_h;
-        if (app.show_clk) ch += layout.clk_h;
-        if (app.show_sw)  ch += layout.sw_h;
-        if (app.show_tmr) ch += (int)app.timers.size() * layout.tmr_h;
-        RECT adj_h{0, 0, 0, ch};
+        RECT adj_h{0, 0, 0, client_height()};
         AdjustWindowRectEx(&adj_h, ws, FALSE, 0);
         m->ptMinTrackSize.y = adj_h.bottom - adj_h.top;
         return 0;
@@ -696,7 +663,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     RegisterClassExW(&wc);
 
     constexpr DWORD ws = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_THICKFRAME;
-    int init_h = layout.bar_h + layout.clk_h + layout.sw_h + (int)app.timers.size() * layout.tmr_h;
+    int init_h = client_height();
     RECT wr{0, 0, layout.bar_min_client_w(), init_h};
     AdjustWindowRect(&wr, ws, FALSE);
 
