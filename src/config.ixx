@@ -14,7 +14,7 @@ export struct Config {
     bool show_sw   = true;
     bool show_tmr  = true;
     bool topmost   = false;
-    static constexpr int MAX_TIMERS = 8;
+    static constexpr int MAX_TIMERS = 3;
     int  num_timers = 1;
     std::array<int, MAX_TIMERS> timer_secs{};
     bool pos_valid = false;
