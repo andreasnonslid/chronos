@@ -14,7 +14,7 @@ export struct Config {
     bool show_sw   = true;
     bool show_tmr  = true;
     bool topmost   = false;
-    static constexpr int MAX_TIMERS = 8;
+    static constexpr int MAX_TIMERS = 3;
     int  num_timers = 1;
     std::array<int, MAX_TIMERS> timer_secs{};
     bool pos_valid = false;
@@ -55,7 +55,7 @@ export bool config_read(Config& c, std::istream& f) {
         else {
             for (int i = 0; i < Config::MAX_TIMERS; ++i)
                 if (key == std::format("timer{}", i))
-                    c.timer_secs[i] = std::max(10, val);
+                    c.timer_secs[i] = std::clamp(val, 10, 86400);
         }
     }
     c.pos_valid = has_x && has_y && has_w;
