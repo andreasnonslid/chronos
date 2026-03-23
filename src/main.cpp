@@ -23,6 +23,16 @@ import timer;
 using namespace std::chrono;
 using sc = steady_clock;
 
+// ─── RAII wrapper for GDI objects ────────────────────────────────────────────
+struct GdiObj {
+    HGDIOBJ h;
+    explicit GdiObj(HGDIOBJ h) : h(h) {}
+    ~GdiObj() { if (h) DeleteObject(h); }
+    GdiObj(const GdiObj&) = delete;
+    GdiObj& operator=(const GdiObj&) = delete;
+    operator HGDIOBJ() const { return h; }
+};
+
 // ─── Colors ───────────────────────────────────────────────────────────────────
 constexpr COLORREF C_BG     = RGB( 26,  26,  26);
 constexpr COLORREF C_BAR    = RGB( 35,  35,  38);
@@ -209,13 +219,12 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
     COLORREF col = blinking      ? C_BLINK
                  : override_col  ? override_col
                  : (active       ? C_ACT : C_BTN);
-    HBRUSH br  = CreateSolidBrush(col);
-    HPEN   pn  = CreatePen(PS_NULL, 0, 0);
+    GdiObj br{CreateSolidBrush(col)};
+    GdiObj pn{CreatePen(PS_NULL, 0, 0)};
     auto*  obr = (HBRUSH)SelectObject(hdc, br);
     auto*  opn = (HPEN)  SelectObject(hdc, pn);
     RoundRect(hdc, r.left, r.top, r.right, r.bottom, 6, 6);
     SelectObject(hdc, obr); SelectObject(hdc, opn);
-    DeleteObject(br); DeleteObject(pn);
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, C_TEXT);
     DrawTextW(hdc, label, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -224,12 +233,11 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
 }
 
 static void divider(HDC hdc, int y, int cw) {
-    HPEN pn = CreatePen(PS_SOLID, 1, RGB(50, 50, 55));
+    GdiObj pn{CreatePen(PS_SOLID, 1, RGB(50, 50, 55))};
     auto* op = (HPEN)SelectObject(hdc, pn);
     MoveToEx(hdc, 0, y, nullptr);
     LineTo(hdc, cw, y);
     SelectObject(hdc, op);
-    DeleteObject(pn);
 }
 
 static void resize_window(HWND hwnd) {
@@ -253,15 +261,13 @@ static void paint_all(HDC hdc, int cw) {
     SetBkMode(hdc, TRANSPARENT);
 
     RECT all{0, 0, cw, 9999};
-    HBRUSH bgbr = CreateSolidBrush(C_BG);
-    FillRect(hdc, &all, bgbr);
-    DeleteObject(bgbr);
+    GdiObj bgbr{CreateSolidBrush(C_BG)};
+    FillRect(hdc, &all, (HBRUSH)bgbr.h);
 
     // ── Top bar ─────────────────────────────────────────────────────────────
     RECT bar{0, 0, cw, BAR_H};
-    HBRUSH barbr = CreateSolidBrush(C_BAR);
-    FillRect(hdc, &bar, barbr);
-    DeleteObject(barbr);
+    GdiObj barbr{CreateSolidBrush(C_BAR)};
+    FillRect(hdc, &bar, (HBRUSH)barbr.h);
 
     SelectObject(hdc, hFontSm);
     int by = (BAR_H - BTN_H) / 2;
@@ -339,9 +345,8 @@ static void paint_all(HDC hdc, int cw) {
                     fw = total > 0 ? (int)(cw * (double)(total - rem) / total) : 0;
                 }
                 RECT fr{0, y, fw, y + TMR_H};
-                HBRUSH fbr = CreateSolidBrush(fillcol);
-                FillRect(hdc, &fr, fbr);
-                DeleteObject(fbr);
+                GdiObj fbr{CreateSolidBrush(fillcol)};
+                FillRect(hdc, &fr, (HBRUSH)fbr.h);
             }
 
             int mm_cx = cw/2 - 34, ss_cx = cw/2 + 34;
@@ -460,6 +465,9 @@ static void handle(HWND hwnd, int act) {
                     fwprintf(f, L"Lap %-3zu   split %-14ls   total %ls\n",
                              n, fmt_sw(laps.back()).c_str(), fmt_sw(cum).c_str());
                     fclose(f);
+                } else {
+                    MessageBoxW(hwnd, L"Could not write lap file.\nLap data may be lost.",
+                                L"Chronos", MB_OK | MB_ICONWARNING);
                 }
             }
         }
@@ -499,7 +507,7 @@ static void handle(HWND hwnd, int act) {
             } else if (!ts.t.touched()) {
                 auto adj = [&](int ds) {
                     auto new_s = ts.dur.count() + ds;
-                    ts.dur = seconds{std::max(10LL, new_s)};
+                    ts.dur = seconds{std::clamp(new_s, 10LL, 86400LL)};
                     ts.t.reset(); ts.t.set(ts.dur);
                 };
                 if (off == A_TMR_MUP) { adj(+60); do_save = true; }
@@ -522,6 +530,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         hFontBig   = make_font(26, true);
         hFontLarge = make_font(34, true);
         hFontSm    = make_font(11, false);
+        if (!hFontBig)   hFontBig   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        if (!hFontLarge) hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        if (!hFontSm)    hFontSm   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
         SetTimer(hwnd, 1, 100, nullptr);
         BOOL dark = TRUE;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
@@ -574,10 +585,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_GETMINMAXINFO: {
         auto* m = (MINMAXINFO*)lp;
-        RECT wr, cr;
-        GetWindowRect(hwnd, &wr); GetClientRect(hwnd, &cr);
-        int nc_w = (wr.right - wr.left) - cr.right;
-        m->ptMinTrackSize.x = BAR_MIN_CLIENT_W + nc_w;
+        DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
+        RECT adj{0, 0, BAR_MIN_CLIENT_W, 0};
+        AdjustWindowRectEx(&adj, ws, FALSE, 0);
+        m->ptMinTrackSize.x = adj.right - adj.left;
+        int ch = BAR_H;
+        if (app.show_clk) ch += CLK_H;
+        if (app.show_sw)  ch += SW_H;
+        if (app.show_tmr) ch += (int)app.timers.size() * TMR_H;
+        RECT adj_h{0, 0, 0, ch};
+        AdjustWindowRectEx(&adj_h, ws, FALSE, 0);
+        m->ptMinTrackSize.y = adj_h.bottom - adj_h.top;
         return 0;
     }
     case WM_EXITSIZEMOVE:

@@ -55,7 +55,7 @@ export bool config_read(Config& c, std::istream& f) {
         else {
             for (int i = 0; i < Config::MAX_TIMERS; ++i)
                 if (key == std::format("timer{}", i))
-                    c.timer_secs[i] = std::max(10, val);
+                    c.timer_secs[i] = std::clamp(val, 10, 86400);
         }
     }
     c.pos_valid = has_x && has_y && has_w;
