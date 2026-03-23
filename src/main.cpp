@@ -522,6 +522,21 @@ static void handle(HWND hwnd, int act) {
     sync_timer(hwnd);
 }
 
+// ─── Theme detection ─────────────────────────────────────────────────────────
+static bool system_prefers_dark() {
+    HKEY key;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER,
+                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                      0, KEY_READ, &key) == ERROR_SUCCESS) {
+        DWORD val = 0, size = sizeof(val);
+        bool ok = RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, nullptr,
+                                   (LPBYTE)&val, &size) == ERROR_SUCCESS;
+        RegCloseKey(key);
+        if (ok) return val == 0;
+    }
+    return true; // default to dark
+}
+
 // ─── WndProc ──────────────────────────────────────────────────────────────────
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
@@ -534,7 +549,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (!hFontLarge) hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
         if (!hFontSm)    hFontSm   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
         SetTimer(hwnd, 1, 100, nullptr);
-        BOOL dark = TRUE;
+        BOOL dark = system_prefers_dark() ? TRUE : FALSE;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
                               &dark, sizeof(dark));
         load_config(hwnd);
