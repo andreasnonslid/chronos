@@ -567,6 +567,36 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (PtInRect(&r, pt)) { handle(hwnd, id); break; }
         return 0;
     }
+    case WM_KEYDOWN: {
+        switch (wp) {
+        case VK_SPACE:
+            // Start/stop stopwatch if visible, else first timer
+            if (app.show_sw)
+                handle(hwnd, A_SW_START);
+            else if (app.show_tmr && !app.timers.empty())
+                handle(hwnd, tmr_act(0, A_TMR_START));
+            break;
+        case 'L':
+            if (app.show_sw) handle(hwnd, A_SW_LAP);
+            break;
+        case 'R':
+            if (app.show_sw)
+                handle(hwnd, A_SW_RESET);
+            else if (app.show_tmr && !app.timers.empty())
+                handle(hwnd, tmr_act(0, A_TMR_RST));
+            break;
+        case 'T':
+            handle(hwnd, A_TOPMOST);
+            break;
+        case '1': case '2': case '3': {
+            int idx = (int)(wp - '1');
+            if (app.show_tmr && idx < (int)app.timers.size())
+                handle(hwnd, tmr_act(idx, A_TMR_START));
+            break;
+        }
+        }
+        return 0;
+    }
     case WM_SIZING: {
         RECT wr, cr;
         GetWindowRect(hwnd, &wr); GetClientRect(hwnd, &cr);
