@@ -78,8 +78,6 @@ constexpr long long TIMER_MAX_SECS = 86400;
 // ─── Blink ────────────────────────────────────────────────────────────────────
 constexpr auto BLINK_DUR = std::chrono::milliseconds{120};
 
-static Layout layout;
-
 // Use Config::MAX_TIMERS everywhere (defined in config.ixx)
 
 // ─── Action IDs ───────────────────────────────────────────────────────────────
@@ -130,6 +128,7 @@ struct App {
 // ─── Per-window state (stored via GWLP_USERDATA) ─────────────────────────────
 struct WndState {
     App    app;
+    Layout layout;
     std::vector<std::pair<RECT,int>> btns;
     HFONT  hFontBig   = nullptr;
     HFONT  hFontLarge = nullptr;
@@ -212,7 +211,7 @@ static LayoutState layout_state(const WndState& s) {
 }
 
 static int client_height(const WndState& s) {
-    return client_height_for(layout, layout_state(s));
+    return client_height_for(s.layout, layout_state(s));
 }
 
 static void sync_timer(HWND hwnd, WndState& s) {
@@ -297,7 +296,7 @@ static void load_config(HWND hwnd, WndState& s) {
         RECT cur; GetWindowRect(hwnd, &cur);
         // Clamp restored width against the DPI-scaled minimum
         DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
-        RECT adj{0, 0, layout.bar_min_client_w(), 0};
+        RECT adj{0, 0, s.layout.bar_min_client_w(), 0};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         int min_w = adj.right - adj.left;
         int w = cfg.win_w < min_w ? min_w : cfg.win_w;
@@ -316,7 +315,7 @@ static void load_config(HWND hwnd, WndState& s) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-static HFONT make_font(int pt, bool bold) {
+static HFONT make_font(int pt, bool bold, const Layout& layout) {
     int h = -MulDiv(pt, layout.dpi, 72);
     return CreateFontW(h, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL,
                        FALSE, FALSE, FALSE,
@@ -328,9 +327,9 @@ static void recreate_fonts(WndState& s) {
     if (s.fonts_custom) {
         DeleteObject(s.hFontBig); DeleteObject(s.hFontLarge); DeleteObject(s.hFontSm);
     }
-    s.hFontBig   = make_font(26, true);
-    s.hFontLarge = make_font(34, true);
-    s.hFontSm    = make_font(11, false);
+    s.hFontBig   = make_font(26, true, s.layout);
+    s.hFontLarge = make_font(34, true, s.layout);
+    s.hFontSm    = make_font(11, false, s.layout);
     if (!s.hFontBig || !s.hFontLarge || !s.hFontSm) {
         if (s.hFontBig)   { DeleteObject(s.hFontBig);   s.hFontBig   = nullptr; }
         if (s.hFontLarge) { DeleteObject(s.hFontLarge); s.hFontLarge = nullptr; }
@@ -354,6 +353,7 @@ static int nonclient_height(HWND hwnd) {
 // Draw a rounded button, record rect for hit testing, return rect.
 static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
                 WndState& s, std::optional<COLORREF> override_col = std::nullopt) {
+    auto& layout = s.layout;
     bool blinking = id && s.app.blink_act == id &&
                     (sc::now() - s.app.blink_t) < BLINK_DUR;
     // Use cached brushes for standard colors, create only for overrides
@@ -397,6 +397,7 @@ static void resize_window(HWND hwnd, const WndState& s) {
 
 // ─── Paint ────────────────────────────────────────────────────────────────────
 static void paint_all(HDC hdc, int cw, WndState& s) {
+    auto& layout = s.layout;
     s.btns.clear();
     SetBkMode(hdc, TRANSPARENT);
 
@@ -727,10 +728,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         auto state = std::make_unique<WndState>();
         s = state.get();
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)s);
-        // Get actual DPI for this window's monitor
+        // Initialize layout from WinMain's DPI calculation, then refine per-window
+        auto* cs = (CREATESTRUCTW*)lp;
+        if (cs->lpCreateParams)
+            s->layout = *(Layout*)cs->lpCreateParams;
         if (pGetDpiForWindow) {
             UINT wdpi = pGetDpiForWindow(hwnd);
-            if (wdpi != 0) layout.update_for_dpi((int)wdpi);
+            if (wdpi != 0) s->layout.update_for_dpi((int)wdpi);
         }
         recreate_fonts(*s);
         s->create_brushes();
@@ -858,7 +862,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_GETMINMAXINFO: {
         auto* m = (MINMAXINFO*)lp;
         DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
-        RECT adj{0, 0, layout.bar_min_client_w(), 0};
+        RECT adj{0, 0, s->layout.bar_min_client_w(), 0};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         m->ptMinTrackSize.x = adj.right - adj.left;
         RECT adj_h{0, 0, 0, client_height(*s)};
@@ -867,7 +871,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_DPICHANGED: {
-        layout.update_for_dpi(HIWORD(wp));
+        s->layout.update_for_dpi(HIWORD(wp));
         recreate_fonts(*s);
         auto* suggested = (RECT*)lp;
         SetWindowPos(hwnd, nullptr,
@@ -922,8 +926,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
         pSetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
 
     // Get initial DPI from primary monitor before window exists
+    Layout init_layout;
     HDC dc = GetDC(nullptr);
-    layout.update_for_dpi(GetDeviceCaps(dc, LOGPIXELSY));
+    init_layout.update_for_dpi(GetDeviceCaps(dc, LOGPIXELSY));
     ReleaseDC(nullptr, dc);
 
     WNDCLASSEXW wc{};
@@ -936,15 +941,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     RegisterClassExW(&wc);
 
     constexpr DWORD ws = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_THICKFRAME;
-    int init_h = layout.bar_h + layout.clk_h + layout.sw_h + layout.tmr_h;
-    RECT wr{0, 0, layout.bar_min_client_w(), init_h};
+    int init_h = init_layout.bar_h + init_layout.clk_h + init_layout.sw_h + init_layout.tmr_h;
+    RECT wr{0, 0, init_layout.bar_min_client_w(), init_h};
     AdjustWindowRect(&wr, ws, FALSE);
 
     HWND hwnd = CreateWindowExW(
         0, L"ChronoApp", L"Chronos", ws,
         CW_USEDEFAULT, CW_USEDEFAULT,
         wr.right - wr.left, wr.bottom - wr.top,
-        nullptr, nullptr, hInst, nullptr);
+        nullptr, nullptr, hInst, &init_layout);
 
     ShowWindow(hwnd, nShow);
     UpdateWindow(hwnd);
