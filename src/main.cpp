@@ -934,6 +934,72 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+// ─── App icon ─────────────────────────────────────────────────────────────────
+static HICON create_app_icon(int size) {
+    HDC screen = GetDC(nullptr);
+    HDC mdc = CreateCompatibleDC(screen);
+    HBITMAP color = CreateCompatibleBitmap(screen, size, size);
+    HBITMAP mask  = CreateBitmap(size, size, 1, 1, nullptr);
+    auto* old = SelectObject(mdc, color);
+
+    // Background: dark circle
+    HBRUSH bg = CreateSolidBrush(RGB(26, 26, 26));
+    HBRUSH face = CreateSolidBrush(RGB(60, 60, 66));
+    HPEN outline = CreatePen(PS_SOLID, 1, RGB(100, 100, 110));
+    HPEN hand = CreatePen(PS_SOLID, size > 20 ? 2 : 1, RGB(204, 204, 204));
+
+    // Fill transparent background
+    RECT all{0, 0, size, size};
+    FillRect(mdc, &all, (HBRUSH)GetStockObject(BLACK_BRUSH));
+
+    // Draw clock face
+    SelectObject(mdc, face);
+    SelectObject(mdc, outline);
+    Ellipse(mdc, 1, 1, size - 1, size - 1);
+
+    // Draw clock hands (hour at ~10:10 for a classic look)
+    int cx = size / 2, cy = size / 2;
+    int hr_len = size / 4;   // hour hand
+    int mn_len = size / 3;   // minute hand
+    SelectObject(mdc, hand);
+
+    // Hour hand pointing roughly at 10 o'clock (-60 degrees from 12)
+    MoveToEx(mdc, cx, cy, nullptr);
+    LineTo(mdc, cx - hr_len * 5 / 10, cy - hr_len * 9 / 10);
+
+    // Minute hand pointing at 2 o'clock (60 degrees from 12)
+    MoveToEx(mdc, cx, cy, nullptr);
+    LineTo(mdc, cx + mn_len * 5 / 10, cy - mn_len * 9 / 10);
+
+    SelectObject(mdc, old);
+
+    // Create mask: black where icon is, white where transparent
+    HDC mdc2 = CreateCompatibleDC(screen);
+    SelectObject(mdc2, mask);
+    HBRUSH white = (HBRUSH)GetStockObject(WHITE_BRUSH);
+    FillRect(mdc2, &all, white);
+    SelectObject(mdc2, (HBRUSH)GetStockObject(BLACK_BRUSH));
+    SelectObject(mdc2, (HPEN)GetStockObject(NULL_PEN));
+    Ellipse(mdc2, 1, 1, size - 1, size - 1);
+    DeleteDC(mdc2);
+
+    DeleteObject(bg);
+    DeleteObject(face);
+    DeleteObject(outline);
+    DeleteObject(hand);
+    DeleteDC(mdc);
+    ReleaseDC(nullptr, screen);
+
+    ICONINFO ii{};
+    ii.fIcon    = TRUE;
+    ii.hbmMask  = mask;
+    ii.hbmColor = color;
+    HICON icon = CreateIconIndirect(&ii);
+    DeleteObject(color);
+    DeleteObject(mask);
+    return icon;
+}
+
 // ─── WinMain ──────────────────────────────────────────────────────────────────
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     int argc = 0;
@@ -960,12 +1026,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     init_layout.update_for_dpi(GetDeviceCaps(dc, LOGPIXELSY));
     ReleaseDC(nullptr, dc);
 
+    HICON icon_sm = create_app_icon(16);
+    HICON icon_lg = create_app_icon(32);
+
     WNDCLASSEXW wc{};
     wc.cbSize        = sizeof(wc);
     wc.style         = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc   = WndProc;
     wc.hInstance     = hInst;
     wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hIcon         = icon_lg;
+    wc.hIconSm       = icon_sm;
     wc.lpszClassName = L"ChronoApp";
     RegisterClassExW(&wc);
 
@@ -988,6 +1059,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
+    if (icon_sm) DestroyIcon(icon_sm);
+    if (icon_lg) DestroyIcon(icon_lg);
     if (g_log_file) { fprintf(g_log_file, "=== chronos exit ===\n"); fclose(g_log_file); }
     return (int)msg.wParam;
 }
