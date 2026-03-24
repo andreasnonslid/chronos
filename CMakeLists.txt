@@ -47,10 +47,14 @@ if(BUILD_TESTS)
         tests/test_stopwatch.cpp
         tests/test_timer.cpp
         tests/test_config.cpp
+        tests/test_formatting.cpp
+        tests/test_layout.cpp
     )
     target_sources(chronos_tests PRIVATE
         FILE_SET CXX_MODULES FILES
             src/config.ixx
+            src/formatting.ixx
+            src/layout.ixx
             src/stopwatch.ixx
             src/timer.ixx
     )
