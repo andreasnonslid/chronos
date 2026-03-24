@@ -26,6 +26,8 @@ static void load_dpi_apis() {
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include <cstdio>
@@ -189,6 +191,14 @@ static void dbg(const std::wstring& msg) {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 static std::filesystem::path config_path() {
+    // Prefer %APPDATA%/Chronos/ for config
+    if (auto* appdata = _wgetenv(L"APPDATA")) {
+        auto dir = std::filesystem::path{appdata} / L"Chronos";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        if (!ec) return dir / L"config.ini";
+    }
+    // Fallback: next to exe (portable mode)
     wchar_t exe[MAX_PATH] = {};
     GetModuleFileNameW(nullptr, exe, MAX_PATH);
     return std::filesystem::path{exe}.parent_path() / "config.ini";
@@ -291,7 +301,7 @@ static int nonclient_height(HWND hwnd) {
 
 // Draw a rounded button, record rect for hit testing, return rect.
 static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
-                WndState& s, COLORREF override_col = 0) {
+                WndState& s, std::optional<COLORREF> override_col = std::nullopt) {
     bool blinking = id && s.app.blink_act == id &&
                     (GetTickCount() - s.app.blink_t) < BLINK_MS;
     // Use cached brushes for standard colors, create only for overrides
@@ -299,8 +309,8 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
     GdiObj dyn_br{nullptr};
     if (blinking) {
         brush = s.brBlink;
-    } else if (override_col) {
-        dyn_br.h = CreateSolidBrush(override_col);
+    } else if (override_col.has_value()) {
+        dyn_br.h = CreateSolidBrush(*override_col);
         brush = (HBRUSH)dyn_br.h;
     } else {
         brush = active ? s.brActive : s.brBtn;
@@ -562,15 +572,15 @@ static void handle(HWND hwnd, int act, WndState& s) {
         if (s.app.sw.is_running()) {
             s.app.sw.lap(now);
             if (!s.app.sw_lap_file.empty()) {
-                FILE* f = _wfopen(s.app.sw_lap_file.c_str(), L"a");
+                auto f = std::unique_ptr<FILE, decltype(&fclose)>(
+                    _wfopen(s.app.sw_lap_file.c_str(), L"a"), &fclose);
                 if (f) {
                     const auto& laps = s.app.sw.laps();
                     auto n = laps.size();
                     sc::duration cum{};
                     for (auto& l : laps) cum += l;
                     auto row = format_lap_row(n, laps.back(), cum);
-                    fwprintf(f, L"%ls\n", row.c_str());
-                    fclose(f);
+                    fwprintf(f.get(), L"%ls\n", row.c_str());
                 } else {
                     MessageBoxW(hwnd, L"Could not write lap file.\nLap data may be lost.",
                                 L"Chronos", MB_OK | MB_ICONWARNING);
@@ -871,7 +881,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     AdjustWindowRect(&wr, ws, FALSE);
 
     HWND hwnd = CreateWindowExW(
-        0, L"ChronoApp", L"Chrono", ws,
+        0, L"ChronoApp", L"Chronos", ws,
         CW_USEDEFAULT, CW_USEDEFAULT,
         wr.right - wr.left, wr.bottom - wr.top,
         nullptr, nullptr, hInst, nullptr);
