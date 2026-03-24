@@ -104,6 +104,7 @@ struct App {
     bool show_sw   = true;
     bool show_tmr  = true;
     bool topmost   = false;
+    bool show_help = false;
     int  blink_act = 0;
     DWORD blink_t  = 0;
     App() {
@@ -447,6 +448,36 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
             y += layout.tmr_h;
         }
     }
+
+    // ── Help overlay ─────────────────────────────────────────────────────────
+    if (s.app.show_help) {
+        // Semi-transparent background
+        RECT cr{0, layout.bar_h, cw, y > layout.bar_h ? y : layout.bar_h + layout.dpi_scale(200)};
+        GdiObj obr{CreateSolidBrush(RGB(20, 20, 20))};
+        FillRect(hdc, &cr, (HBRUSH)obr.h);
+
+        SelectObject(hdc, s.hFontSm);
+        SetTextColor(hdc, theme.text);
+
+        struct { const wchar_t* key; const wchar_t* desc; } shortcuts[] = {
+            {L"Space", L"Start/Stop stopwatch or first timer"},
+            {L"L",     L"Record lap"},
+            {L"R",     L"Reset stopwatch or first timer"},
+            {L"T",     L"Toggle always-on-top"},
+            {L"1-3",   L"Start/Stop timer 1-3"},
+            {L"H / ?", L"Toggle this help"},
+        };
+
+        int line_h = layout.dpi_scale(20);
+        int pad = layout.dpi_scale(12);
+        int sy = layout.bar_h + pad;
+        for (auto& [key, desc] : shortcuts) {
+            auto line = std::format(L"  {}  —  {}", key, desc);
+            RECT lr{pad, sy, cw - pad, sy + line_h};
+            DrawTextW(hdc, line.c_str(), -1, &lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            sy += line_h;
+        }
+    }
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -697,9 +728,19 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 handle(hwnd, tmr_act(idx, A_TMR_START), *s);
             break;
         }
+        case 'H':
+            s->app.show_help = !s->app.show_help;
+            InvalidateRect(hwnd, nullptr, FALSE);
+            break;
         }
         return 0;
     }
+    case WM_CHAR:
+        if (wp == '?') {
+            s->app.show_help = !s->app.show_help;
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
+        return 0;
     case WM_SIZING: {
         int want_h = client_height(*s) + nonclient_height(hwnd);
         auto* r = (RECT*)lp;
