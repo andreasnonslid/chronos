@@ -8,6 +8,19 @@
 // Forward-declare DWM to avoid MinGW header chain issues (uxtheme.h missing commctrl.h).
 extern "C" __declspec(dllimport) HRESULT __stdcall
 DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
+// DPI APIs loaded dynamically to avoid hard dependency on Windows 10 1607+/1703+.
+using GetDpiForWindow_t = UINT (WINAPI *)(HWND);
+using SetProcessDpiAwarenessContext_t = BOOL (WINAPI *)(HANDLE);
+static GetDpiForWindow_t pGetDpiForWindow = nullptr;
+static SetProcessDpiAwarenessContext_t pSetProcessDpiAwarenessContext = nullptr;
+static const HANDLE DPI_CTX_PER_MONITOR_V2 = ((HANDLE)(LONG_PTR)-4);
+static void load_dpi_apis() {
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    if (user32) {
+        pGetDpiForWindow = (GetDpiForWindow_t)GetProcAddress(user32, "GetDpiForWindow");
+        pSetProcessDpiAwarenessContext = (SetProcessDpiAwarenessContext_t)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+    }
+}
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
@@ -54,7 +67,7 @@ static constexpr Theme theme;
 // ─── Blink ────────────────────────────────────────────────────────────────────
 constexpr DWORD BLINK_MS = 120;
 
-static constexpr Layout layout;
+static Layout layout;
 
 // Use Config::MAX_TIMERS everywhere (defined in config.ixx)
 
@@ -193,20 +206,44 @@ static void load_config(HWND hwnd) {
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     if (cfg.pos_valid) {
         RECT cur; GetWindowRect(hwnd, &cur);
+        // Clamp restored width against the DPI-scaled minimum
+        DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
+        RECT adj{0, 0, layout.bar_min_client_w(), 0};
+        AdjustWindowRectEx(&adj, ws, FALSE, 0);
+        int min_w = adj.right - adj.left;
+        int w = cfg.win_w < min_w ? min_w : cfg.win_w;
         SetWindowPos(hwnd, nullptr, cfg.win_x, cfg.win_y,
-                     cfg.win_w, cur.bottom - cur.top, SWP_NOZORDER);
+                     w, cur.bottom - cur.top, SWP_NOZORDER);
     }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 static HFONT make_font(int pt, bool bold) {
-    HDC dc = GetDC(nullptr);
-    int h  = -MulDiv(pt, GetDeviceCaps(dc, LOGPIXELSY), 72);
-    ReleaseDC(nullptr, dc);
+    int h = -MulDiv(pt, layout.dpi, 72);
     return CreateFontW(h, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL,
                        FALSE, FALSE, FALSE,
                        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+}
+
+static void recreate_fonts() {
+    if (g_fonts_custom) {
+        DeleteObject(hFontBig); DeleteObject(hFontLarge); DeleteObject(hFontSm);
+    }
+    hFontBig   = make_font(26, true);
+    hFontLarge = make_font(34, true);
+    hFontSm    = make_font(11, false);
+    if (!hFontBig || !hFontLarge || !hFontSm) {
+        if (hFontBig)   { DeleteObject(hFontBig);   hFontBig   = nullptr; }
+        if (hFontLarge) { DeleteObject(hFontLarge); hFontLarge = nullptr; }
+        if (hFontSm)    { DeleteObject(hFontSm);   hFontSm    = nullptr; }
+        hFontBig   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        hFontSm    = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        g_fonts_custom = false;
+    } else {
+        g_fonts_custom = true;
+    }
 }
 
 static int nonclient_height(HWND hwnd) {
@@ -228,7 +265,8 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
     GdiObj pn{CreatePen(PS_NULL, 0, 0)};
     auto*  obr = (HBRUSH)SelectObject(hdc, br);
     auto*  opn = (HPEN)  SelectObject(hdc, pn);
-    RoundRect(hdc, r.left, r.top, r.right, r.bottom, 6, 6);
+    int rr = layout.dpi_scale(6);
+    RoundRect(hdc, r.left, r.top, r.right, r.bottom, rr, rr);
     SelectObject(hdc, obr); SelectObject(hdc, opn);
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, theme.text);
@@ -300,21 +338,21 @@ static void paint_all(HDC hdc, int cw) {
 
         SelectObject(hdc, hFontBig);
         SetTextColor(hdc, theme.text);
-        RECT tr{0, y + 4, cw, y + 44};
+        RECT tr{0, y + layout.dpi_scale(4), cw, y + layout.dpi_scale(44)};
         DrawTextW(hdc, etime.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
         SelectObject(hdc, hFontSm);
         bool running = app.sw.is_running();
-        int  bw = 76, gap = 6, bh = 28;
+        int  bw = layout.dpi_scale(76), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
         int  bx0 = (cw - 3*bw - 2*gap) / 2;
-        int  by0 = y + 46;
+        int  by0 = y + layout.dpi_scale(46);
         btn(hdc, {bx0,            by0, bx0+bw,          by0+bh}, running, running ? L"Stop" : L"Start", A_SW_START);
         btn(hdc, {bx0+bw+gap,     by0, bx0+2*bw+gap,    by0+bh}, false,   L"Lap",                       A_SW_LAP);
         btn(hdc, {bx0+2*(bw+gap), by0, bx0+3*bw+2*gap,  by0+bh}, false,   L"Reset",                     A_SW_RESET);
 
         bool has_file = !app.sw_lap_file.empty();
-        int  gbw = 100, gbh = 18;
-        btn(hdc, {(cw-gbw)/2, by0+bh+4, (cw+gbw)/2, by0+bh+4+gbh},
+        int  gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
+        btn(hdc, {(cw-gbw)/2, by0+bh+layout.dpi_scale(4), (cw+gbw)/2, by0+bh+layout.dpi_scale(4)+gbh},
             false, L"Get Laps", has_file ? A_SW_GET : 0,
             has_file ? theme.btn : theme.dim);
         y += layout.sw_h;
@@ -322,11 +360,11 @@ static void paint_all(HDC hdc, int cw) {
 
     // ── Timers ───────────────────────────────────────────────────────────────
     if (app.show_tmr) {
-        constexpr int abw = 34, abh = 16, gap = 6, bh = 28;
-        constexpr int up_off = 4;
-        constexpr int td_off = up_off + abh + 2;
-        constexpr int dn_off = td_off + 40 + 2;
-        constexpr int by_off = dn_off + abh + gap;
+        int abw = layout.dpi_scale(34), abh = layout.dpi_scale(16), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
+        int up_off = layout.dpi_scale(4);
+        int td_off = up_off + abh + layout.dpi_scale(2);
+        int dn_off = td_off + layout.dpi_scale(40) + layout.dpi_scale(2);
+        int by_off = dn_off + abh + gap;
 
         for (int i = 0; i < (int)app.timers.size(); ++i) {
             divider(hdc, y, cw);
@@ -348,7 +386,7 @@ static void paint_all(HDC hdc, int cw) {
                 FillRect(hdc, &fr, (HBRUSH)fbr.h);
             }
 
-            int mm_cx = cw/2 - 34, ss_cx = cw/2 + 34;
+            int mm_cx = cw/2 - layout.dpi_scale(34), ss_cx = cw/2 + layout.dpi_scale(34);
 
             SelectObject(hdc, hFontSm);
             if (!touched) {
@@ -365,16 +403,16 @@ static void paint_all(HDC hdc, int cw) {
                 SelectObject(hdc, hFontSm);
                 SetTextColor(hdc, theme.dim);
                 std::wstring sstr = format_timer_display(duration_cast<Timer::dur>(ts.dur));
-                RECT sr{0, y + up_off, cw, y + up_off + 20};
+                RECT sr{0, y + up_off, cw, y + up_off + layout.dpi_scale(20)};
                 DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
                 SelectObject(hdc, hFontLarge);
                 SetTextColor(hdc, tcol);
-                RECT tr{0, y + up_off + 20, cw, y + dn_off + abh};
+                RECT tr{0, y + up_off + layout.dpi_scale(20), cw, y + dn_off + abh};
                 DrawTextW(hdc, tstr.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             } else {
                 SelectObject(hdc, hFontBig);
                 SetTextColor(hdc, tcol);
-                RECT tr{0, y + td_off, cw, y + td_off + 40};
+                RECT tr{0, y + td_off, cw, y + td_off + layout.dpi_scale(40)};
                 DrawTextW(hdc, tstr.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             }
 
@@ -385,15 +423,15 @@ static void paint_all(HDC hdc, int cw) {
                 btn(hdc, {ss_cx-abw/2, y+dn_off, ss_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_SDN));
             }
 
-            int cw2 = 86;
+            int cw2 = layout.dpi_scale(86);
             int cx0 = (cw - 2*cw2 - gap) / 2;
             btn(hdc, {cx0,         y+by_off, cx0+cw2,       y+by_off+bh}, running,
                 running ? L"Pause" : L"Start", tmr_act(i, A_TMR_START));
             btn(hdc, {cx0+cw2+gap, y+by_off, cx0+2*cw2+gap, y+by_off+bh}, false, L"Reset",
                 tmr_act(i, A_TMR_RST));
 
-            constexpr int pm_sz = 22, pm_margin = 6;
-            int pm_top = y + layout.tmr_h - pm_sz - 4;
+            int pm_sz = layout.dpi_scale(22), pm_margin = layout.dpi_scale(6);
+            int pm_top = y + layout.tmr_h - pm_sz - layout.dpi_scale(4);
             if ((int)app.timers.size() < Config::MAX_TIMERS)
                 btn(hdc, {cw-pm_margin-pm_sz, pm_top, cw-pm_margin, pm_top+pm_sz},
                     false, L"+", tmr_act(i, A_TMR_ADD));
@@ -542,22 +580,13 @@ static bool system_prefers_dark() {
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_CREATE: {
-        g_hwnd     = hwnd;
-        hFontBig   = make_font(26, true);
-        hFontLarge = make_font(34, true);
-        hFontSm    = make_font(11, false);
-        // If any font fails, delete successfully created ones and fall back to stock
-        if (!hFontBig || !hFontLarge || !hFontSm) {
-            if (hFontBig)   { DeleteObject(hFontBig);   hFontBig   = nullptr; }
-            if (hFontLarge) { DeleteObject(hFontLarge); hFontLarge = nullptr; }
-            if (hFontSm)    { DeleteObject(hFontSm);   hFontSm    = nullptr; }
-            hFontBig   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-            hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-            hFontSm    = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-            g_fonts_custom = false;
-        } else {
-            g_fonts_custom = true;
+        g_hwnd = hwnd;
+        // Get actual DPI for this window's monitor
+        if (pGetDpiForWindow) {
+            UINT wdpi = pGetDpiForWindow(hwnd);
+            if (wdpi != 0) layout.update_for_dpi((int)wdpi);
         }
+        recreate_fonts();
         SetTimer(hwnd, 1, 100, nullptr);
         BOOL dark = system_prefers_dark() ? TRUE : FALSE;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
@@ -677,6 +706,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         m->ptMinTrackSize.y = adj_h.bottom - adj_h.top;
         return 0;
     }
+    case WM_DPICHANGED: {
+        layout.update_for_dpi(HIWORD(wp));
+        recreate_fonts();
+        // Windows provides the suggested new window rect
+        auto* suggested = (RECT*)lp;
+        SetWindowPos(hwnd, nullptr,
+                     suggested->left, suggested->top,
+                     suggested->right - suggested->left,
+                     suggested->bottom - suggested->top,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+        resize_window(hwnd);
+        InvalidateRect(hwnd, nullptr, TRUE);
+        return 0;
+    }
     case WM_SETTINGCHANGE:
         if (lp && wcscmp((LPCWSTR)lp, L"ImmersiveColorSet") == 0) {
             BOOL dark = system_prefers_dark() ? TRUE : FALSE;
@@ -713,6 +756,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
         }
     }
     LocalFree(argv);
+
+    // Load DPI APIs dynamically and set per-monitor DPI awareness v2
+    load_dpi_apis();
+    if (pSetProcessDpiAwarenessContext)
+        pSetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
+
+    // Get initial DPI from primary monitor before window exists
+    HDC dc = GetDC(nullptr);
+    layout.update_for_dpi(GetDeviceCaps(dc, LOGPIXELSY));
+    ReleaseDC(nullptr, dc);
 
     WNDCLASSEXW wc{};
     wc.cbSize        = sizeof(wc);

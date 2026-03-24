@@ -13,8 +13,28 @@ export struct Layout {
     int w_tmr  = 54;
     int bar_gap = 6;
 
+    int dpi    = 96;
+
     int bar_min_client_w() const {
-        return w_pin + w_clk + w_sw + w_tmr + 3 * bar_gap + 2 * 8;
+        return w_pin + w_clk + w_sw + w_tmr + 3 * bar_gap + 2 * dpi_scale(8);
+    }
+
+    int dpi_scale(int value) const {
+        return value * dpi / 96;
+    }
+
+    void update_for_dpi(int new_dpi) {
+        dpi     = new_dpi;
+        bar_h   = dpi_scale(36);
+        clk_h   = dpi_scale(62);
+        sw_h    = dpi_scale(100);
+        tmr_h   = dpi_scale(118);
+        btn_h   = dpi_scale(28);
+        w_pin   = dpi_scale(44);
+        w_clk   = dpi_scale(48);
+        w_sw    = dpi_scale(76);
+        w_tmr   = dpi_scale(54);
+        bar_gap = dpi_scale(6);
     }
 };
 
