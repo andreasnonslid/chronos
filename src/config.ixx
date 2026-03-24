@@ -15,7 +15,7 @@ export struct Config {
     bool show_tmr  = true;
     bool topmost   = false;
     static constexpr int MAX_TIMERS    = 3;
-    static constexpr int TIMER_MIN_SECS = 10;
+    static constexpr int TIMER_MIN_SECS = 0;
     static constexpr int TIMER_MAX_SECS = 86400;
     static constexpr int MIN_WINDOW_W   = 260;
     int  num_timers = 1;

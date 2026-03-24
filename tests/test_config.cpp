@@ -49,12 +49,12 @@ TEST_CASE("Config round-trip write then read", "[config]") {
     REQUIRE(read_back.win_w == orig.win_w);
 }
 
-TEST_CASE("Config timer values clamped to 10-86400", "[config]") {
-    std::istringstream is("timer0=5\ntimer1=100000\n");
+TEST_CASE("Config timer values clamped to 0-86400", "[config]") {
+    std::istringstream is("timer0=-5\ntimer1=100000\n");
     Config c;
     c.num_timers = 2;
     config_read(c, is);
-    REQUIRE(c.timer_secs[0] == 10);
+    REQUIRE(c.timer_secs[0] == 0);
     REQUIRE(c.timer_secs[1] == 86400);
 }
 
