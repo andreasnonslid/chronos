@@ -122,6 +122,36 @@ struct WndState {
     HFONT  hFontSm    = nullptr;
     bool   fonts_custom = false;
     int    timer_ms   = 100;
+
+    // Pre-created GDI objects for common colors (avoid churn in paint loop)
+    HBRUSH brBg      = nullptr;
+    HBRUSH brBar     = nullptr;
+    HBRUSH brBtn     = nullptr;
+    HBRUSH brActive  = nullptr;
+    HBRUSH brBlink   = nullptr;
+    HBRUSH brFill    = nullptr;
+    HBRUSH brFillExp = nullptr;
+    HBRUSH brHelp    = nullptr;
+    HPEN   pnNull    = nullptr;
+    HPEN   pnDivider = nullptr;
+
+    void create_brushes() {
+        brBg      = CreateSolidBrush(theme.bg);
+        brBar     = CreateSolidBrush(theme.bar);
+        brBtn     = CreateSolidBrush(theme.btn);
+        brActive  = CreateSolidBrush(theme.active);
+        brBlink   = CreateSolidBrush(theme.blink);
+        brFill    = CreateSolidBrush(theme.fill);
+        brFillExp = CreateSolidBrush(theme.fill_exp);
+        brHelp    = CreateSolidBrush(RGB(20, 20, 20));
+        pnNull    = CreatePen(PS_NULL, 0, 0);
+        pnDivider = CreatePen(PS_SOLID, 1, RGB(50, 50, 55));
+    }
+
+    void destroy_brushes() {
+        HGDIOBJ objs[] = {brBg, brBar, brBtn, brActive, brBlink, brFill, brFillExp, brHelp, pnNull, pnDivider};
+        for (auto h : objs) if (h) DeleteObject(h);
+    }
 };
 
 // Process-wide log file (set before window creation).
@@ -264,13 +294,19 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
                 WndState& s, COLORREF override_col = 0) {
     bool blinking = id && s.app.blink_act == id &&
                     (GetTickCount() - s.app.blink_t) < BLINK_MS;
-    COLORREF col = blinking      ? theme.blink
-                 : override_col  ? override_col
-                 : (active       ? theme.active : theme.btn);
-    GdiObj br{CreateSolidBrush(col)};
-    GdiObj pn{CreatePen(PS_NULL, 0, 0)};
-    auto*  obr = (HBRUSH)SelectObject(hdc, br);
-    auto*  opn = (HPEN)  SelectObject(hdc, pn);
+    // Use cached brushes for standard colors, create only for overrides
+    HBRUSH brush;
+    GdiObj dyn_br{nullptr};
+    if (blinking) {
+        brush = s.brBlink;
+    } else if (override_col) {
+        dyn_br.h = CreateSolidBrush(override_col);
+        brush = (HBRUSH)dyn_br.h;
+    } else {
+        brush = active ? s.brActive : s.brBtn;
+    }
+    auto*  obr = (HBRUSH)SelectObject(hdc, brush);
+    auto*  opn = (HPEN)  SelectObject(hdc, s.pnNull);
     int rr = layout.dpi_scale(6);
     RoundRect(hdc, r.left, r.top, r.right, r.bottom, rr, rr);
     SelectObject(hdc, obr); SelectObject(hdc, opn);
@@ -281,9 +317,8 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
     return r;
 }
 
-static void divider(HDC hdc, int y, int cw) {
-    GdiObj pn{CreatePen(PS_SOLID, 1, RGB(50, 50, 55))};
-    auto* op = (HPEN)SelectObject(hdc, pn);
+static void divider(HDC hdc, int y, int cw, const WndState& s) {
+    auto* op = (HPEN)SelectObject(hdc, s.pnDivider);
     MoveToEx(hdc, 0, y, nullptr);
     LineTo(hdc, cw, y);
     SelectObject(hdc, op);
@@ -304,13 +339,11 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
     SetBkMode(hdc, TRANSPARENT);
 
     RECT all{0, 0, cw, 9999};
-    GdiObj bgbr{CreateSolidBrush(theme.bg)};
-    FillRect(hdc, &all, (HBRUSH)bgbr.h);
+    FillRect(hdc, &all, s.brBg);
 
     // ── Top bar ─────────────────────────────────────────────────────────────
     RECT bar{0, 0, cw, layout.bar_h};
-    GdiObj barbr{CreateSolidBrush(theme.bar)};
-    FillRect(hdc, &bar, (HBRUSH)barbr.h);
+    FillRect(hdc, &bar, s.brBar);
 
     SelectObject(hdc, s.hFontSm);
     int by = (layout.bar_h - layout.btn_h) / 2;
@@ -325,7 +358,7 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
 
     // ── Clock ────────────────────────────────────────────────────────────────
     if (s.app.show_clk) {
-        divider(hdc, y, cw);
+        divider(hdc, y, cw, s);
         SYSTEMTIME st;
         GetLocalTime(&st);
         auto buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
@@ -338,7 +371,7 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
 
     // ── Stopwatch ────────────────────────────────────────────────────────────
     if (s.app.show_sw) {
-        divider(hdc, y, cw);
+        divider(hdc, y, cw, s);
         auto elap = s.app.sw.elapsed(now);
         std::wstring etime = format_stopwatch_display(elap);
 
@@ -373,14 +406,14 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
         int by_off = dn_off + abh + gap;
 
         for (int i = 0; i < (int)s.app.timers.size(); ++i) {
-            divider(hdc, y, cw);
+            divider(hdc, y, cw, s);
             auto& ts      = s.app.timers[i];
             bool  running = ts.t.is_running();
             bool  touched = ts.t.touched();
             bool  expired = touched && ts.t.expired(now);
 
             if (touched) {
-                COLORREF fillcol = expired ? theme.fill_exp : theme.fill;
+                HBRUSH fillbr = expired ? s.brFillExp : s.brFill;
                 int fw = cw;
                 if (!expired) {
                     auto total = duration_cast<microseconds>(ts.dur).count();
@@ -388,8 +421,7 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
                     fw = total > 0 ? (int)(cw * (double)(total - rem) / total) : 0;
                 }
                 RECT fr{0, y, fw, y + layout.tmr_h};
-                GdiObj fbr{CreateSolidBrush(fillcol)};
-                FillRect(hdc, &fr, (HBRUSH)fbr.h);
+                FillRect(hdc, &fr, fillbr);
             }
 
             int mm_cx = cw/2 - layout.dpi_scale(34), ss_cx = cw/2 + layout.dpi_scale(34);
@@ -453,8 +485,7 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
     if (s.app.show_help) {
         // Semi-transparent background
         RECT cr{0, layout.bar_h, cw, y > layout.bar_h ? y : layout.bar_h + layout.dpi_scale(200)};
-        GdiObj obr{CreateSolidBrush(RGB(20, 20, 20))};
-        FillRect(hdc, &cr, (HBRUSH)obr.h);
+        FillRect(hdc, &cr, s.brHelp);
 
         SelectObject(hdc, s.hFontSm);
         SetTextColor(hdc, theme.text);
@@ -626,6 +657,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (wdpi != 0) layout.update_for_dpi((int)wdpi);
         }
         recreate_fonts(*s);
+        s->create_brushes();
         SetTimer(hwnd, 1, 100, nullptr);
         BOOL dark = system_prefers_dark() ? TRUE : FALSE;
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
@@ -790,6 +822,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (s->fonts_custom) {
             DeleteObject(s->hFontBig); DeleteObject(s->hFontLarge); DeleteObject(s->hFontSm);
         }
+        s->destroy_brushes();
         delete s;
         SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         PostQuitMessage(0);
