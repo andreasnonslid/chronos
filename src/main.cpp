@@ -66,8 +66,17 @@ struct Theme {
 };
 static constexpr Theme theme;
 
+// ─── Named constants ─────────────────────────────────────────────────────────
+constexpr DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR = 20;
+constexpr int POLL_STOPWATCH_MS = 20;
+constexpr int POLL_TIMER_MS    = 100;
+constexpr int POLL_IDLE_MS     = 1000;
+constexpr int STANDARD_DPI     = 96;
+constexpr long long TIMER_MIN_SECS = 10;
+constexpr long long TIMER_MAX_SECS = 86400;
+
 // ─── Blink ────────────────────────────────────────────────────────────────────
-constexpr DWORD BLINK_MS = 120;
+constexpr auto BLINK_DUR = std::chrono::milliseconds{120};
 
 static Layout layout;
 
@@ -107,8 +116,9 @@ struct App {
     bool show_tmr  = true;
     bool topmost   = false;
     bool show_help = false;
+    bool lap_write_failed = false;
     int  blink_act = 0;
-    DWORD blink_t  = 0;
+    sc::time_point blink_t{};
     App() {
         timers.resize(1);
         for (auto& ts : timers) ts.t.set(ts.dur);
@@ -154,6 +164,37 @@ struct WndState {
         HGDIOBJ objs[] = {brBg, brBar, brBtn, brActive, brBlink, brFill, brFillExp, brHelp, pnNull, pnDivider};
         for (auto h : objs) if (h) DeleteObject(h);
     }
+
+    ~WndState() {
+        if (fonts_custom) {
+            DeleteObject(hFontBig);
+            DeleteObject(hFontLarge);
+            DeleteObject(hFontSm);
+        }
+        destroy_brushes();
+        if (mdc) DeleteDC(mdc);
+        if (buf_bmp) DeleteObject(buf_bmp);
+    }
+
+    WndState(const WndState&) = delete;
+    WndState& operator=(const WndState&) = delete;
+    WndState() = default;
+
+    // Cached double-buffer DC and bitmap (#52)
+    HDC     mdc     = nullptr;
+    HBITMAP buf_bmp = nullptr;
+    int     buf_w   = 0, buf_h = 0;
+
+    void ensure_buffer(HDC hdc, int w, int h) {
+        if (w != buf_w || h != buf_h) {
+            if (buf_bmp) DeleteObject(buf_bmp);
+            if (mdc) DeleteDC(mdc);
+            mdc = CreateCompatibleDC(hdc);
+            buf_bmp = CreateCompatibleBitmap(hdc, w, h);
+            SelectObject(mdc, buf_bmp);
+            buf_w = w; buf_h = h;
+        }
+    }
 };
 
 // Process-wide log file (set before window creation).
@@ -176,9 +217,9 @@ static void sync_timer(HWND hwnd, WndState& s) {
     bool any_timer_running = false;
     for (auto& ts : s.app.timers)
         if (ts.t.is_running()) { any_timer_running = true; break; }
-    int want = (s.app.show_sw && s.app.sw.is_running()) ? 20
-             : any_timer_running ? 100
-             : 1000;
+    int want = (s.app.show_sw && s.app.sw.is_running()) ? POLL_STOPWATCH_MS
+             : any_timer_running ? POLL_TIMER_MS
+             : POLL_IDLE_MS;
     if (want != s.timer_ms) { s.timer_ms = want; SetTimer(hwnd, 1, want, nullptr); }
 }
 
@@ -258,8 +299,17 @@ static void load_config(HWND hwnd, WndState& s) {
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         int min_w = adj.right - adj.left;
         int w = cfg.win_w < min_w ? min_w : cfg.win_w;
-        SetWindowPos(hwnd, nullptr, cfg.win_x, cfg.win_y,
-                     w, cur.bottom - cur.top, SWP_NOZORDER);
+        // Validate position against current monitor geometry (#57)
+        RECT test{cfg.win_x, cfg.win_y, cfg.win_x + w, cfg.win_y + 1};
+        HMONITOR hmon = MonitorFromRect(&test, MONITOR_DEFAULTTONULL);
+        if (hmon) {
+            SetWindowPos(hwnd, nullptr, cfg.win_x, cfg.win_y,
+                         w, cur.bottom - cur.top, SWP_NOZORDER);
+        } else {
+            // Position is off-screen — apply saved width at default position
+            SetWindowPos(hwnd, nullptr, 0, 0,
+                         w, cur.bottom - cur.top, SWP_NOZORDER | SWP_NOMOVE);
+        }
     }
 }
 
@@ -303,7 +353,7 @@ static int nonclient_height(HWND hwnd) {
 static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
                 WndState& s, std::optional<COLORREF> override_col = std::nullopt) {
     bool blinking = id && s.app.blink_act == id &&
-                    (GetTickCount() - s.app.blink_t) < BLINK_MS;
+                    (sc::now() - s.app.blink_t) < BLINK_DUR;
     // Use cached brushes for standard colors, create only for overrides
     HBRUSH brush;
     GdiObj dyn_br{nullptr};
@@ -401,9 +451,11 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
 
         bool has_file = !s.app.sw_lap_file.empty();
         int  gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
+        auto lap_label = s.app.lap_write_failed ? L"Get Laps (!)" : L"Get Laps";
+        auto lap_col = s.app.lap_write_failed ? theme.expire
+                     : has_file ? theme.btn : theme.dim;
         btn(hdc, {(cw-gbw)/2, by0+bh+layout.dpi_scale(4), (cw+gbw)/2, by0+bh+layout.dpi_scale(4)+gbh},
-            false, L"Get Laps", has_file ? A_SW_GET : 0, s,
-            has_file ? theme.btn : theme.dim);
+            false, lap_label, has_file ? A_SW_GET : 0, s, lap_col);
         y += layout.sw_h;
     }
 
@@ -539,7 +591,7 @@ static bool wants_blink(int act) {
 
 static void handle(HWND hwnd, int act, WndState& s) {
     auto now = sc::now();
-    if (wants_blink(act)) { s.app.blink_act = act; s.app.blink_t = GetTickCount(); }
+    if (wants_blink(act)) { s.app.blink_act = act; s.app.blink_t = now; }
 
     bool do_save = false;
 
@@ -572,18 +624,16 @@ static void handle(HWND hwnd, int act, WndState& s) {
         if (s.app.sw.is_running()) {
             s.app.sw.lap(now);
             if (!s.app.sw_lap_file.empty()) {
-                auto f = std::unique_ptr<FILE, decltype(&fclose)>(
-                    _wfopen(s.app.sw_lap_file.c_str(), L"a"), &fclose);
+                std::wofstream f(s.app.sw_lap_file, std::ios::app);
                 if (f) {
                     const auto& laps = s.app.sw.laps();
                     auto n = laps.size();
                     sc::duration cum{};
                     for (auto& l : laps) cum += l;
-                    auto row = format_lap_row(n, laps.back(), cum);
-                    fwprintf(f.get(), L"%ls\n", row.c_str());
+                    f << format_lap_row(n, laps.back(), cum) << L'\n';
+                    s.app.lap_write_failed = false;
                 } else {
-                    MessageBoxW(hwnd, L"Could not write lap file.\nLap data may be lost.",
-                                L"Chronos", MB_OK | MB_ICONWARNING);
+                    s.app.lap_write_failed = true;
                 }
             }
         }
@@ -623,7 +673,7 @@ static void handle(HWND hwnd, int act, WndState& s) {
             } else if (!ts.t.touched()) {
                 auto adj = [&](int ds) {
                     auto new_s = ts.dur.count() + ds;
-                    ts.dur = seconds{std::clamp(new_s, 10LL, 86400LL)};
+                    ts.dur = seconds{std::clamp(new_s, TIMER_MIN_SECS, TIMER_MAX_SECS)};
                     ts.t.reset(); ts.t.set(ts.dur);
                 };
                 if (off == A_TMR_MUP) { adj(+60); do_save = true; }
@@ -659,7 +709,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
     switch (msg) {
     case WM_CREATE: {
-        s = new WndState{};
+        auto state = std::make_unique<WndState>();
+        s = state.get();
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)s);
         // Get actual DPI for this window's monitor
         if (pGetDpiForWindow) {
@@ -668,12 +719,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         recreate_fonts(*s);
         s->create_brushes();
-        SetTimer(hwnd, 1, 100, nullptr);
+        SetTimer(hwnd, 1, POLL_TIMER_MS, nullptr);
         BOOL dark = system_prefers_dark() ? TRUE : FALSE;
-        DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR,
                               &dark, sizeof(dark));
         load_config(hwnd, *s);
         resize_window(hwnd, *s);
+        state.release(); // transfer ownership to HWND userdata
         return 0;
     }
     default:
@@ -728,13 +780,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
         RECT cr; GetClientRect(hwnd, &cr);
-        HDC     mdc = CreateCompatibleDC(hdc);
-        HBITMAP bmp = CreateCompatibleBitmap(hdc, cr.right, cr.bottom);
-        auto*   old = SelectObject(mdc, bmp);
-        paint_all(mdc, cr.right, *s);
-        BitBlt(hdc, 0, 0, cr.right, cr.bottom, mdc, 0, 0, SRCCOPY);
-        SelectObject(mdc, old);
-        DeleteObject(bmp); DeleteDC(mdc);
+        s->ensure_buffer(hdc, cr.right, cr.bottom);
+        paint_all(s->mdc, cr.right, *s);
+        BitBlt(hdc, 0, 0, cr.right, cr.bottom, s->mdc, 0, 0, SRCCOPY);
         EndPaint(hwnd, &ps);
         return 0;
     }
@@ -819,24 +867,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_SETTINGCHANGE:
         if (lp && wcscmp((LPCWSTR)lp, L"ImmersiveColorSet") == 0) {
             BOOL dark = system_prefers_dark() ? TRUE : FALSE;
-            DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
+            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR,
                                   &dark, sizeof(dark));
         }
         return 0;
     case WM_EXITSIZEMOVE:
         save_config(hwnd, *s);
         return 0;
-    case WM_DESTROY:
+    case WM_DESTROY: {
         save_config(hwnd, *s);
         KillTimer(hwnd, 1);
-        if (s->fonts_custom) {
-            DeleteObject(s->hFontBig); DeleteObject(s->hFontLarge); DeleteObject(s->hFontSm);
-        }
-        s->destroy_brushes();
-        delete s;
+        auto owned = std::unique_ptr<WndState>(s);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         PostQuitMessage(0);
         return 0;
+    }
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }

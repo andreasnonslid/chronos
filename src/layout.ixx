@@ -1,5 +1,7 @@
 export module layout;
 
+constexpr int STANDARD_DPI = 96;
+
 export struct Layout {
     int bar_h  =  36;
     int clk_h  =  62;
@@ -13,14 +15,14 @@ export struct Layout {
     int w_tmr  = 54;
     int bar_gap = 6;
 
-    int dpi    = 96;
+    int dpi    = STANDARD_DPI;
 
     int bar_min_client_w() const {
         return w_pin + w_clk + w_sw + w_tmr + 3 * bar_gap + 2 * dpi_scale(8);
     }
 
     int dpi_scale(int value) const {
-        return value * dpi / 96;
+        return value * dpi / STANDARD_DPI;
     }
 
     void update_for_dpi(int new_dpi) {

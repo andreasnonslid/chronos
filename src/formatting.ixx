@@ -31,6 +31,12 @@ export std::wstring format_stopwatch_display(steady_duration d) {
 
 export std::wstring format_timer_display(steady_duration d) {
     auto total_s = std::chrono::duration_cast<std::chrono::seconds>(d).count();
+    if (total_s >= 3600) {
+        auto h = total_s / 3600;
+        auto m = (total_s / 60) % 60;
+        auto s = total_s % 60;
+        return std::format(L"{:02}:{:02}:{:02}", h, m, s);
+    }
     auto s = total_s % 60;
     auto m = total_s / 60;
     return std::format(L"{:02}:{:02}", m, s);
