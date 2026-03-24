@@ -72,7 +72,7 @@ constexpr int POLL_STOPWATCH_MS = 20;
 constexpr int POLL_TIMER_MS    = 100;
 constexpr int POLL_IDLE_MS     = 1000;
 constexpr int STANDARD_DPI     = 96;
-constexpr long long TIMER_MIN_SECS = 10;
+constexpr long long TIMER_MIN_SECS = 0;
 constexpr long long TIMER_MAX_SECS = 86400;
 
 // ─── Blink ────────────────────────────────────────────────────────────────────
@@ -88,15 +88,17 @@ enum Act {
     A_SW_START, A_SW_LAP, A_SW_RESET, A_SW_GET,
     A_TMR_BASE = 100,
 };
-constexpr int TMR_STRIDE  = 8;
-constexpr int A_TMR_MUP   = 0;
-constexpr int A_TMR_MDN   = 1;
-constexpr int A_TMR_SUP   = 2;
-constexpr int A_TMR_SDN   = 3;
-constexpr int A_TMR_START = 4;
-constexpr int A_TMR_RST   = 5;
-constexpr int A_TMR_ADD   = 6;
-constexpr int A_TMR_DEL   = 7;
+constexpr int TMR_STRIDE  = 10;
+constexpr int A_TMR_HUP   = 0;
+constexpr int A_TMR_HDN   = 1;
+constexpr int A_TMR_MUP   = 2;
+constexpr int A_TMR_MDN   = 3;
+constexpr int A_TMR_SUP   = 4;
+constexpr int A_TMR_SDN   = 5;
+constexpr int A_TMR_START = 6;
+constexpr int A_TMR_RST   = 7;
+constexpr int A_TMR_ADD   = 8;
+constexpr int A_TMR_DEL   = 9;
 
 static int tmr_act(int i, int off) { return A_TMR_BASE + i * TMR_STRIDE + off; }
 
@@ -486,23 +488,26 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
                 FillRect(hdc, &fr, fillbr);
             }
 
-            int mm_cx = cw/2 - layout.dpi_scale(34), ss_cx = cw/2 + layout.dpi_scale(34);
+            // Three-column layout for H:MM:SS input
+            int col_gap = layout.dpi_scale(34);
+            int hh_cx = cw/2 - col_gap, mm_cx = cw/2, ss_cx = cw/2 + col_gap;
 
             SelectObject(hdc, s.hFontSm);
             if (!touched) {
+                btn(hdc, {hh_cx-abw/2, y+up_off, hh_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_HUP), s);
                 btn(hdc, {mm_cx-abw/2, y+up_off, mm_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_MUP), s);
                 btn(hdc, {ss_cx-abw/2, y+up_off, ss_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_SUP), s);
             }
 
             std::wstring tstr = touched ? format_timer_display(ts.t.remaining(now))
-                                        : format_timer_display(duration_cast<Timer::dur>(ts.dur));
+                                        : format_timer_edit(duration_cast<Timer::dur>(ts.dur));
             COLORREF tcol = expired ? theme.expire
                 : (touched && ts.t.remaining(now) < 10s) ? theme.warn
                 : theme.text;
             if (touched) {
                 SelectObject(hdc, s.hFontSm);
                 SetTextColor(hdc, theme.dim);
-                std::wstring sstr = format_timer_display(duration_cast<Timer::dur>(ts.dur));
+                std::wstring sstr = format_timer_edit(duration_cast<Timer::dur>(ts.dur));
                 RECT sr{0, y + up_off, cw, y + up_off + layout.dpi_scale(20)};
                 DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
                 SelectObject(hdc, s.hFontLarge);
@@ -519,6 +524,7 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
             SelectObject(hdc, s.hFontSm);
             SetTextColor(hdc, theme.text);
             if (!touched) {
+                btn(hdc, {hh_cx-abw/2, y+dn_off, hh_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_HDN), s);
                 btn(hdc, {mm_cx-abw/2, y+dn_off, mm_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_MDN), s);
                 btn(hdc, {ss_cx-abw/2, y+dn_off, ss_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_SDN), s);
             }
@@ -671,15 +677,24 @@ static void handle(HWND hwnd, int act, WndState& s) {
                     resize_window(hwnd, s); do_save = true;
                 }
             } else if (!ts.t.touched()) {
-                auto adj = [&](int ds) {
-                    auto new_s = ts.dur.count() + ds;
-                    ts.dur = seconds{std::clamp(new_s, TIMER_MIN_SECS, TIMER_MAX_SECS)};
+                // Decompose into H:M:S, adjust with wrapping
+                auto total = ts.dur.count();
+                int h = (int)(total / 3600);
+                int m = (int)((total / 60) % 60);
+                int sec = (int)(total % 60);
+                bool changed = true;
+                if      (off == A_TMR_HUP) h = (h >= 24) ? 0 : h + 1;
+                else if (off == A_TMR_HDN) h = (h <= 0)  ? 24 : h - 1;
+                else if (off == A_TMR_MUP) m = (m >= 59) ? 0 : m + 1;
+                else if (off == A_TMR_MDN) m = (m <= 0)  ? 59 : m - 1;
+                else if (off == A_TMR_SUP) sec = (sec >= 59) ? 0 : sec + 1;
+                else if (off == A_TMR_SDN) sec = (sec <= 0)  ? 59 : sec - 1;
+                else changed = false;
+                if (changed) {
+                    ts.dur = seconds{h * 3600 + m * 60 + sec};
                     ts.t.reset(); ts.t.set(ts.dur);
-                };
-                if (off == A_TMR_MUP) { adj(+60); do_save = true; }
-                if (off == A_TMR_MDN) { adj(-60); do_save = true; }
-                if (off == A_TMR_SUP) { adj(+10); do_save = true; }
-                if (off == A_TMR_SDN) { adj(-10); do_save = true; }
+                    do_save = true;
+                }
             }
         }
     }

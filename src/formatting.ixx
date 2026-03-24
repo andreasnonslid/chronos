@@ -42,6 +42,15 @@ export std::wstring format_timer_display(steady_duration d) {
     return std::format(L"{:02}:{:02}", m, s);
 }
 
+// Always shows H:MM:SS format for timer editing UI
+export std::wstring format_timer_edit(steady_duration d) {
+    auto total_s = std::chrono::duration_cast<std::chrono::seconds>(d).count();
+    auto h = total_s / 3600;
+    auto m = (total_s / 60) % 60;
+    auto s = total_s % 60;
+    return std::format(L"{}:{:02}:{:02}", h, m, s);
+}
+
 export std::wstring format_lap_row(std::size_t lap_number,
                                    steady_duration split,
                                    steady_duration total) {
