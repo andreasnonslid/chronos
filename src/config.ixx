@@ -14,7 +14,10 @@ export struct Config {
     bool show_sw   = true;
     bool show_tmr  = true;
     bool topmost   = false;
-    static constexpr int MAX_TIMERS = 3;
+    static constexpr int MAX_TIMERS    = 3;
+    static constexpr int TIMER_MIN_SECS = 10;
+    static constexpr int TIMER_MAX_SECS = 86400;
+    static constexpr int MIN_WINDOW_W   = 260;
     int  num_timers = 1;
     std::array<int, MAX_TIMERS> timer_secs{};
     bool pos_valid = false;
@@ -51,11 +54,11 @@ export bool config_read(Config& c, std::istream& f) {
         else if (key == "num_timers") c.num_timers = std::clamp(val, 1, Config::MAX_TIMERS);
         else if (key == "win_x")    { c.win_x = val; has_x = true; }
         else if (key == "win_y")    { c.win_y = val; has_y = true; }
-        else if (key == "win_w")    { c.win_w = std::max(260, val); has_w = true; }
+        else if (key == "win_w")    { c.win_w = std::max(Config::MIN_WINDOW_W, val); has_w = true; }
         else {
             for (int i = 0; i < Config::MAX_TIMERS; ++i)
                 if (key == std::format("timer{}", i))
-                    c.timer_secs[i] = std::clamp(val, 10, 86400);
+                    c.timer_secs[i] = std::clamp(val, Config::TIMER_MIN_SECS, Config::TIMER_MAX_SECS);
         }
     }
     c.pos_valid = has_x && has_y && has_w;
