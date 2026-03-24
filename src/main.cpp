@@ -395,16 +395,10 @@ static void resize_window(HWND hwnd, const WndState& s) {
                  SWP_NOMOVE | SWP_NOZORDER);
 }
 
-// ─── Paint ────────────────────────────────────────────────────────────────────
-static void paint_all(HDC hdc, int cw, WndState& s) {
+// ─── Paint sub-functions ──────────────────────────────────────────────────────
+
+static int paint_bar(HDC hdc, int cw, int y, WndState& s) {
     auto& layout = s.layout;
-    s.btns.clear();
-    SetBkMode(hdc, TRANSPARENT);
-
-    RECT all{0, 0, cw, 9999};
-    FillRect(hdc, &all, s.brBg);
-
-    // ── Top bar ─────────────────────────────────────────────────────────────
     RECT bar{0, 0, cw, layout.bar_h};
     FillRect(hdc, &bar, s.brBar);
 
@@ -415,169 +409,183 @@ static void paint_all(HDC hdc, int cw, WndState& s) {
     btn(hdc, {bx, by, bx+layout.w_clk, by+layout.btn_h}, s.app.show_clk, L"Clock",     A_SHOW_CLK, s); bx += layout.w_clk+layout.bar_gap;
     btn(hdc, {bx, by, bx+layout.w_sw,  by+layout.btn_h}, s.app.show_sw,  L"Stopwatch", A_SHOW_SW, s);  bx += layout.w_sw +layout.bar_gap;
     btn(hdc, {bx, by, bx+layout.w_tmr, by+layout.btn_h}, s.app.show_tmr, L"Timers",    A_SHOW_TMR, s);
+    return layout.bar_h;
+}
 
-    int y = layout.bar_h;
+static int paint_clock(HDC hdc, int cw, int y, WndState& s) {
+    auto& layout = s.layout;
+    divider(hdc, y, cw, s);
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    auto buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
+    SelectObject(hdc, s.hFontBig);
+    SetTextColor(hdc, theme.text);
+    RECT tr{0, y, cw, y + layout.clk_h};
+    DrawTextW(hdc, buf.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    return y + layout.clk_h;
+}
+
+static int paint_stopwatch(HDC hdc, int cw, int y, WndState& s, sc::time_point now) {
+    auto& layout = s.layout;
+    divider(hdc, y, cw, s);
+    auto elap = s.app.sw.elapsed(now);
+    std::wstring etime = format_stopwatch_display(elap);
+
+    SelectObject(hdc, s.hFontBig);
+    SetTextColor(hdc, theme.text);
+    RECT tr{0, y + layout.dpi_scale(4), cw, y + layout.dpi_scale(44)};
+    DrawTextW(hdc, etime.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(hdc, s.hFontSm);
+    bool running = s.app.sw.is_running();
+    int  bw = layout.dpi_scale(76), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
+    int  bx0 = (cw - 3*bw - 2*gap) / 2;
+    int  by0 = y + layout.dpi_scale(46);
+    btn(hdc, {bx0,            by0, bx0+bw,          by0+bh}, running, running ? L"Stop" : L"Start", A_SW_START, s);
+    btn(hdc, {bx0+bw+gap,     by0, bx0+2*bw+gap,    by0+bh}, false,   L"Lap",                       A_SW_LAP, s);
+    btn(hdc, {bx0+2*(bw+gap), by0, bx0+3*bw+2*gap,  by0+bh}, false,   L"Reset",                     A_SW_RESET, s);
+
+    bool has_file = !s.app.sw_lap_file.empty();
+    int  gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
+    auto lap_label = s.app.lap_write_failed ? L"Get Laps (!)" : L"Get Laps";
+    auto lap_col = s.app.lap_write_failed ? theme.expire
+                 : has_file ? theme.btn : theme.dim;
+    btn(hdc, {(cw-gbw)/2, by0+bh+layout.dpi_scale(4), (cw+gbw)/2, by0+bh+layout.dpi_scale(4)+gbh},
+        false, lap_label, has_file ? A_SW_GET : 0, s, lap_col);
+    return y + layout.sw_h;
+}
+
+static int paint_timers(HDC hdc, int cw, int y, WndState& s, sc::time_point now) {
+    auto& layout = s.layout;
+    int abw = layout.dpi_scale(34), abh = layout.dpi_scale(16), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
+    int up_off = layout.dpi_scale(4);
+    int td_off = up_off + abh + layout.dpi_scale(2);
+    int dn_off = td_off + layout.dpi_scale(40) + layout.dpi_scale(2);
+    int by_off = dn_off + abh + gap;
+
+    for (int i = 0; i < (int)s.app.timers.size(); ++i) {
+        divider(hdc, y, cw, s);
+        auto& ts      = s.app.timers[i];
+        bool  running = ts.t.is_running();
+        bool  touched = ts.t.touched();
+        bool  expired = touched && ts.t.expired(now);
+
+        if (touched) {
+            HBRUSH fillbr = expired ? s.brFillExp : s.brFill;
+            int fw = cw;
+            if (!expired) {
+                auto total = duration_cast<microseconds>(ts.dur).count();
+                auto rem   = duration_cast<microseconds>(ts.t.remaining(now)).count();
+                fw = total > 0 ? (int)(cw * (double)(total - rem) / total) : 0;
+            }
+            RECT fr{0, y, fw, y + layout.tmr_h};
+            FillRect(hdc, &fr, fillbr);
+        }
+
+        // Three-column layout for H:MM:SS input
+        int col_gap = layout.dpi_scale(34);
+        int hh_cx = cw/2 - col_gap, mm_cx = cw/2, ss_cx = cw/2 + col_gap;
+
+        SelectObject(hdc, s.hFontSm);
+        if (!touched) {
+            btn(hdc, {hh_cx-abw/2, y+up_off, hh_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_HUP), s);
+            btn(hdc, {mm_cx-abw/2, y+up_off, mm_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_MUP), s);
+            btn(hdc, {ss_cx-abw/2, y+up_off, ss_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_SUP), s);
+        }
+
+        std::wstring tstr = touched ? format_timer_display(ts.t.remaining(now))
+                                    : format_timer_edit(duration_cast<Timer::dur>(ts.dur));
+        COLORREF tcol = expired ? theme.expire
+            : (touched && ts.t.remaining(now) < 10s) ? theme.warn
+            : theme.text;
+        if (touched) {
+            SelectObject(hdc, s.hFontSm);
+            SetTextColor(hdc, theme.dim);
+            std::wstring sstr = format_timer_edit(duration_cast<Timer::dur>(ts.dur));
+            RECT sr{0, y + up_off, cw, y + up_off + layout.dpi_scale(20)};
+            DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            SelectObject(hdc, s.hFontLarge);
+            SetTextColor(hdc, tcol);
+            RECT tr2{0, y + up_off + layout.dpi_scale(20), cw, y + dn_off + abh};
+            DrawTextW(hdc, tstr.c_str(), -1, &tr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        } else {
+            SelectObject(hdc, s.hFontBig);
+            SetTextColor(hdc, tcol);
+            RECT tr2{0, y + td_off, cw, y + td_off + layout.dpi_scale(40)};
+            DrawTextW(hdc, tstr.c_str(), -1, &tr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        }
+
+        SelectObject(hdc, s.hFontSm);
+        SetTextColor(hdc, theme.text);
+        if (!touched) {
+            btn(hdc, {hh_cx-abw/2, y+dn_off, hh_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_HDN), s);
+            btn(hdc, {mm_cx-abw/2, y+dn_off, mm_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_MDN), s);
+            btn(hdc, {ss_cx-abw/2, y+dn_off, ss_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_SDN), s);
+        }
+
+        int cw2 = layout.dpi_scale(86);
+        int cx0 = (cw - 2*cw2 - gap) / 2;
+        btn(hdc, {cx0,         y+by_off, cx0+cw2,       y+by_off+bh}, running,
+            running ? L"Pause" : L"Start", tmr_act(i, A_TMR_START), s);
+        btn(hdc, {cx0+cw2+gap, y+by_off, cx0+2*cw2+gap, y+by_off+bh}, false, L"Reset",
+            tmr_act(i, A_TMR_RST), s);
+
+        int pm_sz = layout.dpi_scale(22), pm_margin = layout.dpi_scale(6);
+        int pm_top = y + layout.tmr_h - pm_sz - layout.dpi_scale(4);
+        if ((int)s.app.timers.size() < Config::MAX_TIMERS)
+            btn(hdc, {cw-pm_margin-pm_sz, pm_top, cw-pm_margin, pm_top+pm_sz},
+                false, L"+", tmr_act(i, A_TMR_ADD), s);
+        if ((int)s.app.timers.size() > 1)
+            btn(hdc, {pm_margin, pm_top, pm_margin+pm_sz, pm_top+pm_sz},
+                false, L"−", tmr_act(i, A_TMR_DEL), s);
+
+        y += layout.tmr_h;
+    }
+    return y;
+}
+
+static void paint_help(HDC hdc, int cw, int y_bottom, WndState& s) {
+    auto& layout = s.layout;
+    RECT cr{0, layout.bar_h, cw, y_bottom > layout.bar_h ? y_bottom : layout.bar_h + layout.dpi_scale(200)};
+    FillRect(hdc, &cr, s.brHelp);
+
+    SelectObject(hdc, s.hFontSm);
+    SetTextColor(hdc, theme.text);
+
+    struct { const wchar_t* key; const wchar_t* desc; } shortcuts[] = {
+        {L"Space", L"Start/Stop stopwatch or first timer"},
+        {L"L",     L"Record lap"},
+        {L"R",     L"Reset stopwatch or first timer"},
+        {L"T",     L"Toggle always-on-top"},
+        {L"1-3",   L"Start/Stop timer 1-3"},
+        {L"H / ?", L"Toggle this help"},
+    };
+
+    int line_h = layout.dpi_scale(20);
+    int pad = layout.dpi_scale(12);
+    int sy = layout.bar_h + pad;
+    for (auto& [key, desc] : shortcuts) {
+        auto line = std::format(L"  {}  —  {}", key, desc);
+        RECT lr{pad, sy, cw - pad, sy + line_h};
+        DrawTextW(hdc, line.c_str(), -1, &lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        sy += line_h;
+    }
+}
+
+// ─── Paint dispatcher ─────────────────────────────────────────────────────────
+static void paint_all(HDC hdc, int cw, WndState& s) {
+    s.btns.clear();
+    SetBkMode(hdc, TRANSPARENT);
+
+    RECT all{0, 0, cw, 9999};
+    FillRect(hdc, &all, s.brBg);
+
     auto now = sc::now();
-
-    // ── Clock ────────────────────────────────────────────────────────────────
-    if (s.app.show_clk) {
-        divider(hdc, y, cw, s);
-        SYSTEMTIME st;
-        GetLocalTime(&st);
-        auto buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
-        SelectObject(hdc, s.hFontBig);
-        SetTextColor(hdc, theme.text);
-        RECT tr{0, y, cw, y + layout.clk_h};
-        DrawTextW(hdc, buf.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        y += layout.clk_h;
-    }
-
-    // ── Stopwatch ────────────────────────────────────────────────────────────
-    if (s.app.show_sw) {
-        divider(hdc, y, cw, s);
-        auto elap = s.app.sw.elapsed(now);
-        std::wstring etime = format_stopwatch_display(elap);
-
-        SelectObject(hdc, s.hFontBig);
-        SetTextColor(hdc, theme.text);
-        RECT tr{0, y + layout.dpi_scale(4), cw, y + layout.dpi_scale(44)};
-        DrawTextW(hdc, etime.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-        SelectObject(hdc, s.hFontSm);
-        bool running = s.app.sw.is_running();
-        int  bw = layout.dpi_scale(76), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
-        int  bx0 = (cw - 3*bw - 2*gap) / 2;
-        int  by0 = y + layout.dpi_scale(46);
-        btn(hdc, {bx0,            by0, bx0+bw,          by0+bh}, running, running ? L"Stop" : L"Start", A_SW_START, s);
-        btn(hdc, {bx0+bw+gap,     by0, bx0+2*bw+gap,    by0+bh}, false,   L"Lap",                       A_SW_LAP, s);
-        btn(hdc, {bx0+2*(bw+gap), by0, bx0+3*bw+2*gap,  by0+bh}, false,   L"Reset",                     A_SW_RESET, s);
-
-        bool has_file = !s.app.sw_lap_file.empty();
-        int  gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
-        auto lap_label = s.app.lap_write_failed ? L"Get Laps (!)" : L"Get Laps";
-        auto lap_col = s.app.lap_write_failed ? theme.expire
-                     : has_file ? theme.btn : theme.dim;
-        btn(hdc, {(cw-gbw)/2, by0+bh+layout.dpi_scale(4), (cw+gbw)/2, by0+bh+layout.dpi_scale(4)+gbh},
-            false, lap_label, has_file ? A_SW_GET : 0, s, lap_col);
-        y += layout.sw_h;
-    }
-
-    // ── Timers ───────────────────────────────────────────────────────────────
-    if (s.app.show_tmr) {
-        int abw = layout.dpi_scale(34), abh = layout.dpi_scale(16), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
-        int up_off = layout.dpi_scale(4);
-        int td_off = up_off + abh + layout.dpi_scale(2);
-        int dn_off = td_off + layout.dpi_scale(40) + layout.dpi_scale(2);
-        int by_off = dn_off + abh + gap;
-
-        for (int i = 0; i < (int)s.app.timers.size(); ++i) {
-            divider(hdc, y, cw, s);
-            auto& ts      = s.app.timers[i];
-            bool  running = ts.t.is_running();
-            bool  touched = ts.t.touched();
-            bool  expired = touched && ts.t.expired(now);
-
-            if (touched) {
-                HBRUSH fillbr = expired ? s.brFillExp : s.brFill;
-                int fw = cw;
-                if (!expired) {
-                    auto total = duration_cast<microseconds>(ts.dur).count();
-                    auto rem   = duration_cast<microseconds>(ts.t.remaining(now)).count();
-                    fw = total > 0 ? (int)(cw * (double)(total - rem) / total) : 0;
-                }
-                RECT fr{0, y, fw, y + layout.tmr_h};
-                FillRect(hdc, &fr, fillbr);
-            }
-
-            // Three-column layout for H:MM:SS input
-            int col_gap = layout.dpi_scale(34);
-            int hh_cx = cw/2 - col_gap, mm_cx = cw/2, ss_cx = cw/2 + col_gap;
-
-            SelectObject(hdc, s.hFontSm);
-            if (!touched) {
-                btn(hdc, {hh_cx-abw/2, y+up_off, hh_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_HUP), s);
-                btn(hdc, {mm_cx-abw/2, y+up_off, mm_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_MUP), s);
-                btn(hdc, {ss_cx-abw/2, y+up_off, ss_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_SUP), s);
-            }
-
-            std::wstring tstr = touched ? format_timer_display(ts.t.remaining(now))
-                                        : format_timer_edit(duration_cast<Timer::dur>(ts.dur));
-            COLORREF tcol = expired ? theme.expire
-                : (touched && ts.t.remaining(now) < 10s) ? theme.warn
-                : theme.text;
-            if (touched) {
-                SelectObject(hdc, s.hFontSm);
-                SetTextColor(hdc, theme.dim);
-                std::wstring sstr = format_timer_edit(duration_cast<Timer::dur>(ts.dur));
-                RECT sr{0, y + up_off, cw, y + up_off + layout.dpi_scale(20)};
-                DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-                SelectObject(hdc, s.hFontLarge);
-                SetTextColor(hdc, tcol);
-                RECT tr{0, y + up_off + layout.dpi_scale(20), cw, y + dn_off + abh};
-                DrawTextW(hdc, tstr.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            } else {
-                SelectObject(hdc, s.hFontBig);
-                SetTextColor(hdc, tcol);
-                RECT tr{0, y + td_off, cw, y + td_off + layout.dpi_scale(40)};
-                DrawTextW(hdc, tstr.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            }
-
-            SelectObject(hdc, s.hFontSm);
-            SetTextColor(hdc, theme.text);
-            if (!touched) {
-                btn(hdc, {hh_cx-abw/2, y+dn_off, hh_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_HDN), s);
-                btn(hdc, {mm_cx-abw/2, y+dn_off, mm_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_MDN), s);
-                btn(hdc, {ss_cx-abw/2, y+dn_off, ss_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_SDN), s);
-            }
-
-            int cw2 = layout.dpi_scale(86);
-            int cx0 = (cw - 2*cw2 - gap) / 2;
-            btn(hdc, {cx0,         y+by_off, cx0+cw2,       y+by_off+bh}, running,
-                running ? L"Pause" : L"Start", tmr_act(i, A_TMR_START), s);
-            btn(hdc, {cx0+cw2+gap, y+by_off, cx0+2*cw2+gap, y+by_off+bh}, false, L"Reset",
-                tmr_act(i, A_TMR_RST), s);
-
-            int pm_sz = layout.dpi_scale(22), pm_margin = layout.dpi_scale(6);
-            int pm_top = y + layout.tmr_h - pm_sz - layout.dpi_scale(4);
-            if ((int)s.app.timers.size() < Config::MAX_TIMERS)
-                btn(hdc, {cw-pm_margin-pm_sz, pm_top, cw-pm_margin, pm_top+pm_sz},
-                    false, L"+", tmr_act(i, A_TMR_ADD), s);
-            if ((int)s.app.timers.size() > 1)
-                btn(hdc, {pm_margin, pm_top, pm_margin+pm_sz, pm_top+pm_sz},
-                    false, L"−", tmr_act(i, A_TMR_DEL), s);
-
-            y += layout.tmr_h;
-        }
-    }
-
-    // ── Help overlay ─────────────────────────────────────────────────────────
-    if (s.app.show_help) {
-        // Semi-transparent background
-        RECT cr{0, layout.bar_h, cw, y > layout.bar_h ? y : layout.bar_h + layout.dpi_scale(200)};
-        FillRect(hdc, &cr, s.brHelp);
-
-        SelectObject(hdc, s.hFontSm);
-        SetTextColor(hdc, theme.text);
-
-        struct { const wchar_t* key; const wchar_t* desc; } shortcuts[] = {
-            {L"Space", L"Start/Stop stopwatch or first timer"},
-            {L"L",     L"Record lap"},
-            {L"R",     L"Reset stopwatch or first timer"},
-            {L"T",     L"Toggle always-on-top"},
-            {L"1-3",   L"Start/Stop timer 1-3"},
-            {L"H / ?", L"Toggle this help"},
-        };
-
-        int line_h = layout.dpi_scale(20);
-        int pad = layout.dpi_scale(12);
-        int sy = layout.bar_h + pad;
-        for (auto& [key, desc] : shortcuts) {
-            auto line = std::format(L"  {}  —  {}", key, desc);
-            RECT lr{pad, sy, cw - pad, sy + line_h};
-            DrawTextW(hdc, line.c_str(), -1, &lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-            sy += line_h;
-        }
-    }
+    int y = paint_bar(hdc, cw, 0, s);
+    if (s.app.show_clk) y = paint_clock(hdc, cw, y, s);
+    if (s.app.show_sw)  y = paint_stopwatch(hdc, cw, y, s, now);
+    if (s.app.show_tmr) y = paint_timers(hdc, cw, y, s, now);
+    if (s.app.show_help) paint_help(hdc, cw, y, s);
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -596,70 +604,75 @@ static bool wants_blink(int act) {
     }
 }
 
-static void handle(HWND hwnd, int act, WndState& s) {
-    auto now = sc::now();
-    if (wants_blink(act)) { s.app.blink_act = act; s.app.blink_t = now; }
+// Result flags from action dispatch — separates "what changed" from "what to do about it"
+struct HandleResult {
+    bool save_config = false;
+    bool resize      = false;
+    bool set_topmost = false;
+    bool open_file   = false;
+};
 
-    bool do_save = false;
+// Pure domain logic: mutates App state, returns side-effect flags
+static HandleResult dispatch_action(App& app, int act, sc::time_point now,
+                                    const std::filesystem::path& config_dir) {
+    HandleResult r;
 
     switch (act) {
     case A_TOPMOST:
-        s.app.topmost = !s.app.topmost;
-        SetWindowPos(hwnd, s.app.topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
-                     0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-        do_save = true;
+        app.topmost = !app.topmost;
+        r.set_topmost = true;
+        r.save_config = true;
         break;
-    case A_SHOW_CLK: s.app.show_clk = !s.app.show_clk; resize_window(hwnd, s); do_save = true; break;
-    case A_SHOW_SW:  s.app.show_sw  = !s.app.show_sw;  resize_window(hwnd, s); do_save = true; break;
-    case A_SHOW_TMR: s.app.show_tmr = !s.app.show_tmr; resize_window(hwnd, s); do_save = true; break;
+    case A_SHOW_CLK: app.show_clk = !app.show_clk; r.resize = true; r.save_config = true; break;
+    case A_SHOW_SW:  app.show_sw  = !app.show_sw;  r.resize = true; r.save_config = true; break;
+    case A_SHOW_TMR: app.show_tmr = !app.show_tmr; r.resize = true; r.save_config = true; break;
     case A_SW_START:
-        if (!s.app.sw.is_running()) {
-            if (s.app.sw_lap_file.empty()) {
+        if (!app.sw.is_running()) {
+            if (app.sw_lap_file.empty()) {
                 SYSTEMTIME st; GetLocalTime(&st);
                 auto lap_name = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt",
                                             st.wYear, st.wMonth, st.wDay,
                                             st.wHour, st.wMinute, st.wSecond,
                                             st.wMilliseconds);
-                s.app.sw_lap_file = (config_path().parent_path() / lap_name).wstring();
+                app.sw_lap_file = (config_dir / lap_name).wstring();
             }
-            s.app.sw.start(now);
+            app.sw.start(now);
         } else {
-            s.app.sw.stop(now);
+            app.sw.stop(now);
         }
         break;
     case A_SW_LAP:
-        if (s.app.sw.is_running()) {
-            s.app.sw.lap(now);
-            if (!s.app.sw_lap_file.empty()) {
-                std::wofstream f(s.app.sw_lap_file, std::ios::app);
+        if (app.sw.is_running()) {
+            app.sw.lap(now);
+            if (!app.sw_lap_file.empty()) {
+                std::wofstream f(app.sw_lap_file, std::ios::app);
                 if (f) {
-                    const auto& laps = s.app.sw.laps();
+                    const auto& laps = app.sw.laps();
                     auto n = laps.size();
                     sc::duration cum{};
                     for (auto& l : laps) cum += l;
                     f << format_lap_row(n, laps.back(), cum) << L'\n';
-                    s.app.lap_write_failed = false;
+                    app.lap_write_failed = false;
                 } else {
-                    s.app.lap_write_failed = true;
+                    app.lap_write_failed = true;
                 }
             }
         }
         break;
     case A_SW_RESET:
-        s.app.sw.reset();
-        s.app.sw_lap_file.clear();
+        app.sw.reset();
+        app.sw_lap_file.clear();
         break;
     case A_SW_GET:
-        if (!s.app.sw_lap_file.empty())
-            ShellExecuteW(nullptr, L"open", s.app.sw_lap_file.c_str(),
-                          nullptr, nullptr, SW_SHOW);
+        if (!app.sw_lap_file.empty())
+            r.open_file = true;
         break;
     default:
         if (act >= A_TMR_BASE) {
             int idx = (act - A_TMR_BASE) / TMR_STRIDE;
             int off = (act - A_TMR_BASE) % TMR_STRIDE;
-            if (idx < 0 || idx >= (int)s.app.timers.size()) break;
-            auto& ts = s.app.timers[idx];
+            if (idx < 0 || idx >= (int)app.timers.size()) break;
+            auto& ts = app.timers[idx];
             if (off == A_TMR_START) {
                 if (!ts.t.touched())          ts.t.start(now);
                 else if (ts.t.is_running())   ts.t.pause(now);
@@ -667,18 +680,17 @@ static void handle(HWND hwnd, int act, WndState& s) {
             } else if (off == A_TMR_RST) {
                 ts.t.reset(); ts.t.set(ts.dur); ts.notified = false;
             } else if (off == A_TMR_ADD) {
-                if ((int)s.app.timers.size() < Config::MAX_TIMERS) {
+                if ((int)app.timers.size() < Config::MAX_TIMERS) {
                     TimerSlot ns; ns.t.set(ns.dur);
-                    s.app.timers.insert(s.app.timers.begin() + idx + 1, ns);
-                    resize_window(hwnd, s); do_save = true;
+                    app.timers.insert(app.timers.begin() + idx + 1, ns);
+                    r.resize = true; r.save_config = true;
                 }
             } else if (off == A_TMR_DEL) {
-                if ((int)s.app.timers.size() > 1) {
-                    s.app.timers.erase(s.app.timers.begin() + idx);
-                    resize_window(hwnd, s); do_save = true;
+                if ((int)app.timers.size() > 1) {
+                    app.timers.erase(app.timers.begin() + idx);
+                    r.resize = true; r.save_config = true;
                 }
             } else if (!ts.t.touched()) {
-                // Decompose into H:M:S, adjust with wrapping
                 auto total = ts.dur.count();
                 int h = (int)(total / 3600);
                 int m = (int)((total / 60) % 60);
@@ -694,12 +706,29 @@ static void handle(HWND hwnd, int act, WndState& s) {
                 if (changed) {
                     ts.dur = seconds{h * 3600 + m * 60 + sec};
                     ts.t.reset(); ts.t.set(ts.dur);
-                    do_save = true;
+                    r.save_config = true;
                 }
             }
         }
     }
-    if (do_save) save_config(hwnd, s);
+    return r;
+}
+
+// Thin wrapper: dispatches action, applies Win32 side effects
+static void handle(HWND hwnd, int act, WndState& s) {
+    auto now = sc::now();
+    if (wants_blink(act)) { s.app.blink_act = act; s.app.blink_t = now; }
+
+    auto r = dispatch_action(s.app, act, now, config_path().parent_path());
+
+    if (r.set_topmost)
+        SetWindowPos(hwnd, s.app.topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
+                     0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    if (r.resize)      resize_window(hwnd, s);
+    if (r.save_config) save_config(hwnd, s);
+    if (r.open_file)
+        ShellExecuteW(nullptr, L"open", s.app.sw_lap_file.c_str(),
+                      nullptr, nullptr, SW_SHOW);
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);
 }
