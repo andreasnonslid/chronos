@@ -111,7 +111,11 @@ static void save_config(HWND hwnd, const WndState& s) {
     cfg.num_timers = (int)s.app.timers.size();
     for (int i = 0; i < (int)s.app.timers.size(); ++i) {
         cfg.timer_secs[i] = (int)s.app.timers[i].dur.count();
-        cfg.timer_labels[i] = std::string(s.app.timers[i].label.begin(), s.app.timers[i].label.end());
+        const auto& w = s.app.timers[i].label;
+        int len = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
+        std::string utf8(len > 0 ? len - 1 : 0, '\0');
+        if (len > 0) WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, utf8.data(), len, nullptr, nullptr);
+        cfg.timer_labels[i] = std::move(utf8);
     }
     if (hwnd) {
         RECT wr;
@@ -151,8 +155,11 @@ static void load_config(HWND hwnd, WndState& s) {
         s.app.timers[i].dur = seconds{cfg.timer_secs[i]};
         s.app.timers[i].t.reset();
         s.app.timers[i].t.set(s.app.timers[i].dur);
-        auto& lbl = cfg.timer_labels[i];
-        s.app.timers[i].label = std::wstring(lbl.begin(), lbl.end());
+        const auto& utf8 = cfg.timer_labels[i];
+        int wlen = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+        std::wstring label(wlen > 0 ? wlen - 1 : 0, L'\0');
+        if (wlen > 0) MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, label.data(), wlen);
+        s.app.timers[i].label = std::move(label);
     }
     if (s.app.topmost)
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
