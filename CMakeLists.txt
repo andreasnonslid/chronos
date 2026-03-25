@@ -15,10 +15,14 @@ target_sources(chronos PRIVATE
         src/app.ixx
         src/config.ixx
         src/formatting.ixx
+        src/icon.ixx
         src/layout.ixx
         src/painting.ixx
         src/stopwatch.ixx
+        src/theme.ixx
         src/timer.ixx
+        src/tray.ixx
+        src/wndstate.ixx
 )
 
 target_compile_options(chronos PRIVATE
