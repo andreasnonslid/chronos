@@ -5,19 +5,7 @@ module;
 #define _UNICODE
 #include <windows.h>
 export module icon;
-
-namespace {
-struct GdiObj {
-    HGDIOBJ h;
-    explicit GdiObj(HGDIOBJ h) : h(h) {}
-    ~GdiObj() {
-        if (h) DeleteObject(h);
-    }
-    GdiObj(const GdiObj&) = delete;
-    GdiObj& operator=(const GdiObj&) = delete;
-    operator HGDIOBJ() const { return h; }
-};
-} // namespace
+import gdi;
 
 export HICON create_app_icon(int size) {
     HDC screen = GetDC(nullptr);
