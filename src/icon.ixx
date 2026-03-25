@@ -6,6 +6,17 @@ module;
 #include <windows.h>
 export module icon;
 
+namespace {
+struct GdiObj {
+    HGDIOBJ h;
+    explicit GdiObj(HGDIOBJ h) : h(h) {}
+    ~GdiObj() { if (h) DeleteObject(h); }
+    GdiObj(const GdiObj&) = delete;
+    GdiObj& operator=(const GdiObj&) = delete;
+    operator HGDIOBJ() const { return h; }
+};
+} // namespace
+
 export HICON create_app_icon(int size) {
     HDC screen = GetDC(nullptr);
     HDC mdc = CreateCompatibleDC(screen);
@@ -13,9 +24,9 @@ export HICON create_app_icon(int size) {
     HBITMAP mask  = CreateBitmap(size, size, 1, 1, nullptr);
     auto* old = SelectObject(mdc, color);
 
-    HBRUSH face = CreateSolidBrush(RGB(60, 60, 66));
-    HPEN outline = CreatePen(PS_SOLID, 1, RGB(100, 100, 110));
-    HPEN hand = CreatePen(PS_SOLID, size > 20 ? 2 : 1, RGB(204, 204, 204));
+    GdiObj face{CreateSolidBrush(RGB(60, 60, 66))};
+    GdiObj outline{CreatePen(PS_SOLID, 1, RGB(100, 100, 110))};
+    GdiObj hand{CreatePen(PS_SOLID, size > 20 ? 2 : 1, RGB(204, 204, 204))};
 
     RECT all{0, 0, size, size};
     FillRect(mdc, &all, (HBRUSH)GetStockObject(BLACK_BRUSH));
@@ -46,9 +57,7 @@ export HICON create_app_icon(int size) {
     Ellipse(mdc2, 1, 1, size - 1, size - 1);
     DeleteDC(mdc2);
 
-    DeleteObject(face);
-    DeleteObject(outline);
-    DeleteObject(hand);
+    // face, outline, hand are cleaned up automatically by GdiObj destructors
     DeleteDC(mdc);
     ReleaseDC(nullptr, screen);
 
