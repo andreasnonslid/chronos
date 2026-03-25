@@ -114,6 +114,31 @@ TEST_CASE("Config num_timers clamped to 1..MAX_TIMERS", "[config]") {
     }
 }
 
+TEST_CASE("Config timer labels round-trip", "[config]") {
+    Config orig;
+    orig.num_timers = 2;
+    orig.timer_labels[0] = "Tea";
+    orig.timer_labels[1] = "Break";
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config read_back;
+    std::istringstream is(os.str());
+    config_read(read_back, is);
+
+    REQUIRE(read_back.timer_labels[0] == "Tea");
+    REQUIRE(read_back.timer_labels[1] == "Break");
+    REQUIRE(read_back.timer_labels[2].empty());
+}
+
+TEST_CASE("Config timer labels truncated to 20 chars", "[config]") {
+    std::istringstream is("timer0_label=abcdefghijklmnopqrstuvwxyz\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.timer_labels[0].size() == 20);
+}
+
 TEST_CASE("Config empty stream", "[config]") {
     std::istringstream is("");
     Config c;
