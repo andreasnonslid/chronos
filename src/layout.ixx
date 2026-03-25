@@ -5,7 +5,7 @@ constexpr int STANDARD_DPI = 96;
 export struct Layout {
     int bar_h  =  36;
     int clk_h  =  62;
-    int sw_h   =  96;
+    int sw_h   = 116;
     int tmr_h  = 114;
     int btn_h  =  28;
 
@@ -29,7 +29,7 @@ export struct Layout {
         dpi     = new_dpi;
         bar_h   = dpi_scale(36);
         clk_h   = dpi_scale(62);
-        sw_h    = dpi_scale(96);
+        sw_h    = dpi_scale(116);
         tmr_h   = dpi_scale(114);
         btn_h   = dpi_scale(28);
         w_pin   = dpi_scale(44);
