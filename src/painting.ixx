@@ -14,23 +14,12 @@ import actions;
 import app;
 import config;
 import formatting;
+import gdi;
 import layout;
 import timer;
 
 using namespace std::chrono;
 using sc = steady_clock;
-
-// ─── RAII wrapper for GDI objects ────────────────────────────────────────────
-export struct GdiObj {
-    HGDIOBJ h;
-    explicit GdiObj(HGDIOBJ h) : h(h) {}
-    ~GdiObj() {
-        if (h) DeleteObject(h);
-    }
-    GdiObj(const GdiObj&) = delete;
-    GdiObj& operator=(const GdiObj&) = delete;
-    operator HGDIOBJ() const { return h; }
-};
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 export struct Theme {
