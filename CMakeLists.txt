@@ -42,7 +42,7 @@ if(BUILD_TESTS)
     include(FetchContent)
     FetchContent_Declare(Catch2
         URL      https://github.com/catchorg/Catch2/archive/refs/tags/v3.5.2.tar.gz
-        URL_HASH SHA256=269543a55f6b81b2f5b5b8405532a34e42399f3e0c3ba3e6e58c4a3e1466c7b3
+        URL_HASH SHA256=269543a49eb76f40b3f93ff231d4c24c27a7e16c90e47d2e45bcc564de470c6e
     )
     FetchContent_MakeAvailable(Catch2)
 
