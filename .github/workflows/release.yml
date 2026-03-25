@@ -6,7 +6,7 @@ on:
       - "v*"
 
 jobs:
-  test:
+  build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,42 +23,17 @@ jobs:
             mingw-w64-x86_64-ninja
             git
 
-      - name: Configure tests
-        shell: msys2 {0}
-        run: cmake -S . -B build-tests -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON
-
-      - name: Build tests
-        shell: msys2 {0}
-        run: cmake --build build-tests
-
-      - name: Run tests
-        shell: msys2 {0}
-        run: cd build-tests && ctest --output-on-failure
-
-  build:
-    needs: test
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install MSYS2 + toolchain
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          install: >-
-            mingw-w64-x86_64-clang
-            mingw-w64-x86_64-lld
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-ninja
-
       - name: Configure
         shell: msys2 {0}
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON
 
       - name: Build
         shell: msys2 {0}
         run: cmake --build build
+
+      - name: Test
+        shell: msys2 {0}
+        run: cd build && ctest --output-on-failure
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
