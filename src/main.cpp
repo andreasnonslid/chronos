@@ -200,7 +200,15 @@ static void save_config(HWND hwnd, const WndState& s) {
         cfg.timer_labels[i] = std::string(s.app.timers[i].label.begin(), s.app.timers[i].label.end());
     }
     if (hwnd) {
-        RECT wr; GetWindowRect(hwnd, &wr);
+        RECT wr;
+        if (IsIconic(hwnd)) {
+            WINDOWPLACEMENT wp{};
+            wp.length = sizeof(wp);
+            GetWindowPlacement(hwnd, &wp);
+            wr = wp.rcNormalPosition;
+        } else {
+            GetWindowRect(hwnd, &wr);
+        }
         cfg.pos_valid = true;
         cfg.win_x = wr.left;
         cfg.win_y = wr.top;
