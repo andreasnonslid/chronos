@@ -88,7 +88,7 @@ export HandleResult dispatch_action(App& app, int act, sc::time_point now,
         if (app.sw.is_running()) {
             app.sw.lap(now);
             if (!app.sw_lap_file.empty()) {
-                std::wofstream f(app.sw_lap_file, std::ios::app);
+                std::wofstream f(app.sw_lap_file.c_str(), std::ios::app);
                 if (f) {
                     const auto& laps = app.sw.laps();
                     auto n = laps.size();
