@@ -32,19 +32,52 @@ export struct GdiObj {
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 export struct Theme {
-    COLORREF bg       = RGB( 26,  26,  26);
-    COLORREF bar      = RGB( 35,  35,  38);
-    COLORREF btn      = RGB( 40,  40,  44);
-    COLORREF active   = RGB( 80,  80,  88);
-    COLORREF text     = RGB(204, 204, 204);
-    COLORREF dim      = RGB( 90,  90,  90);
-    COLORREF warn     = RGB(240, 140,  30);
-    COLORREF expire   = RGB(200,  50,  50);
-    COLORREF blink    = RGB(110, 110, 118);
-    COLORREF fill     = RGB( 38,  38,  50);
-    COLORREF fill_exp = RGB( 72,  18,  18);
+    COLORREF bg;
+    COLORREF bar;
+    COLORREF btn;
+    COLORREF active;
+    COLORREF text;
+    COLORREF dim;
+    COLORREF warn;
+    COLORREF expire;
+    COLORREF blink;
+    COLORREF fill;
+    COLORREF fill_exp;
+    COLORREF help_bg;
+    COLORREF divider;
 };
-export constexpr Theme theme;
+
+export constexpr Theme dark_theme{
+    .bg       = RGB( 26,  26,  26),
+    .bar      = RGB( 35,  35,  38),
+    .btn      = RGB( 40,  40,  44),
+    .active   = RGB( 80,  80,  88),
+    .text     = RGB(204, 204, 204),
+    .dim      = RGB( 90,  90,  90),
+    .warn     = RGB(240, 140,  30),
+    .expire   = RGB(200,  50,  50),
+    .blink    = RGB(110, 110, 118),
+    .fill     = RGB( 38,  38,  50),
+    .fill_exp = RGB( 72,  18,  18),
+    .help_bg  = RGB( 20,  20,  20),
+    .divider  = RGB( 50,  50,  55),
+};
+
+export constexpr Theme light_theme{
+    .bg       = RGB(243, 243, 243),
+    .bar      = RGB(228, 228, 232),
+    .btn      = RGB(214, 214, 220),
+    .active   = RGB(175, 175, 188),
+    .text     = RGB( 28,  28,  28),
+    .dim      = RGB(138, 138, 138),
+    .warn     = RGB(196,  90,   0),
+    .expire   = RGB(196,  36,  36),
+    .blink    = RGB(168, 168, 178),
+    .fill     = RGB(208, 208, 230),
+    .fill_exp = RGB(240, 196, 196),
+    .help_bg  = RGB(232, 232, 232),
+    .divider  = RGB(198, 198, 208),
+};
 
 // ─── Blink duration ──────────────────────────────────────────────────────────
 export constexpr auto BLINK_DUR = std::chrono::milliseconds{120};
@@ -53,6 +86,7 @@ export constexpr auto BLINK_DUR = std::chrono::milliseconds{120};
 export struct PaintCtx {
     App&    app;
     Layout& layout;
+    const Theme& theme;
     std::vector<std::pair<RECT,int>>& btns;
     HFONT  fontBig;
     HFONT  fontLarge;
@@ -91,7 +125,7 @@ static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
     RoundRect(hdc, r.left, r.top, r.right, r.bottom, rr, rr);
     SelectObject(hdc, obr); SelectObject(hdc, opn);
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, theme.text);
+    SetTextColor(hdc, ctx.theme.text);
     DrawTextW(hdc, label, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     if (id) ctx.btns.push_back({r, id});
     return r;
@@ -127,7 +161,7 @@ static int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
     GetLocalTime(&st);
     auto buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
     SelectObject(hdc, ctx.fontBig);
-    SetTextColor(hdc, theme.text);
+    SetTextColor(hdc, ctx.theme.text);
     RECT tr{0, y, cw, y + layout.clk_h};
     DrawTextW(hdc, buf.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     return y + layout.clk_h;
@@ -135,12 +169,13 @@ static int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
 
 static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point now) {
     auto& layout = ctx.layout;
+    auto& th = ctx.theme;
     divider(hdc, y, cw, ctx);
     auto elap = ctx.app.sw.elapsed(now);
     std::wstring etime = format_stopwatch_display(elap);
 
     SelectObject(hdc, ctx.fontBig);
-    SetTextColor(hdc, theme.text);
+    SetTextColor(hdc, th.text);
     RECT tr{0, y + layout.dpi_scale(4), cw, y + layout.dpi_scale(44)};
     DrawTextW(hdc, etime.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
@@ -156,8 +191,8 @@ static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point
     bool has_file = !ctx.app.sw_lap_file.empty();
     int  gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
     auto lap_label = ctx.app.lap_write_failed ? L"Get Laps (!)" : L"Get Laps";
-    auto lap_col = ctx.app.lap_write_failed ? theme.expire
-                 : has_file ? theme.btn : theme.dim;
+    auto lap_col = ctx.app.lap_write_failed ? th.expire
+                 : has_file ? th.btn : th.dim;
     btn(hdc, {(cw-gbw)/2, by0+bh+layout.dpi_scale(4), (cw+gbw)/2, by0+bh+layout.dpi_scale(4)+gbh},
         false, lap_label, has_file ? A_SW_GET : 0, ctx, lap_col);
     return y + layout.sw_h;
@@ -165,6 +200,7 @@ static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point
 
 static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point now) {
     auto& layout = ctx.layout;
+    auto& th = ctx.theme;
     int abw = layout.dpi_scale(34), abh = layout.dpi_scale(16), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
     int up_off = layout.dpi_scale(4);
     int td_off = up_off + abh + layout.dpi_scale(2);
@@ -202,12 +238,12 @@ static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point no
 
         std::wstring tstr = touched ? format_timer_display(ts.t.remaining(now))
                                     : format_timer_edit(duration_cast<Timer::dur>(ts.dur));
-        COLORREF tcol = expired ? theme.expire
-            : (touched && ts.t.remaining(now) < 10s) ? theme.warn
-            : theme.text;
+        COLORREF tcol = expired ? th.expire
+            : (touched && ts.t.remaining(now) < 10s) ? th.warn
+            : th.text;
         if (touched) {
             SelectObject(hdc, ctx.fontSm);
-            SetTextColor(hdc, theme.dim);
+            SetTextColor(hdc, th.dim);
             std::wstring sstr = format_timer_edit(duration_cast<Timer::dur>(ts.dur));
             RECT sr{0, y + up_off, cw, y + up_off + layout.dpi_scale(20)};
             DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -223,7 +259,7 @@ static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point no
         }
 
         SelectObject(hdc, ctx.fontSm);
-        SetTextColor(hdc, theme.text);
+        SetTextColor(hdc, th.text);
         if (!touched) {
             btn(hdc, {hh_cx-abw/2, y+dn_off, hh_cx+abw/2, y+dn_off+abh}, false, L"\u25BC", tmr_act(i, A_TMR_HDN), ctx);
             btn(hdc, {mm_cx-abw/2, y+dn_off, mm_cx+abw/2, y+dn_off+abh}, false, L"\u25BC", tmr_act(i, A_TMR_MDN), ctx);
@@ -257,7 +293,7 @@ static void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
     FillRect(hdc, &cr, ctx.brHelp);
 
     SelectObject(hdc, ctx.fontSm);
-    SetTextColor(hdc, theme.text);
+    SetTextColor(hdc, ctx.theme.text);
 
     struct { const wchar_t* key; const wchar_t* desc; } shortcuts[] = {
         {L"Space", L"Start/Stop stopwatch or first timer"},
