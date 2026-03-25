@@ -57,9 +57,12 @@ if(BUILD_TESTS)
         tests/test_config.cpp
         tests/test_formatting.cpp
         tests/test_layout.cpp
+        tests/test_actions.cpp
     )
     target_sources(chronos_tests PRIVATE
         FILE_SET CXX_MODULES FILES
+            src/actions.ixx
+            src/app.ixx
             src/config.ixx
             src/formatting.ixx
             src/layout.ixx
