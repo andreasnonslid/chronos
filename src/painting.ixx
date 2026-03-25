@@ -235,7 +235,7 @@ static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point no
             FillRect(hdc, &fr, fillbr);
         }
 
-        int col_gap = layout.dpi_scale(42);
+        int col_gap = layout.dpi_scale(52);
         int hh_cx = cw/2 - col_gap, mm_cx = cw/2, ss_cx = cw/2 + col_gap;
 
         SelectObject(hdc, ctx.fontSm);
@@ -275,13 +275,14 @@ static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point no
             SetTextColor(hdc, tcol);
             // Draw each field (H, MM, SS) centered over its column so arrows align
             int field_h = layout.dpi_scale(40);
+            int field_half = layout.dpi_scale(22);
             long long total_s_edit = ts.dur.count();
             auto h_s  = std::format(L"{}", total_s_edit / 3600);
             auto mm_s = std::format(L"{:02}", (total_s_edit / 60) % 60);
             auto ss_s = std::format(L"{:02}", total_s_edit % 60);
-            RECT hr{hh_cx - abw/2, y + td_off, hh_cx + abw/2, y + td_off + field_h};
-            RECT mr{mm_cx - abw/2, y + td_off, mm_cx + abw/2, y + td_off + field_h};
-            RECT sr{ss_cx - abw/2, y + td_off, ss_cx + abw/2, y + td_off + field_h};
+            RECT hr{hh_cx - field_half, y + td_off, hh_cx + field_half, y + td_off + field_h};
+            RECT mr{mm_cx - field_half, y + td_off, mm_cx + field_half, y + td_off + field_h};
+            RECT sr{ss_cx - field_half, y + td_off, ss_cx + field_half, y + td_off + field_h};
             DrawTextW(hdc, h_s.c_str(),  -1, &hr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             DrawTextW(hdc, mm_s.c_str(), -1, &mr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             DrawTextW(hdc, ss_s.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
