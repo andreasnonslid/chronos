@@ -132,9 +132,9 @@ export HandleResult dispatch_action(App& app, int act, sc::time_point now, const
             if (idx < 0 || idx >= (int)app.timers.size()) break;
             auto& ts = app.timers[idx];
             if (off == A_TMR_START) {
-                if (!ts.t.touched())
-                    ts.t.start(now);
-                else if (ts.t.is_running())
+                if (!ts.t.touched()) {
+                    if (ts.dur.count() > 0) ts.t.start(now);
+                } else if (ts.t.is_running())
                     ts.t.pause(now);
                 else
                     ts.t.start(now);

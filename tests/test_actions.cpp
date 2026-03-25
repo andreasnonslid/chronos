@@ -245,7 +245,7 @@ TEST_CASE("A_TMR_SDN wraps 0 to 59", "[actions]") {
 // ─── adjustments ignored on touched timer ────────────────────────────────────
 
 TEST_CASE("Timer adjustments ignored when timer is touched", "[actions]") {
-    App app; // default 0h 1m 0s
+    App app;                                                 // default 0h 1m 0s
     dispatch_action(app, tmr_act(0, A_TMR_START), t0(), {}); // start → touched
     REQUIRE(app.timers[0].t.touched());
     auto dur_before = app.timers[0].dur;
@@ -327,6 +327,16 @@ TEST_CASE("A_TMR_DEL does not remove last timer", "[actions]") {
     auto r = dispatch_action(app, tmr_act(0, A_TMR_DEL), t0(), {});
     REQUIRE(app.timers.size() == 1);
     REQUIRE_FALSE(r.resize);
+}
+
+// ─── zero-duration timer guard ───────────────────────────────────────────────
+
+TEST_CASE("A_TMR_START does not start untouched zero-duration timer", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{0});
+    dispatch_action(app, tmr_act(0, A_TMR_START), t0(), {});
+    REQUIRE_FALSE(app.timers[0].t.touched());
+    REQUIRE_FALSE(app.timers[0].t.is_running());
 }
 
 // ─── out-of-range index ──────────────────────────────────────────────────────
