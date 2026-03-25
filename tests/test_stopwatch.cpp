@@ -43,6 +43,18 @@ TEST_CASE("Stopwatch lap recording", "[stopwatch]") {
     REQUIRE(sw.laps()[1] == milliseconds(250));
 }
 
+TEST_CASE("Stopwatch cumulative lap time", "[stopwatch]") {
+    Stopwatch sw;
+    sw.start(at_ms(0));
+    REQUIRE(sw.cumulative() == dur::zero());
+    sw.lap(at_ms(100));
+    REQUIRE(sw.cumulative() == milliseconds(100));
+    sw.lap(at_ms(350));
+    REQUIRE(sw.cumulative() == milliseconds(350));
+    sw.reset();
+    REQUIRE(sw.cumulative() == dur::zero());
+}
+
 TEST_CASE("Stopwatch lap ignored when not running", "[stopwatch]") {
     Stopwatch sw;
     sw.lap(at_ms(100));
