@@ -13,7 +13,6 @@ export HICON create_app_icon(int size) {
     HBITMAP mask  = CreateBitmap(size, size, 1, 1, nullptr);
     auto* old = SelectObject(mdc, color);
 
-    HBRUSH bg = CreateSolidBrush(RGB(26, 26, 26));
     HBRUSH face = CreateSolidBrush(RGB(60, 60, 66));
     HPEN outline = CreatePen(PS_SOLID, 1, RGB(100, 100, 110));
     HPEN hand = CreatePen(PS_SOLID, size > 20 ? 2 : 1, RGB(204, 204, 204));
@@ -47,7 +46,6 @@ export HICON create_app_icon(int size) {
     Ellipse(mdc2, 1, 1, size - 1, size - 1);
     DeleteDC(mdc2);
 
-    DeleteObject(bg);
     DeleteObject(face);
     DeleteObject(outline);
     DeleteObject(hand);
