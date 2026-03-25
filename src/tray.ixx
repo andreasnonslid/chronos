@@ -20,7 +20,8 @@ export void tray_add(HWND hwnd, HICON icon) {
     nid.uFlags           = NIF_ICON | NIF_TIP | NIF_MESSAGE;
     nid.uCallbackMessage = WM_TRAYICON;
     nid.hIcon            = icon;
-    wcscpy(nid.szTip, L"Chronos");
+    wcsncpy(nid.szTip, L"Chronos", 127);
+    nid.szTip[127] = L'\0';
     Shell_NotifyIconW(NIM_ADD, &nid);
 }
 
@@ -31,6 +32,7 @@ export void tray_update_tip(HWND hwnd, const wchar_t* tip) {
     nid.uID    = TRAY_UID;
     nid.uFlags = NIF_TIP;
     wcsncpy(nid.szTip, tip, 127);
+    nid.szTip[127] = L'\0';
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
@@ -41,7 +43,9 @@ export void tray_notify(HWND hwnd, const wchar_t* title, const wchar_t* msg) {
     nid.uID         = TRAY_UID;
     nid.uFlags      = NIF_INFO;
     wcsncpy(nid.szInfoTitle, title, 63);
+    nid.szInfoTitle[63] = L'\0';
     wcsncpy(nid.szInfo, msg, 255);
+    nid.szInfo[255] = L'\0';
     nid.dwInfoFlags = NIIF_INFO;
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
