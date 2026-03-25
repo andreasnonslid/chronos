@@ -4,13 +4,9 @@ import formatting;
 
 using namespace std::chrono;
 
-static steady_duration dur_ms(long long ms) {
-    return duration_cast<steady_duration>(milliseconds(ms));
-}
+static steady_duration dur_ms(long long ms) { return duration_cast<steady_duration>(milliseconds(ms)); }
 
-static steady_duration dur_s(long long s) {
-    return duration_cast<steady_duration>(seconds(s));
-}
+static steady_duration dur_s(long long s) { return duration_cast<steady_duration>(seconds(s)); }
 
 // ── format_stopwatch_short ──────────────────────────────────────────────────
 
@@ -63,13 +59,9 @@ TEST_CASE("format_timer_display: zero", "[formatting]") {
     REQUIRE(format_timer_display(steady_duration::zero()) == L"00:00");
 }
 
-TEST_CASE("format_timer_display: 1 second", "[formatting]") {
-    REQUIRE(format_timer_display(dur_s(1)) == L"00:01");
-}
+TEST_CASE("format_timer_display: 1 second", "[formatting]") { REQUIRE(format_timer_display(dur_s(1)) == L"00:01"); }
 
-TEST_CASE("format_timer_display: 60 seconds", "[formatting]") {
-    REQUIRE(format_timer_display(dur_s(60)) == L"01:00");
-}
+TEST_CASE("format_timer_display: 60 seconds", "[formatting]") { REQUIRE(format_timer_display(dur_s(60)) == L"01:00"); }
 
 TEST_CASE("format_timer_display: >= 1 hour switches to HH:MM:SS", "[formatting]") {
     REQUIRE(format_timer_display(dur_s(3600)) == L"01:00:00");
@@ -82,13 +74,9 @@ TEST_CASE("format_timer_edit: zero", "[formatting]") {
     REQUIRE(format_timer_edit(steady_duration::zero()) == L"0:00:00");
 }
 
-TEST_CASE("format_timer_edit: 1 minute", "[formatting]") {
-    REQUIRE(format_timer_edit(dur_s(60)) == L"0:01:00");
-}
+TEST_CASE("format_timer_edit: 1 minute", "[formatting]") { REQUIRE(format_timer_edit(dur_s(60)) == L"0:01:00"); }
 
-TEST_CASE("format_timer_edit: 2.5 hours", "[formatting]") {
-    REQUIRE(format_timer_edit(dur_s(9000)) == L"2:30:00");
-}
+TEST_CASE("format_timer_edit: 2.5 hours", "[formatting]") { REQUIRE(format_timer_edit(dur_s(9000)) == L"2:30:00"); }
 
 // ── format_lap_row ──────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@
 import timer;
 
 using namespace std::chrono;
-using tp  = steady_clock::time_point;
+using tp = steady_clock::time_point;
 using dur = steady_clock::duration;
 
 static tp epoch() { return tp{}; }

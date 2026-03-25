@@ -4,21 +4,21 @@ module;
 export module stopwatch;
 
 export struct Stopwatch {
-    using tp  = std::chrono::steady_clock::time_point;
+    using tp = std::chrono::steady_clock::time_point;
     using dur = std::chrono::steady_clock::duration;
 
     void start(tp now) {
         if (!running_) {
-            start_time_    = now;
+            start_time_ = now;
             last_lap_time_ = now;
-            running_       = true;
+            running_ = true;
         }
     }
 
     void stop(tp now) {
         if (running_) {
             accumulated_ += now - start_time_;
-            running_      = false;
+            running_ = false;
         }
     }
 
@@ -26,22 +26,21 @@ export struct Stopwatch {
         if (running_) {
             laps_.push_back(now - last_lap_time_);
             last_lap_time_ = now;
-            cumulative_   += laps_.back();
+            cumulative_ += laps_.back();
         }
     }
 
     void reset() {
-        running_       = false;
-        start_time_    = {};
+        running_ = false;
+        start_time_ = {};
         last_lap_time_ = {};
-        accumulated_   = {};
-        cumulative_    = {};
+        accumulated_ = {};
+        cumulative_ = {};
         laps_.clear();
     }
 
     dur elapsed(tp now) const {
-        if (running_)
-            return accumulated_ + (now - start_time_);
+        if (running_) return accumulated_ + (now - start_time_);
         return accumulated_;
     }
 
@@ -51,11 +50,11 @@ export struct Stopwatch {
 
     dur cumulative() const { return cumulative_; }
 
-private:
-    bool             running_       = false;
-    tp               start_time_    = {};
-    tp               last_lap_time_ = {};
-    dur              accumulated_   = {};
-    dur              cumulative_    = {};
+  private:
+    bool running_ = false;
+    tp start_time_ = {};
+    tp last_lap_time_ = {};
+    dur accumulated_ = {};
+    dur cumulative_ = {};
     std::vector<dur> laps_;
 };

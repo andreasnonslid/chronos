@@ -10,7 +10,9 @@ namespace {
 struct GdiObj {
     HGDIOBJ h;
     explicit GdiObj(HGDIOBJ h) : h(h) {}
-    ~GdiObj() { if (h) DeleteObject(h); }
+    ~GdiObj() {
+        if (h) DeleteObject(h);
+    }
     GdiObj(const GdiObj&) = delete;
     GdiObj& operator=(const GdiObj&) = delete;
     operator HGDIOBJ() const { return h; }
@@ -21,7 +23,7 @@ export HICON create_app_icon(int size) {
     HDC screen = GetDC(nullptr);
     HDC mdc = CreateCompatibleDC(screen);
     HBITMAP color = CreateCompatibleBitmap(screen, size, size);
-    HBITMAP mask  = CreateBitmap(size, size, 1, 1, nullptr);
+    HBITMAP mask = CreateBitmap(size, size, 1, 1, nullptr);
     auto* old = SelectObject(mdc, color);
 
     GdiObj face{CreateSolidBrush(RGB(60, 60, 66))};
@@ -62,8 +64,8 @@ export HICON create_app_icon(int size) {
     ReleaseDC(nullptr, screen);
 
     ICONINFO ii{};
-    ii.fIcon    = TRUE;
-    ii.hbmMask  = mask;
+    ii.fIcon = TRUE;
+    ii.hbmMask = mask;
     ii.hbmColor = color;
     HICON icon = CreateIconIndirect(&ii);
     DeleteObject(color);
