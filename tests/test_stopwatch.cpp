@@ -86,3 +86,14 @@ TEST_CASE("Stopwatch stop when not running is a no-op", "[stopwatch]") {
     REQUIRE_FALSE(sw.is_running());
     REQUIRE(sw.elapsed(at_ms(200)) == dur::zero());
 }
+
+TEST_CASE("Stopwatch lap split is correct after pause/resume", "[stopwatch]") {
+    Stopwatch sw;
+    sw.start(at_ms(0));
+    sw.lap(at_ms(1000));
+    sw.stop(at_ms(2000));
+    sw.start(at_ms(5000));
+    sw.lap(at_ms(6000));
+    REQUIRE(sw.laps()[1] == milliseconds(2000));
+    REQUIRE(sw.cumulative() == milliseconds(3000));
+}
