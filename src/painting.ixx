@@ -226,7 +226,7 @@ static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point no
             FillRect(hdc, &fr, fillbr);
         }
 
-        int col_gap = layout.dpi_scale(34);
+        int col_gap = layout.dpi_scale(42);
         int hh_cx = cw/2 - col_gap, mm_cx = cw/2, ss_cx = cw/2 + col_gap;
 
         SelectObject(hdc, ctx.fontSm);
@@ -264,8 +264,25 @@ static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point no
             }
             SelectObject(hdc, ctx.fontBig);
             SetTextColor(hdc, tcol);
-            RECT tr2{0, y + td_off, cw, y + td_off + layout.dpi_scale(40)};
-            DrawTextW(hdc, tstr.c_str(), -1, &tr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            // Draw each field (H, MM, SS) centered over its column so arrows align
+            int field_h = layout.dpi_scale(40);
+            long long total_s_edit = ts.dur.count();
+            auto h_s  = std::format(L"{}", total_s_edit / 3600);
+            auto mm_s = std::format(L"{:02}", (total_s_edit / 60) % 60);
+            auto ss_s = std::format(L"{:02}", total_s_edit % 60);
+            RECT hr{hh_cx - abw/2, y + td_off, hh_cx + abw/2, y + td_off + field_h};
+            RECT mr{mm_cx - abw/2, y + td_off, mm_cx + abw/2, y + td_off + field_h};
+            RECT sr{ss_cx - abw/2, y + td_off, ss_cx + abw/2, y + td_off + field_h};
+            DrawTextW(hdc, h_s.c_str(),  -1, &hr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            DrawTextW(hdc, mm_s.c_str(), -1, &mr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            DrawTextW(hdc, ss_s.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            int sep_w = layout.dpi_scale(8);
+            int sep1_cx = (hh_cx + mm_cx) / 2;
+            int sep2_cx = (mm_cx + ss_cx) / 2;
+            RECT sep1r{sep1_cx - sep_w/2, y + td_off, sep1_cx + sep_w/2, y + td_off + field_h};
+            RECT sep2r{sep2_cx - sep_w/2, y + td_off, sep2_cx + sep_w/2, y + td_off + field_h};
+            DrawTextW(hdc, L":", -1, &sep1r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            DrawTextW(hdc, L":", -1, &sep2r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         }
 
         SelectObject(hdc, ctx.fontSm);
