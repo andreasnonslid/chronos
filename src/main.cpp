@@ -99,7 +99,7 @@ static std::filesystem::path config_path() {
 }
 
 static void save_config(HWND hwnd, const WndState& s) {
-    auto path = config_path();
+    const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] save_config: {}", path.wstring()));
     std::ofstream f(path);
     if (!f) { dbg(L"[chrono] save_config: open failed"); return; }
@@ -132,7 +132,7 @@ static void save_config(HWND hwnd, const WndState& s) {
 }
 
 static void load_config(HWND hwnd, WndState& s) {
-    auto path = config_path();
+    const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] load_config: {}", path.wstring()));
     std::ifstream f(path);
     if (!f) { dbg(L"[chrono] no config, using defaults"); return; }
@@ -207,7 +207,7 @@ static void handle(HWND hwnd, int act, WndState& s) {
     auto now = sc::now();
     if (wants_blink(act)) { s.app.blink_act = act; s.app.blink_t = now; }
 
-    auto r = dispatch_action(s.app, act, now, config_path().parent_path());
+    auto r = dispatch_action(s.app, act, now, s.cfg_path.parent_path());
 
     if (r.set_topmost)
         SetWindowPos(hwnd, s.app.topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
@@ -246,6 +246,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR,
                               &dwm_dark, sizeof(dwm_dark));
         s->tray_icon = create_app_icon(16);
+        s->cfg_path = config_path();
         load_config(hwnd, *s);
         resize_window(hwnd, *s);
         state.release();

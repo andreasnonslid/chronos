@@ -4,6 +4,7 @@ module;
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
+#include <filesystem>
 #include <utility>
 #include <vector>
 export module wndstate;
@@ -22,6 +23,7 @@ static HFONT make_font(int pt, bool bold, const Layout& layout) {
 export struct WndState {
     App    app;
     Layout layout;
+    std::filesystem::path cfg_path;
     const Theme* active_theme = &dark_theme;
     std::vector<std::pair<RECT,int>> btns;
     HFONT  hFontBig   = nullptr;
