@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  workflow_call:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MSYS2 + toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-clang
+            mingw-w64-x86_64-lld
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            git
+
+      - name: Check formatting
+        shell: msys2 {0}
+        run: clang-format --dry-run --Werror src/*.cpp src/*.ixx tests/*.cpp
+
+      - name: Build & Test
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON
+          cmake --build build
+          cd build && ctest --output-on-failure
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronos
+          path: build/chronos.exe
