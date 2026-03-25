@@ -366,6 +366,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_LBUTTONDBLCLK: {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+        for (auto& [r, id] : s->btns)
+            if (PtInRect(&r, pt)) { handle(hwnd, id, *s); return 0; }
         int idx = timer_index_at_y(*s, pt.y);
         if (idx >= 0) {
             auto& ts = s->app.timers[idx];
