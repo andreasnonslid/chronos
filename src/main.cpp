@@ -438,6 +438,24 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     }
+    case WM_MOUSEWHEEL: {
+        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+        ScreenToClient(hwnd, &pt);
+        int idx = timer_index_at_y(*s, pt.y);
+        if (idx >= 0 && !s->app.timers[idx].t.touched()) {
+            int delta = GET_WHEEL_DELTA_WPARAM(wp);
+            bool up = delta > 0;
+            int off;
+            if (GetKeyState(VK_CONTROL) & 0x8000)
+                off = up ? A_TMR_HUP : A_TMR_HDN;
+            else if (GetKeyState(VK_SHIFT) & 0x8000)
+                off = up ? A_TMR_SUP : A_TMR_SDN;
+            else
+                off = up ? A_TMR_MUP : A_TMR_MDN;
+            handle(hwnd, tmr_act(idx, off), *s);
+        }
+        return 0;
+    }
     case WM_KEYDOWN: {
         switch (wp) {
         case VK_SPACE:
