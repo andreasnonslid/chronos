@@ -27,103 +27,26 @@ static void load_dpi_apis() {
 #include <format>
 #include <fstream>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 #include <cstdio>
+import actions;
+import app;
 import config;
 import formatting;
 import layout;
+import painting;
 import stopwatch;
 import timer;
 
 using namespace std::chrono;
 using sc = steady_clock;
 
-// ─── RAII wrapper for GDI objects ────────────────────────────────────────────
-struct GdiObj {
-    HGDIOBJ h;
-    explicit GdiObj(HGDIOBJ h) : h(h) {}
-    ~GdiObj() { if (h) DeleteObject(h); }
-    GdiObj(const GdiObj&) = delete;
-    GdiObj& operator=(const GdiObj&) = delete;
-    operator HGDIOBJ() const { return h; }
-};
-
-// ─── Theme ────────────────────────────────────────────────────────────────────
-struct Theme {
-    COLORREF bg       = RGB( 26,  26,  26);
-    COLORREF bar      = RGB( 35,  35,  38);
-    COLORREF btn      = RGB( 40,  40,  44);
-    COLORREF active   = RGB( 80,  80,  88);
-    COLORREF text     = RGB(204, 204, 204);
-    COLORREF dim      = RGB( 90,  90,  90);
-    COLORREF warn     = RGB(240, 140,  30);
-    COLORREF expire   = RGB(200,  50,  50);
-    COLORREF blink    = RGB(110, 110, 118);
-    COLORREF fill     = RGB( 38,  38,  50);
-    COLORREF fill_exp = RGB( 72,  18,  18);
-};
-static constexpr Theme theme;
-
 // ─── Named constants ─────────────────────────────────────────────────────────
 constexpr DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR = 20;
 constexpr int POLL_STOPWATCH_MS = 20;
 constexpr int POLL_TIMER_MS    = 100;
 constexpr int POLL_IDLE_MS     = 1000;
-constexpr int STANDARD_DPI     = 96;
-constexpr long long TIMER_MIN_SECS = 0;
-constexpr long long TIMER_MAX_SECS = 86400;
-
-// ─── Blink ────────────────────────────────────────────────────────────────────
-constexpr auto BLINK_DUR = std::chrono::milliseconds{120};
-
-// Use Config::MAX_TIMERS everywhere (defined in config.ixx)
-
-// ─── Action IDs ───────────────────────────────────────────────────────────────
-enum Act {
-    A_TOPMOST = 1, A_SHOW_CLK, A_SHOW_SW, A_SHOW_TMR,
-    A_SW_START, A_SW_LAP, A_SW_RESET, A_SW_GET,
-    A_TMR_BASE = 100,
-};
-constexpr int TMR_STRIDE  = 10;
-constexpr int A_TMR_HUP   = 0;
-constexpr int A_TMR_HDN   = 1;
-constexpr int A_TMR_MUP   = 2;
-constexpr int A_TMR_MDN   = 3;
-constexpr int A_TMR_SUP   = 4;
-constexpr int A_TMR_SDN   = 5;
-constexpr int A_TMR_START = 6;
-constexpr int A_TMR_RST   = 7;
-constexpr int A_TMR_ADD   = 8;
-constexpr int A_TMR_DEL   = 9;
-
-static int tmr_act(int i, int off) { return A_TMR_BASE + i * TMR_STRIDE + off; }
-
-// ─── Domain wrappers ──────────────────────────────────────────────────────────
-struct TimerSlot {
-    Timer   t;
-    seconds dur{60s};
-    bool    notified = false;  // true once expiry alert has fired
-};
-
-struct App {
-    Stopwatch              sw;
-    std::wstring           sw_lap_file;
-    std::vector<TimerSlot> timers;
-    bool show_clk  = true;
-    bool show_sw   = true;
-    bool show_tmr  = true;
-    bool topmost   = false;
-    bool show_help = false;
-    bool lap_write_failed = false;
-    int  blink_act = 0;
-    sc::time_point blink_t{};
-    App() {
-        timers.resize(1);
-        for (auto& ts : timers) ts.t.set(ts.dur);
-    }
-};
 
 // ─── Per-window state (stored via GWLP_USERDATA) ─────────────────────────────
 struct WndState {
@@ -136,7 +59,6 @@ struct WndState {
     bool   fonts_custom = false;
     int    timer_ms   = 100;
 
-    // Pre-created GDI objects for common colors (avoid churn in paint loop)
     HBRUSH brBg      = nullptr;
     HBRUSH brBar     = nullptr;
     HBRUSH brBtn     = nullptr;
@@ -181,7 +103,6 @@ struct WndState {
     WndState& operator=(const WndState&) = delete;
     WndState() = default;
 
-    // Cached double-buffer DC and bitmap (#52)
     HDC     mdc     = nullptr;
     HBITMAP buf_bmp = nullptr;
     int     buf_w   = 0, buf_h = 0;
@@ -195,6 +116,17 @@ struct WndState {
             SelectObject(mdc, buf_bmp);
             buf_w = w; buf_h = h;
         }
+    }
+
+    PaintCtx paint_ctx() {
+        return {
+            .app = app, .layout = layout, .btns = btns,
+            .fontBig = hFontBig, .fontLarge = hFontLarge, .fontSm = hFontSm,
+            .brBg = brBg, .brBar = brBar, .brBtn = brBtn,
+            .brActive = brActive, .brBlink = brBlink,
+            .brFill = brFill, .brFillExp = brFillExp, .brHelp = brHelp,
+            .pnNull = pnNull, .pnDivider = pnDivider,
+        };
     }
 };
 
@@ -233,14 +165,12 @@ static void dbg(const std::wstring& msg) {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 static std::filesystem::path config_path() {
-    // Prefer %APPDATA%/Chronos/ for config
     if (auto* appdata = _wgetenv(L"APPDATA")) {
         auto dir = std::filesystem::path{appdata} / L"Chronos";
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         if (!ec) return dir / L"config.ini";
     }
-    // Fallback: next to exe (portable mode)
     wchar_t exe[MAX_PATH] = {};
     GetModuleFileNameW(nullptr, exe, MAX_PATH);
     return std::filesystem::path{exe}.parent_path() / "config.ini";
@@ -294,20 +224,17 @@ static void load_config(HWND hwnd, WndState& s) {
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     if (cfg.pos_valid) {
         RECT cur; GetWindowRect(hwnd, &cur);
-        // Clamp restored width against the DPI-scaled minimum
         DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
         RECT adj{0, 0, s.layout.bar_min_client_w(), 0};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         int min_w = adj.right - adj.left;
         int w = cfg.win_w < min_w ? min_w : cfg.win_w;
-        // Validate position against current monitor geometry (#57)
         RECT test{cfg.win_x, cfg.win_y, cfg.win_x + w, cfg.win_y + 1};
         HMONITOR hmon = MonitorFromRect(&test, MONITOR_DEFAULTTONULL);
         if (hmon) {
             SetWindowPos(hwnd, nullptr, cfg.win_x, cfg.win_y,
                          w, cur.bottom - cur.top, SWP_NOZORDER);
         } else {
-            // Position is off-screen — apply saved width at default position
             SetWindowPos(hwnd, nullptr, 0, 0,
                          w, cur.bottom - cur.top, SWP_NOZORDER | SWP_NOMOVE);
         }
@@ -350,42 +277,6 @@ static int nonclient_height(HWND hwnd) {
     return (wr.bottom - wr.top) - cr.bottom;
 }
 
-// Draw a rounded button, record rect for hit testing, return rect.
-static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id,
-                WndState& s, std::optional<COLORREF> override_col = std::nullopt) {
-    auto& layout = s.layout;
-    bool blinking = id && s.app.blink_act == id &&
-                    (sc::now() - s.app.blink_t) < BLINK_DUR;
-    // Use cached brushes for standard colors, create only for overrides
-    HBRUSH brush;
-    GdiObj dyn_br{nullptr};
-    if (blinking) {
-        brush = s.brBlink;
-    } else if (override_col.has_value()) {
-        dyn_br.h = CreateSolidBrush(*override_col);
-        brush = (HBRUSH)dyn_br.h;
-    } else {
-        brush = active ? s.brActive : s.brBtn;
-    }
-    auto*  obr = (HBRUSH)SelectObject(hdc, brush);
-    auto*  opn = (HPEN)  SelectObject(hdc, s.pnNull);
-    int rr = layout.dpi_scale(6);
-    RoundRect(hdc, r.left, r.top, r.right, r.bottom, rr, rr);
-    SelectObject(hdc, obr); SelectObject(hdc, opn);
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, theme.text);
-    DrawTextW(hdc, label, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    if (id) s.btns.push_back({r, id});
-    return r;
-}
-
-static void divider(HDC hdc, int y, int cw, const WndState& s) {
-    auto* op = (HPEN)SelectObject(hdc, s.pnDivider);
-    MoveToEx(hdc, 0, y, nullptr);
-    LineTo(hdc, cw, y);
-    SelectObject(hdc, op);
-}
-
 static void resize_window(HWND hwnd, const WndState& s) {
     RECT wr;
     GetWindowRect(hwnd, &wr);
@@ -395,326 +286,7 @@ static void resize_window(HWND hwnd, const WndState& s) {
                  SWP_NOMOVE | SWP_NOZORDER);
 }
 
-// ─── Paint sub-functions ──────────────────────────────────────────────────────
-
-static int paint_bar(HDC hdc, int cw, int y, WndState& s) {
-    auto& layout = s.layout;
-    RECT bar{0, 0, cw, layout.bar_h};
-    FillRect(hdc, &bar, s.brBar);
-
-    SelectObject(hdc, s.hFontSm);
-    int by = (layout.bar_h - layout.btn_h) / 2;
-    int bx = (cw - (layout.w_pin + layout.w_clk + layout.w_sw + layout.w_tmr + 3*layout.bar_gap)) / 2;
-    btn(hdc, {bx, by, bx+layout.w_pin, by+layout.btn_h}, s.app.topmost,  L"Pin",       A_TOPMOST, s);  bx += layout.w_pin+layout.bar_gap;
-    btn(hdc, {bx, by, bx+layout.w_clk, by+layout.btn_h}, s.app.show_clk, L"Clock",     A_SHOW_CLK, s); bx += layout.w_clk+layout.bar_gap;
-    btn(hdc, {bx, by, bx+layout.w_sw,  by+layout.btn_h}, s.app.show_sw,  L"Stopwatch", A_SHOW_SW, s);  bx += layout.w_sw +layout.bar_gap;
-    btn(hdc, {bx, by, bx+layout.w_tmr, by+layout.btn_h}, s.app.show_tmr, L"Timers",    A_SHOW_TMR, s);
-    return layout.bar_h;
-}
-
-static int paint_clock(HDC hdc, int cw, int y, WndState& s) {
-    auto& layout = s.layout;
-    divider(hdc, y, cw, s);
-    SYSTEMTIME st;
-    GetLocalTime(&st);
-    auto buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
-    SelectObject(hdc, s.hFontBig);
-    SetTextColor(hdc, theme.text);
-    RECT tr{0, y, cw, y + layout.clk_h};
-    DrawTextW(hdc, buf.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    return y + layout.clk_h;
-}
-
-static int paint_stopwatch(HDC hdc, int cw, int y, WndState& s, sc::time_point now) {
-    auto& layout = s.layout;
-    divider(hdc, y, cw, s);
-    auto elap = s.app.sw.elapsed(now);
-    std::wstring etime = format_stopwatch_display(elap);
-
-    SelectObject(hdc, s.hFontBig);
-    SetTextColor(hdc, theme.text);
-    RECT tr{0, y + layout.dpi_scale(4), cw, y + layout.dpi_scale(44)};
-    DrawTextW(hdc, etime.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-    SelectObject(hdc, s.hFontSm);
-    bool running = s.app.sw.is_running();
-    int  bw = layout.dpi_scale(76), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
-    int  bx0 = (cw - 3*bw - 2*gap) / 2;
-    int  by0 = y + layout.dpi_scale(46);
-    btn(hdc, {bx0,            by0, bx0+bw,          by0+bh}, running, running ? L"Stop" : L"Start", A_SW_START, s);
-    btn(hdc, {bx0+bw+gap,     by0, bx0+2*bw+gap,    by0+bh}, false,   L"Lap",                       A_SW_LAP, s);
-    btn(hdc, {bx0+2*(bw+gap), by0, bx0+3*bw+2*gap,  by0+bh}, false,   L"Reset",                     A_SW_RESET, s);
-
-    bool has_file = !s.app.sw_lap_file.empty();
-    int  gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
-    auto lap_label = s.app.lap_write_failed ? L"Get Laps (!)" : L"Get Laps";
-    auto lap_col = s.app.lap_write_failed ? theme.expire
-                 : has_file ? theme.btn : theme.dim;
-    btn(hdc, {(cw-gbw)/2, by0+bh+layout.dpi_scale(4), (cw+gbw)/2, by0+bh+layout.dpi_scale(4)+gbh},
-        false, lap_label, has_file ? A_SW_GET : 0, s, lap_col);
-    return y + layout.sw_h;
-}
-
-static int paint_timers(HDC hdc, int cw, int y, WndState& s, sc::time_point now) {
-    auto& layout = s.layout;
-    int abw = layout.dpi_scale(34), abh = layout.dpi_scale(16), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
-    int up_off = layout.dpi_scale(4);
-    int td_off = up_off + abh + layout.dpi_scale(2);
-    int dn_off = td_off + layout.dpi_scale(40) + layout.dpi_scale(2);
-    int by_off = dn_off + abh + gap;
-
-    for (int i = 0; i < (int)s.app.timers.size(); ++i) {
-        divider(hdc, y, cw, s);
-        auto& ts      = s.app.timers[i];
-        bool  running = ts.t.is_running();
-        bool  touched = ts.t.touched();
-        bool  expired = touched && ts.t.expired(now);
-
-        if (touched) {
-            HBRUSH fillbr = expired ? s.brFillExp : s.brFill;
-            int fw = cw;
-            if (!expired) {
-                auto total = duration_cast<microseconds>(ts.dur).count();
-                auto rem   = duration_cast<microseconds>(ts.t.remaining(now)).count();
-                fw = total > 0 ? (int)(cw * (double)(total - rem) / total) : 0;
-            }
-            RECT fr{0, y, fw, y + layout.tmr_h};
-            FillRect(hdc, &fr, fillbr);
-        }
-
-        // Three-column layout for H:MM:SS input
-        int col_gap = layout.dpi_scale(34);
-        int hh_cx = cw/2 - col_gap, mm_cx = cw/2, ss_cx = cw/2 + col_gap;
-
-        SelectObject(hdc, s.hFontSm);
-        if (!touched) {
-            btn(hdc, {hh_cx-abw/2, y+up_off, hh_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_HUP), s);
-            btn(hdc, {mm_cx-abw/2, y+up_off, mm_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_MUP), s);
-            btn(hdc, {ss_cx-abw/2, y+up_off, ss_cx+abw/2, y+up_off+abh}, false, L"▲", tmr_act(i, A_TMR_SUP), s);
-        }
-
-        std::wstring tstr = touched ? format_timer_display(ts.t.remaining(now))
-                                    : format_timer_edit(duration_cast<Timer::dur>(ts.dur));
-        COLORREF tcol = expired ? theme.expire
-            : (touched && ts.t.remaining(now) < 10s) ? theme.warn
-            : theme.text;
-        if (touched) {
-            SelectObject(hdc, s.hFontSm);
-            SetTextColor(hdc, theme.dim);
-            std::wstring sstr = format_timer_edit(duration_cast<Timer::dur>(ts.dur));
-            RECT sr{0, y + up_off, cw, y + up_off + layout.dpi_scale(20)};
-            DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            SelectObject(hdc, s.hFontLarge);
-            SetTextColor(hdc, tcol);
-            RECT tr2{0, y + up_off + layout.dpi_scale(20), cw, y + dn_off + abh};
-            DrawTextW(hdc, tstr.c_str(), -1, &tr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        } else {
-            SelectObject(hdc, s.hFontBig);
-            SetTextColor(hdc, tcol);
-            RECT tr2{0, y + td_off, cw, y + td_off + layout.dpi_scale(40)};
-            DrawTextW(hdc, tstr.c_str(), -1, &tr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        }
-
-        SelectObject(hdc, s.hFontSm);
-        SetTextColor(hdc, theme.text);
-        if (!touched) {
-            btn(hdc, {hh_cx-abw/2, y+dn_off, hh_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_HDN), s);
-            btn(hdc, {mm_cx-abw/2, y+dn_off, mm_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_MDN), s);
-            btn(hdc, {ss_cx-abw/2, y+dn_off, ss_cx+abw/2, y+dn_off+abh}, false, L"▼", tmr_act(i, A_TMR_SDN), s);
-        }
-
-        int cw2 = layout.dpi_scale(86);
-        int cx0 = (cw - 2*cw2 - gap) / 2;
-        btn(hdc, {cx0,         y+by_off, cx0+cw2,       y+by_off+bh}, running,
-            running ? L"Pause" : L"Start", tmr_act(i, A_TMR_START), s);
-        btn(hdc, {cx0+cw2+gap, y+by_off, cx0+2*cw2+gap, y+by_off+bh}, false, L"Reset",
-            tmr_act(i, A_TMR_RST), s);
-
-        int pm_sz = layout.dpi_scale(22), pm_margin = layout.dpi_scale(6);
-        int pm_top = y + layout.tmr_h - pm_sz - layout.dpi_scale(4);
-        if ((int)s.app.timers.size() < Config::MAX_TIMERS)
-            btn(hdc, {cw-pm_margin-pm_sz, pm_top, cw-pm_margin, pm_top+pm_sz},
-                false, L"+", tmr_act(i, A_TMR_ADD), s);
-        if ((int)s.app.timers.size() > 1)
-            btn(hdc, {pm_margin, pm_top, pm_margin+pm_sz, pm_top+pm_sz},
-                false, L"−", tmr_act(i, A_TMR_DEL), s);
-
-        y += layout.tmr_h;
-    }
-    return y;
-}
-
-static void paint_help(HDC hdc, int cw, int y_bottom, WndState& s) {
-    auto& layout = s.layout;
-    RECT cr{0, layout.bar_h, cw, y_bottom > layout.bar_h ? y_bottom : layout.bar_h + layout.dpi_scale(200)};
-    FillRect(hdc, &cr, s.brHelp);
-
-    SelectObject(hdc, s.hFontSm);
-    SetTextColor(hdc, theme.text);
-
-    struct { const wchar_t* key; const wchar_t* desc; } shortcuts[] = {
-        {L"Space", L"Start/Stop stopwatch or first timer"},
-        {L"L",     L"Record lap"},
-        {L"R",     L"Reset stopwatch or first timer"},
-        {L"T",     L"Toggle always-on-top"},
-        {L"1-3",   L"Start/Stop timer 1-3"},
-        {L"H / ?", L"Toggle this help"},
-    };
-
-    int line_h = layout.dpi_scale(20);
-    int pad = layout.dpi_scale(12);
-    int sy = layout.bar_h + pad;
-    for (auto& [key, desc] : shortcuts) {
-        auto line = std::format(L"  {}  —  {}", key, desc);
-        RECT lr{pad, sy, cw - pad, sy + line_h};
-        DrawTextW(hdc, line.c_str(), -1, &lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-        sy += line_h;
-    }
-}
-
-// ─── Paint dispatcher ─────────────────────────────────────────────────────────
-static void paint_all(HDC hdc, int cw, WndState& s) {
-    s.btns.clear();
-    SetBkMode(hdc, TRANSPARENT);
-
-    RECT all{0, 0, cw, 9999};
-    FillRect(hdc, &all, s.brBg);
-
-    auto now = sc::now();
-    int y = paint_bar(hdc, cw, 0, s);
-    if (s.app.show_clk) y = paint_clock(hdc, cw, y, s);
-    if (s.app.show_sw)  y = paint_stopwatch(hdc, cw, y, s, now);
-    if (s.app.show_tmr) y = paint_timers(hdc, cw, y, s, now);
-    if (s.app.show_help) paint_help(hdc, cw, y, s);
-}
-
-// ─── Actions ──────────────────────────────────────────────────────────────────
-static bool wants_blink(int act) {
-    switch (act) {
-    case A_TOPMOST: case A_SHOW_CLK: case A_SHOW_SW: case A_SHOW_TMR:
-    case A_SW_START:
-        return false;
-    default:
-        if (act >= A_TMR_BASE) {
-            int off = (act - A_TMR_BASE) % TMR_STRIDE;
-            if (off == A_TMR_START || off == A_TMR_ADD || off == A_TMR_DEL)
-                return false;
-        }
-        return true;
-    }
-}
-
-// Result flags from action dispatch — separates "what changed" from "what to do about it"
-struct HandleResult {
-    bool save_config = false;
-    bool resize      = false;
-    bool set_topmost = false;
-    bool open_file   = false;
-};
-
-// Pure domain logic: mutates App state, returns side-effect flags
-static HandleResult dispatch_action(App& app, int act, sc::time_point now,
-                                    const std::filesystem::path& config_dir) {
-    HandleResult r;
-
-    switch (act) {
-    case A_TOPMOST:
-        app.topmost = !app.topmost;
-        r.set_topmost = true;
-        r.save_config = true;
-        break;
-    case A_SHOW_CLK: app.show_clk = !app.show_clk; r.resize = true; r.save_config = true; break;
-    case A_SHOW_SW:  app.show_sw  = !app.show_sw;  r.resize = true; r.save_config = true; break;
-    case A_SHOW_TMR: app.show_tmr = !app.show_tmr; r.resize = true; r.save_config = true; break;
-    case A_SW_START:
-        if (!app.sw.is_running()) {
-            if (app.sw_lap_file.empty()) {
-                SYSTEMTIME st; GetLocalTime(&st);
-                auto lap_name = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt",
-                                            st.wYear, st.wMonth, st.wDay,
-                                            st.wHour, st.wMinute, st.wSecond,
-                                            st.wMilliseconds);
-                app.sw_lap_file = (config_dir / lap_name).wstring();
-            }
-            app.sw.start(now);
-        } else {
-            app.sw.stop(now);
-        }
-        break;
-    case A_SW_LAP:
-        if (app.sw.is_running()) {
-            app.sw.lap(now);
-            if (!app.sw_lap_file.empty()) {
-                std::wofstream f(app.sw_lap_file, std::ios::app);
-                if (f) {
-                    const auto& laps = app.sw.laps();
-                    auto n = laps.size();
-                    sc::duration cum{};
-                    for (auto& l : laps) cum += l;
-                    f << format_lap_row(n, laps.back(), cum) << L'\n';
-                    app.lap_write_failed = false;
-                } else {
-                    app.lap_write_failed = true;
-                }
-            }
-        }
-        break;
-    case A_SW_RESET:
-        app.sw.reset();
-        app.sw_lap_file.clear();
-        break;
-    case A_SW_GET:
-        if (!app.sw_lap_file.empty())
-            r.open_file = true;
-        break;
-    default:
-        if (act >= A_TMR_BASE) {
-            int idx = (act - A_TMR_BASE) / TMR_STRIDE;
-            int off = (act - A_TMR_BASE) % TMR_STRIDE;
-            if (idx < 0 || idx >= (int)app.timers.size()) break;
-            auto& ts = app.timers[idx];
-            if (off == A_TMR_START) {
-                if (!ts.t.touched())          ts.t.start(now);
-                else if (ts.t.is_running())   ts.t.pause(now);
-                else                          ts.t.start(now);
-            } else if (off == A_TMR_RST) {
-                ts.t.reset(); ts.t.set(ts.dur); ts.notified = false;
-            } else if (off == A_TMR_ADD) {
-                if ((int)app.timers.size() < Config::MAX_TIMERS) {
-                    TimerSlot ns; ns.t.set(ns.dur);
-                    app.timers.insert(app.timers.begin() + idx + 1, ns);
-                    r.resize = true; r.save_config = true;
-                }
-            } else if (off == A_TMR_DEL) {
-                if ((int)app.timers.size() > 1) {
-                    app.timers.erase(app.timers.begin() + idx);
-                    r.resize = true; r.save_config = true;
-                }
-            } else if (!ts.t.touched()) {
-                auto total = ts.dur.count();
-                int h = (int)(total / 3600);
-                int m = (int)((total / 60) % 60);
-                int sec = (int)(total % 60);
-                bool changed = true;
-                if      (off == A_TMR_HUP) h = (h >= 24) ? 0 : h + 1;
-                else if (off == A_TMR_HDN) h = (h <= 0)  ? 24 : h - 1;
-                else if (off == A_TMR_MUP) m = (m >= 59) ? 0 : m + 1;
-                else if (off == A_TMR_MDN) m = (m <= 0)  ? 59 : m - 1;
-                else if (off == A_TMR_SUP) sec = (sec >= 59) ? 0 : sec + 1;
-                else if (off == A_TMR_SDN) sec = (sec <= 0)  ? 59 : sec - 1;
-                else changed = false;
-                if (changed) {
-                    ts.dur = seconds{h * 3600 + m * 60 + sec};
-                    ts.t.reset(); ts.t.set(ts.dur);
-                    r.save_config = true;
-                }
-            }
-        }
-    }
-    return r;
-}
-
-// Thin wrapper: dispatches action, applies Win32 side effects
+// ─── Action wrapper ──────────────────────────────────────────────────────────
 static void handle(HWND hwnd, int act, WndState& s) {
     auto now = sc::now();
     if (wants_blink(act)) { s.app.blink_act = act; s.app.blink_t = now; }
@@ -745,7 +317,7 @@ static bool system_prefers_dark() {
         RegCloseKey(key);
         if (ok) return val == 0;
     }
-    return true; // default to dark
+    return true;
 }
 
 // ─── WndProc ──────────────────────────────────────────────────────────────────
@@ -757,7 +329,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         auto state = std::make_unique<WndState>();
         s = state.get();
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)s);
-        // Initialize layout from WinMain's DPI calculation, then refine per-window
         auto* cs = (CREATESTRUCTW*)lp;
         if (cs->lpCreateParams)
             s->layout = *(Layout*)cs->lpCreateParams;
@@ -773,7 +344,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                               &dark, sizeof(dark));
         load_config(hwnd, *s);
         resize_window(hwnd, *s);
-        state.release(); // transfer ownership to HWND userdata
+        state.release();
         return 0;
     }
     default:
@@ -798,7 +369,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 FlashWindowEx(&fi);
             }
         }
-        // Update window title: running timer > running stopwatch > current time
         {
             std::wstring title;
             for (auto& ts : s->app.timers) {
@@ -815,7 +385,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 SYSTEMTIME st; GetLocalTime(&st);
                 title = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
             }
-            title += L" — Chronos";
+            title += L" \u2014 Chronos";
             SetWindowTextW(hwnd, title.c_str());
         }
         InvalidateRect(hwnd, nullptr, FALSE);
@@ -829,7 +399,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         HDC hdc = BeginPaint(hwnd, &ps);
         RECT cr; GetClientRect(hwnd, &cr);
         s->ensure_buffer(hdc, cr.right, cr.bottom);
-        paint_all(s->mdc, cr.right, *s);
+        auto ctx = s->paint_ctx();
+        paint_all(s->mdc, cr.right, ctx);
         BitBlt(hdc, 0, 0, cr.right, cr.bottom, s->mdc, 0, 0, SRCCOPY);
         EndPaint(hwnd, &ps);
         return 0;
@@ -942,38 +513,31 @@ static HICON create_app_icon(int size) {
     HBITMAP mask  = CreateBitmap(size, size, 1, 1, nullptr);
     auto* old = SelectObject(mdc, color);
 
-    // Background: dark circle
     HBRUSH bg = CreateSolidBrush(RGB(26, 26, 26));
     HBRUSH face = CreateSolidBrush(RGB(60, 60, 66));
     HPEN outline = CreatePen(PS_SOLID, 1, RGB(100, 100, 110));
     HPEN hand = CreatePen(PS_SOLID, size > 20 ? 2 : 1, RGB(204, 204, 204));
 
-    // Fill transparent background
     RECT all{0, 0, size, size};
     FillRect(mdc, &all, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
-    // Draw clock face
     SelectObject(mdc, face);
     SelectObject(mdc, outline);
     Ellipse(mdc, 1, 1, size - 1, size - 1);
 
-    // Draw clock hands (hour at ~10:10 for a classic look)
     int cx = size / 2, cy = size / 2;
-    int hr_len = size / 4;   // hour hand
-    int mn_len = size / 3;   // minute hand
+    int hr_len = size / 4;
+    int mn_len = size / 3;
     SelectObject(mdc, hand);
 
-    // Hour hand pointing roughly at 10 o'clock (-60 degrees from 12)
     MoveToEx(mdc, cx, cy, nullptr);
     LineTo(mdc, cx - hr_len * 5 / 10, cy - hr_len * 9 / 10);
 
-    // Minute hand pointing at 2 o'clock (60 degrees from 12)
     MoveToEx(mdc, cx, cy, nullptr);
     LineTo(mdc, cx + mn_len * 5 / 10, cy - mn_len * 9 / 10);
 
     SelectObject(mdc, old);
 
-    // Create mask: black where icon is, white where transparent
     HDC mdc2 = CreateCompatibleDC(screen);
     SelectObject(mdc2, mask);
     HBRUSH white = (HBRUSH)GetStockObject(WHITE_BRUSH);
@@ -1015,12 +579,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     }
     LocalFree(argv);
 
-    // Load DPI APIs dynamically and set per-monitor DPI awareness v2
     load_dpi_apis();
     if (pSetProcessDpiAwarenessContext)
         pSetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
 
-    // Get initial DPI from primary monitor before window exists
     Layout init_layout;
     HDC dc = GetDC(nullptr);
     init_layout.update_for_dpi(GetDeviceCaps(dc, LOGPIXELSY));

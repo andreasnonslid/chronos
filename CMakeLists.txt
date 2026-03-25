@@ -11,9 +11,12 @@ add_executable(chronos WIN32 src/main.cpp)
 
 target_sources(chronos PRIVATE
     FILE_SET CXX_MODULES FILES
+        src/actions.ixx
+        src/app.ixx
         src/config.ixx
         src/formatting.ixx
         src/layout.ixx
+        src/painting.ixx
         src/stopwatch.ixx
         src/timer.ixx
 )
