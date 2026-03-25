@@ -188,12 +188,21 @@ static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point
     btn(hdc, {bx0+bw+gap,     by0, bx0+2*bw+gap,    by0+bh}, false,   L"Lap",                       A_SW_LAP, ctx);
     btn(hdc, {bx0+2*(bw+gap), by0, bx0+3*bw+2*gap,  by0+bh}, false,   L"Reset",                     A_SW_RESET, ctx);
 
+    auto& laps = ctx.app.sw.laps();
+    if (!laps.empty()) {
+        auto info = std::format(L"Lap {}  \u2014  {}", laps.size(),
+                                format_stopwatch_short(laps.back()));
+        SetTextColor(hdc, th.dim);
+        RECT ir{0, by0+bh+layout.dpi_scale(4), cw, by0+bh+layout.dpi_scale(22)};
+        DrawTextW(hdc, info.c_str(), -1, &ir, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+
     bool has_file = !ctx.app.sw_lap_file.empty();
     int  gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
     auto lap_label = ctx.app.lap_write_failed ? L"Get Laps (!)" : L"Get Laps";
     auto lap_col = ctx.app.lap_write_failed ? th.expire
                  : has_file ? th.btn : th.dim;
-    btn(hdc, {(cw-gbw)/2, by0+bh+layout.dpi_scale(4), (cw+gbw)/2, by0+bh+layout.dpi_scale(4)+gbh},
+    btn(hdc, {(cw-gbw)/2, by0+bh+layout.dpi_scale(24), (cw+gbw)/2, by0+bh+layout.dpi_scale(24)+gbh},
         false, lap_label, has_file ? A_SW_GET : 0, ctx, lap_col);
     return y + layout.sw_h;
 }
