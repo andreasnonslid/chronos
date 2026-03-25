@@ -34,109 +34,23 @@ import actions;
 import app;
 import config;
 import formatting;
+import icon;
 import layout;
 import painting;
 import stopwatch;
+import theme;
 import timer;
+import tray;
+import wndstate;
 
 using namespace std::chrono;
 using sc = steady_clock;
 
 // ─── Named constants ─────────────────────────────────────────────────────────
-constexpr DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR = 20;
 constexpr int POLL_STOPWATCH_MS = 20;
 constexpr int POLL_TIMER_MS    = 100;
 constexpr int POLL_IDLE_MS     = 1000;
-constexpr UINT WM_TRAYICON     = WM_APP + 1;
-constexpr UINT TRAY_UID        = 1;
-constexpr int IDM_TRAY_SHOW    = 1;
-constexpr int IDM_TRAY_EXIT    = 2;
 
-// ─── Per-window state (stored via GWLP_USERDATA) ─────────────────────────────
-struct WndState {
-    App    app;
-    Layout layout;
-    const Theme* active_theme = &dark_theme;
-    std::vector<std::pair<RECT,int>> btns;
-    HFONT  hFontBig   = nullptr;
-    HFONT  hFontLarge = nullptr;
-    HFONT  hFontSm    = nullptr;
-    bool   fonts_custom = false;
-    int    timer_ms   = 100;
-    bool   tray_active = false;
-    HICON  tray_icon   = nullptr;
-
-    HBRUSH brBg      = nullptr;
-    HBRUSH brBar     = nullptr;
-    HBRUSH brBtn     = nullptr;
-    HBRUSH brActive  = nullptr;
-    HBRUSH brBlink   = nullptr;
-    HBRUSH brFill    = nullptr;
-    HBRUSH brFillExp = nullptr;
-    HBRUSH brHelp    = nullptr;
-    HPEN   pnNull    = nullptr;
-    HPEN   pnDivider = nullptr;
-
-    void create_brushes() {
-        auto& th = *active_theme;
-        brBg      = CreateSolidBrush(th.bg);
-        brBar     = CreateSolidBrush(th.bar);
-        brBtn     = CreateSolidBrush(th.btn);
-        brActive  = CreateSolidBrush(th.active);
-        brBlink   = CreateSolidBrush(th.blink);
-        brFill    = CreateSolidBrush(th.fill);
-        brFillExp = CreateSolidBrush(th.fill_exp);
-        brHelp    = CreateSolidBrush(th.help_bg);
-        pnNull    = CreatePen(PS_NULL, 0, 0);
-        pnDivider = CreatePen(PS_SOLID, 1, th.divider);
-    }
-
-    void destroy_brushes() {
-        HGDIOBJ objs[] = {brBg, brBar, brBtn, brActive, brBlink, brFill, brFillExp, brHelp, pnNull, pnDivider};
-        for (auto h : objs) if (h) DeleteObject(h);
-    }
-
-    ~WndState() {
-        if (fonts_custom) {
-            DeleteObject(hFontBig);
-            DeleteObject(hFontLarge);
-            DeleteObject(hFontSm);
-        }
-        destroy_brushes();
-        if (mdc) DeleteDC(mdc);
-        if (buf_bmp) DeleteObject(buf_bmp);
-    }
-
-    WndState(const WndState&) = delete;
-    WndState& operator=(const WndState&) = delete;
-    WndState() = default;
-
-    HDC     mdc     = nullptr;
-    HBITMAP buf_bmp = nullptr;
-    int     buf_w   = 0, buf_h = 0;
-
-    void ensure_buffer(HDC hdc, int w, int h) {
-        if (w != buf_w || h != buf_h) {
-            if (buf_bmp) DeleteObject(buf_bmp);
-            if (mdc) DeleteDC(mdc);
-            mdc = CreateCompatibleDC(hdc);
-            buf_bmp = CreateCompatibleBitmap(hdc, w, h);
-            SelectObject(mdc, buf_bmp);
-            buf_w = w; buf_h = h;
-        }
-    }
-
-    PaintCtx paint_ctx() {
-        return {
-            .app = app, .layout = layout, .theme = *active_theme, .btns = btns,
-            .fontBig = hFontBig, .fontLarge = hFontLarge, .fontSm = hFontSm,
-            .brBg = brBg, .brBar = brBar, .brBtn = brBtn,
-            .brActive = brActive, .brBlink = brBlink,
-            .brFill = brFill, .brFillExp = brFillExp, .brHelp = brHelp,
-            .pnNull = pnNull, .pnDivider = pnDivider,
-        };
-    }
-};
 
 // Process-wide log file (set before window creation).
 static FILE* g_log_file = nullptr;
@@ -200,7 +114,15 @@ static void save_config(HWND hwnd, const WndState& s) {
         cfg.timer_labels[i] = std::string(s.app.timers[i].label.begin(), s.app.timers[i].label.end());
     }
     if (hwnd) {
-        RECT wr; GetWindowRect(hwnd, &wr);
+        RECT wr;
+        if (IsIconic(hwnd)) {
+            WINDOWPLACEMENT wp{};
+            wp.length = sizeof(wp);
+            GetWindowPlacement(hwnd, &wp);
+            wr = wp.rcNormalPosition;
+        } else {
+            GetWindowRect(hwnd, &wr);
+        }
         cfg.pos_valid = true;
         cfg.win_x = wr.left;
         cfg.win_y = wr.top;
@@ -253,35 +175,6 @@ static void load_config(HWND hwnd, WndState& s) {
     }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-static HFONT make_font(int pt, bool bold, const Layout& layout) {
-    int h = -MulDiv(pt, layout.dpi, 72);
-    return CreateFontW(h, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL,
-                       FALSE, FALSE, FALSE,
-                       DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                       CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-}
-
-static void recreate_fonts(WndState& s) {
-    if (s.fonts_custom) {
-        DeleteObject(s.hFontBig); DeleteObject(s.hFontLarge); DeleteObject(s.hFontSm);
-    }
-    s.hFontBig   = make_font(26, true, s.layout);
-    s.hFontLarge = make_font(34, true, s.layout);
-    s.hFontSm    = make_font(11, false, s.layout);
-    if (!s.hFontBig || !s.hFontLarge || !s.hFontSm) {
-        if (s.hFontBig)   { DeleteObject(s.hFontBig);   s.hFontBig   = nullptr; }
-        if (s.hFontLarge) { DeleteObject(s.hFontLarge); s.hFontLarge = nullptr; }
-        if (s.hFontSm)    { DeleteObject(s.hFontSm);   s.hFontSm    = nullptr; }
-        s.hFontBig   = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        s.hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        s.hFontSm    = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        s.fonts_custom = false;
-    } else {
-        s.fonts_custom = true;
-    }
-}
-
 static int nonclient_height(HWND hwnd) {
     RECT wr, cr;
     GetWindowRect(hwnd, &wr);
@@ -326,66 +219,6 @@ static void handle(HWND hwnd, int act, WndState& s) {
                       nullptr, nullptr, SW_SHOW);
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);
-}
-
-// ─── Theme detection ─────────────────────────────────────────────────────────
-static bool system_prefers_dark() {
-    HKEY key;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER,
-                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-                      0, KEY_READ, &key) == ERROR_SUCCESS) {
-        DWORD val = 0, size = sizeof(val);
-        bool ok = RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, nullptr,
-                                   (LPBYTE)&val, &size) == ERROR_SUCCESS;
-        RegCloseKey(key);
-        if (ok) return val == 0;
-    }
-    return true;
-}
-
-static HICON create_app_icon(int size);
-
-// ─── System tray helpers ──────────────────────────────────────────────────────
-static void tray_add(HWND hwnd, HICON icon) {
-    NOTIFYICONDATAW nid{};
-    nid.cbSize = sizeof(nid);
-    nid.hWnd   = hwnd;
-    nid.uID    = TRAY_UID;
-    nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
-    nid.uCallbackMessage = WM_TRAYICON;
-    nid.hIcon  = icon;
-    wcscpy(nid.szTip, L"Chronos");
-    Shell_NotifyIconW(NIM_ADD, &nid);
-}
-
-static void tray_update_tip(HWND hwnd, const wchar_t* tip) {
-    NOTIFYICONDATAW nid{};
-    nid.cbSize = sizeof(nid);
-    nid.hWnd   = hwnd;
-    nid.uID    = TRAY_UID;
-    nid.uFlags = NIF_TIP;
-    wcsncpy(nid.szTip, tip, 127);
-    Shell_NotifyIconW(NIM_MODIFY, &nid);
-}
-
-static void tray_notify(HWND hwnd, const wchar_t* title, const wchar_t* msg) {
-    NOTIFYICONDATAW nid{};
-    nid.cbSize = sizeof(nid);
-    nid.hWnd   = hwnd;
-    nid.uID    = TRAY_UID;
-    nid.uFlags = NIF_INFO;
-    wcsncpy(nid.szInfoTitle, title, 63);
-    wcsncpy(nid.szInfo, msg, 255);
-    nid.dwInfoFlags = NIIF_INFO;
-    Shell_NotifyIconW(NIM_MODIFY, &nid);
-}
-
-static void tray_remove(HWND hwnd) {
-    NOTIFYICONDATAW nid{};
-    nid.cbSize = sizeof(nid);
-    nid.hWnd   = hwnd;
-    nid.uID    = TRAY_UID;
-    Shell_NotifyIconW(NIM_DELETE, &nid);
 }
 
 // ─── WndProc ──────────────────────────────────────────────────────────────────
@@ -694,65 +527,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
-// ─── App icon ─────────────────────────────────────────────────────────────────
-static HICON create_app_icon(int size) {
-    HDC screen = GetDC(nullptr);
-    HDC mdc = CreateCompatibleDC(screen);
-    HBITMAP color = CreateCompatibleBitmap(screen, size, size);
-    HBITMAP mask  = CreateBitmap(size, size, 1, 1, nullptr);
-    auto* old = SelectObject(mdc, color);
-
-    HBRUSH bg = CreateSolidBrush(RGB(26, 26, 26));
-    HBRUSH face = CreateSolidBrush(RGB(60, 60, 66));
-    HPEN outline = CreatePen(PS_SOLID, 1, RGB(100, 100, 110));
-    HPEN hand = CreatePen(PS_SOLID, size > 20 ? 2 : 1, RGB(204, 204, 204));
-
-    RECT all{0, 0, size, size};
-    FillRect(mdc, &all, (HBRUSH)GetStockObject(BLACK_BRUSH));
-
-    SelectObject(mdc, face);
-    SelectObject(mdc, outline);
-    Ellipse(mdc, 1, 1, size - 1, size - 1);
-
-    int cx = size / 2, cy = size / 2;
-    int hr_len = size / 4;
-    int mn_len = size / 3;
-    SelectObject(mdc, hand);
-
-    MoveToEx(mdc, cx, cy, nullptr);
-    LineTo(mdc, cx - hr_len * 5 / 10, cy - hr_len * 9 / 10);
-
-    MoveToEx(mdc, cx, cy, nullptr);
-    LineTo(mdc, cx + mn_len * 5 / 10, cy - mn_len * 9 / 10);
-
-    SelectObject(mdc, old);
-
-    HDC mdc2 = CreateCompatibleDC(screen);
-    SelectObject(mdc2, mask);
-    HBRUSH white = (HBRUSH)GetStockObject(WHITE_BRUSH);
-    FillRect(mdc2, &all, white);
-    SelectObject(mdc2, (HBRUSH)GetStockObject(BLACK_BRUSH));
-    SelectObject(mdc2, (HPEN)GetStockObject(NULL_PEN));
-    Ellipse(mdc2, 1, 1, size - 1, size - 1);
-    DeleteDC(mdc2);
-
-    DeleteObject(bg);
-    DeleteObject(face);
-    DeleteObject(outline);
-    DeleteObject(hand);
-    DeleteDC(mdc);
-    ReleaseDC(nullptr, screen);
-
-    ICONINFO ii{};
-    ii.fIcon    = TRUE;
-    ii.hbmMask  = mask;
-    ii.hbmColor = color;
-    HICON icon = CreateIconIndirect(&ii);
-    DeleteObject(color);
-    DeleteObject(mask);
-    return icon;
 }
 
 // ─── WinMain ──────────────────────────────────────────────────────────────────
