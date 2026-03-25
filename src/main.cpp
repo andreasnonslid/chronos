@@ -52,6 +52,7 @@ constexpr int POLL_IDLE_MS     = 1000;
 struct WndState {
     App    app;
     Layout layout;
+    const Theme* active_theme = &dark_theme;
     std::vector<std::pair<RECT,int>> btns;
     HFONT  hFontBig   = nullptr;
     HFONT  hFontLarge = nullptr;
@@ -71,16 +72,17 @@ struct WndState {
     HPEN   pnDivider = nullptr;
 
     void create_brushes() {
-        brBg      = CreateSolidBrush(theme.bg);
-        brBar     = CreateSolidBrush(theme.bar);
-        brBtn     = CreateSolidBrush(theme.btn);
-        brActive  = CreateSolidBrush(theme.active);
-        brBlink   = CreateSolidBrush(theme.blink);
-        brFill    = CreateSolidBrush(theme.fill);
-        brFillExp = CreateSolidBrush(theme.fill_exp);
-        brHelp    = CreateSolidBrush(RGB(20, 20, 20));
+        auto& th = *active_theme;
+        brBg      = CreateSolidBrush(th.bg);
+        brBar     = CreateSolidBrush(th.bar);
+        brBtn     = CreateSolidBrush(th.btn);
+        brActive  = CreateSolidBrush(th.active);
+        brBlink   = CreateSolidBrush(th.blink);
+        brFill    = CreateSolidBrush(th.fill);
+        brFillExp = CreateSolidBrush(th.fill_exp);
+        brHelp    = CreateSolidBrush(th.help_bg);
         pnNull    = CreatePen(PS_NULL, 0, 0);
-        pnDivider = CreatePen(PS_SOLID, 1, RGB(50, 50, 55));
+        pnDivider = CreatePen(PS_SOLID, 1, th.divider);
     }
 
     void destroy_brushes() {
@@ -120,7 +122,7 @@ struct WndState {
 
     PaintCtx paint_ctx() {
         return {
-            .app = app, .layout = layout, .btns = btns,
+            .app = app, .layout = layout, .theme = *active_theme, .btns = btns,
             .fontBig = hFontBig, .fontLarge = hFontLarge, .fontSm = hFontSm,
             .brBg = brBg, .brBar = brBar, .brBtn = brBtn,
             .brActive = brActive, .brBlink = brBlink,
@@ -337,11 +339,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (wdpi != 0) s->layout.update_for_dpi((int)wdpi);
         }
         recreate_fonts(*s);
+        bool dark = system_prefers_dark();
+        s->active_theme = dark ? &dark_theme : &light_theme;
         s->create_brushes();
         SetTimer(hwnd, 1, POLL_TIMER_MS, nullptr);
-        BOOL dark = system_prefers_dark() ? TRUE : FALSE;
+        BOOL dwm_dark = dark ? TRUE : FALSE;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR,
-                              &dark, sizeof(dark));
+                              &dwm_dark, sizeof(dwm_dark));
         load_config(hwnd, *s);
         resize_window(hwnd, *s);
         state.release();
@@ -485,9 +489,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_SETTINGCHANGE:
         if (lp && wcscmp((LPCWSTR)lp, L"ImmersiveColorSet") == 0) {
-            BOOL dark = system_prefers_dark() ? TRUE : FALSE;
+            bool dark = system_prefers_dark();
+            BOOL dwm_dark = dark ? TRUE : FALSE;
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR,
-                                  &dark, sizeof(dark));
+                                  &dwm_dark, sizeof(dwm_dark));
+            s->active_theme = dark ? &dark_theme : &light_theme;
+            s->destroy_brushes();
+            s->create_brushes();
+            InvalidateRect(hwnd, nullptr, TRUE);
         }
         return 0;
     case WM_EXITSIZEMOVE:
