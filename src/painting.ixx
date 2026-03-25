@@ -79,6 +79,7 @@ export struct PaintCtx {
     Layout& layout;
     const Theme& theme;
     std::vector<std::pair<RECT, int>>& btns;
+    sc::time_point now;
     HFONT fontBig;
     HFONT fontLarge;
     HFONT fontSm;
@@ -98,7 +99,7 @@ export struct PaintCtx {
 static RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id, PaintCtx& ctx,
                 std::optional<COLORREF> override_col = std::nullopt) {
     auto& layout = ctx.layout;
-    bool blinking = id && ctx.app.blink_act == id && (sc::now() - ctx.app.blink_t) < BLINK_DUR;
+    bool blinking = id && ctx.app.blink_act == id && (ctx.now - ctx.app.blink_t) < BLINK_DUR;
     HBRUSH brush;
     GdiObj dyn_br{nullptr};
     if (blinking) {
@@ -379,7 +380,8 @@ export void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     RECT all{0, 0, cw, ch};
     FillRect(hdc, &all, ctx.brBg);
 
-    auto now = sc::now();
+    ctx.now = sc::now();
+    auto now = ctx.now;
     int y = paint_bar(hdc, cw, 0, ctx);
     if (ctx.app.show_clk) y = paint_clock(hdc, cw, y, ctx);
     if (ctx.app.show_sw) y = paint_stopwatch(hdc, cw, y, ctx, now);
