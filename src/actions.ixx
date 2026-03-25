@@ -92,9 +92,7 @@ export HandleResult dispatch_action(App& app, int act, sc::time_point now,
                 if (f) {
                     const auto& laps = app.sw.laps();
                     auto n = laps.size();
-                    sc::duration cum{};
-                    for (auto& l : laps) cum += l;
-                    f << format_lap_row(n, laps.back(), cum) << L'\n';
+                    f << format_lap_row(n, laps.back(), app.sw.cumulative()) << L'\n';
                     app.lap_write_failed = false;
                 } else {
                     app.lap_write_failed = true;
