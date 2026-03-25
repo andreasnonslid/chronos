@@ -352,11 +352,11 @@ static void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
 }
 
 // ─── Paint dispatcher ─────────────────────────────────────────────────────────
-export void paint_all(HDC hdc, int cw, PaintCtx& ctx) {
+export void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     ctx.btns.clear();
     SetBkMode(hdc, TRANSPARENT);
 
-    RECT all{0, 0, cw, 9999};
+    RECT all{0, 0, cw, ch};
     FillRect(hdc, &all, ctx.brBg);
 
     auto now = sc::now();
