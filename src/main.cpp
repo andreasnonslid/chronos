@@ -189,8 +189,10 @@ static void save_config(HWND hwnd, const WndState& s) {
     cfg.show_tmr   = s.app.show_tmr;
     cfg.topmost    = s.app.topmost;
     cfg.num_timers = (int)s.app.timers.size();
-    for (int i = 0; i < (int)s.app.timers.size(); ++i)
+    for (int i = 0; i < (int)s.app.timers.size(); ++i) {
         cfg.timer_secs[i] = (int)s.app.timers[i].dur.count();
+        cfg.timer_labels[i] = std::string(s.app.timers[i].label.begin(), s.app.timers[i].label.end());
+    }
     if (hwnd) {
         RECT wr; GetWindowRect(hwnd, &wr);
         cfg.pos_valid = true;
@@ -221,6 +223,8 @@ static void load_config(HWND hwnd, WndState& s) {
         s.app.timers[i].dur = seconds{cfg.timer_secs[i]};
         s.app.timers[i].t.reset();
         s.app.timers[i].t.set(s.app.timers[i].dur);
+        auto& lbl = cfg.timer_labels[i];
+        s.app.timers[i].label = std::wstring(lbl.begin(), lbl.end());
     }
     if (s.app.topmost)
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
@@ -424,6 +428,50 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         for (auto& [r, id] : s->btns)
             if (PtInRect(&r, pt)) { handle(hwnd, id, *s); break; }
+        return 0;
+    }
+    case WM_LBUTTONDBLCLK: {
+        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+        int idx = timer_index_at_y(*s, pt.y);
+        if (idx >= 0) {
+            auto& ts = s->app.timers[idx];
+            wchar_t buf[21] = {};
+            if (!ts.label.empty())
+                wcsncpy(buf, ts.label.c_str(), 20);
+            RECT dlg_r;
+            GetClientRect(hwnd, &dlg_r);
+            int top = s->layout.bar_h;
+            if (s->app.show_clk) top += s->layout.clk_h;
+            if (s->app.show_sw)  top += s->layout.sw_h;
+            int ey = top + idx * s->layout.tmr_h + s->layout.dpi_scale(2);
+            int eh = s->layout.dpi_scale(18);
+            int ew = s->layout.dpi_scale(120);
+            int ex = (dlg_r.right - ew) / 2;
+            HWND edit = CreateWindowExW(0, L"EDIT", buf,
+                WS_CHILD | WS_VISIBLE | WS_BORDER | ES_CENTER | ES_AUTOHSCROLL,
+                ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(9000 + idx), nullptr, nullptr);
+            SendMessageW(edit, EM_SETLIMITTEXT, 20, 0);
+            SendMessageW(edit, WM_SETFONT, (WPARAM)s->hFontSm, TRUE);
+            SetFocus(edit);
+            SendMessageW(edit, EM_SETSEL, 0, -1);
+        }
+        return 0;
+    }
+    case WM_COMMAND: {
+        int id = LOWORD(wp);
+        int code = HIWORD(wp);
+        if (id >= 9000 && id < 9000 + Config::MAX_TIMERS && code == EN_KILLFOCUS) {
+            int idx = id - 9000;
+            HWND edit = (HWND)lp;
+            wchar_t buf[21] = {};
+            GetWindowTextW(edit, buf, 21);
+            if (idx < (int)s->app.timers.size()) {
+                s->app.timers[idx].label = buf;
+                save_config(hwnd, *s);
+            }
+            DestroyWindow(edit);
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
         return 0;
     }
     case WM_RBUTTONDOWN: {
@@ -641,7 +689,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
 
     WNDCLASSEXW wc{};
     wc.cbSize        = sizeof(wc);
-    wc.style         = CS_HREDRAW | CS_VREDRAW;
+    wc.style         = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
     wc.lpfnWndProc   = WndProc;
     wc.hInstance     = hInst;
     wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);

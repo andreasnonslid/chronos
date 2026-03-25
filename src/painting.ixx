@@ -244,14 +244,24 @@ static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point no
         if (touched) {
             SelectObject(hdc, ctx.fontSm);
             SetTextColor(hdc, th.dim);
-            std::wstring sstr = format_timer_edit(duration_cast<Timer::dur>(ts.dur));
+            // Show label or original duration as subtitle
+            std::wstring subtitle = ts.label.empty()
+                ? format_timer_edit(duration_cast<Timer::dur>(ts.dur))
+                : ts.label;
             RECT sr{0, y + up_off, cw, y + up_off + layout.dpi_scale(20)};
-            DrawTextW(hdc, sstr.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            DrawTextW(hdc, subtitle.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             SelectObject(hdc, ctx.fontLarge);
             SetTextColor(hdc, tcol);
             RECT tr2{0, y + up_off + layout.dpi_scale(20), cw, y + dn_off + abh};
             DrawTextW(hdc, tstr.c_str(), -1, &tr2, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         } else {
+            // Show label as dim text above the duration when idle
+            if (!ts.label.empty()) {
+                SelectObject(hdc, ctx.fontSm);
+                SetTextColor(hdc, th.dim);
+                RECT lr{0, y + layout.dpi_scale(2), cw, y + up_off + abh};
+                DrawTextW(hdc, ts.label.c_str(), -1, &lr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
             SelectObject(hdc, ctx.fontBig);
             SetTextColor(hdc, tcol);
             RECT tr2{0, y + td_off, cw, y + td_off + layout.dpi_scale(40)};

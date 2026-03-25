@@ -10,6 +10,7 @@ export struct TimerSlot {
     Timer   t;
     std::chrono::seconds dur{std::chrono::seconds{60}};
     bool    notified = false;
+    std::wstring label;
 };
 
 export struct App {
