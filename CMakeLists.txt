@@ -23,6 +23,7 @@ target_sources(chronos PRIVATE
         src/theme.ixx
         src/timer.ixx
         src/tray.ixx
+        src/window.ixx
         src/wndstate.ixx
 )
 
