@@ -47,6 +47,10 @@ constexpr DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR = 20;
 constexpr int POLL_STOPWATCH_MS = 20;
 constexpr int POLL_TIMER_MS    = 100;
 constexpr int POLL_IDLE_MS     = 1000;
+constexpr UINT WM_TRAYICON     = WM_APP + 1;
+constexpr UINT TRAY_UID        = 1;
+constexpr int IDM_TRAY_SHOW    = 1;
+constexpr int IDM_TRAY_EXIT    = 2;
 
 // ─── Per-window state (stored via GWLP_USERDATA) ─────────────────────────────
 struct WndState {
@@ -59,6 +63,8 @@ struct WndState {
     HFONT  hFontSm    = nullptr;
     bool   fonts_custom = false;
     int    timer_ms   = 100;
+    bool   tray_active = false;
+    HICON  tray_icon   = nullptr;
 
     HBRUSH brBg      = nullptr;
     HBRUSH brBar     = nullptr;
@@ -337,6 +343,51 @@ static bool system_prefers_dark() {
     return true;
 }
 
+static HICON create_app_icon(int size);
+
+// ─── System tray helpers ──────────────────────────────────────────────────────
+static void tray_add(HWND hwnd, HICON icon) {
+    NOTIFYICONDATAW nid{};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd   = hwnd;
+    nid.uID    = TRAY_UID;
+    nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
+    nid.uCallbackMessage = WM_TRAYICON;
+    nid.hIcon  = icon;
+    wcscpy(nid.szTip, L"Chronos");
+    Shell_NotifyIconW(NIM_ADD, &nid);
+}
+
+static void tray_update_tip(HWND hwnd, const wchar_t* tip) {
+    NOTIFYICONDATAW nid{};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd   = hwnd;
+    nid.uID    = TRAY_UID;
+    nid.uFlags = NIF_TIP;
+    wcsncpy(nid.szTip, tip, 127);
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
+}
+
+static void tray_notify(HWND hwnd, const wchar_t* title, const wchar_t* msg) {
+    NOTIFYICONDATAW nid{};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd   = hwnd;
+    nid.uID    = TRAY_UID;
+    nid.uFlags = NIF_INFO;
+    wcsncpy(nid.szInfoTitle, title, 63);
+    wcsncpy(nid.szInfo, msg, 255);
+    nid.dwInfoFlags = NIIF_INFO;
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
+}
+
+static void tray_remove(HWND hwnd) {
+    NOTIFYICONDATAW nid{};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd   = hwnd;
+    nid.uID    = TRAY_UID;
+    Shell_NotifyIconW(NIM_DELETE, &nid);
+}
+
 // ─── WndProc ──────────────────────────────────────────────────────────────────
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* s = (WndState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -361,6 +412,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         BOOL dwm_dark = dark ? TRUE : FALSE;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR,
                               &dwm_dark, sizeof(dwm_dark));
+        s->tray_icon = create_app_icon(16);
         load_config(hwnd, *s);
         resize_window(hwnd, *s);
         state.release();
@@ -386,6 +438,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 fi.uCount    = 3;
                 fi.dwTimeout = 0;
                 FlashWindowEx(&fi);
+                if (s->tray_active) {
+                    auto lbl = ts.label.empty() ? L"Timer" : ts.label.c_str();
+                    tray_notify(hwnd, L"Timer expired", lbl);
+                }
             }
         }
         {
@@ -406,6 +462,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
             title += L" \u2014 Chronos";
             SetWindowTextW(hwnd, title.c_str());
+            if (s->tray_active) tray_update_tip(hwnd, title.c_str());
         }
         InvalidateRect(hwnd, nullptr, FALSE);
         sync_timer(hwnd, *s);
@@ -413,6 +470,42 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_ERASEBKGND:
         return 1;
+    case WM_SIZE:
+        if (wp == SIZE_MINIMIZED) {
+            tray_add(hwnd, s->tray_icon);
+            s->tray_active = true;
+            ShowWindow(hwnd, SW_HIDE);
+            return 0;
+        }
+        break;
+    case WM_TRAYICON:
+        if (lp == WM_LBUTTONUP) {
+            ShowWindow(hwnd, SW_RESTORE);
+            SetForegroundWindow(hwnd);
+            tray_remove(hwnd);
+            s->tray_active = false;
+        } else if (lp == WM_RBUTTONUP) {
+            HMENU menu = CreatePopupMenu();
+            AppendMenuW(menu, MF_STRING, IDM_TRAY_SHOW, L"Show");
+            AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT, L"Exit");
+            POINT pt; GetCursorPos(&pt);
+            SetForegroundWindow(hwnd);
+            int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY,
+                                     pt.x, pt.y, 0, hwnd, nullptr);
+            DestroyMenu(menu);
+            if (cmd == IDM_TRAY_SHOW) {
+                ShowWindow(hwnd, SW_RESTORE);
+                SetForegroundWindow(hwnd);
+                tray_remove(hwnd);
+                s->tray_active = false;
+            } else if (cmd == IDM_TRAY_EXIT) {
+                tray_remove(hwnd);
+                s->tray_active = false;
+                DestroyWindow(hwnd);
+            }
+        }
+        return 0;
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
@@ -590,6 +683,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         save_config(hwnd, *s);
         return 0;
     case WM_DESTROY: {
+        if (s->tray_active) tray_remove(hwnd);
+        if (s->tray_icon) DestroyIcon(s->tray_icon);
         save_config(hwnd, *s);
         KillTimer(hwnd, 1);
         auto owned = std::unique_ptr<WndState>(s);
