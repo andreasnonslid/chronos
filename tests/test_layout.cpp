@@ -31,8 +31,8 @@ TEST_CASE("Layout update_for_dpi: standard 96 DPI", "[layout]") {
     l.update_for_dpi(96);
     REQUIRE(l.bar_h == 36);
     REQUIRE(l.clk_h == 62);
-    REQUIRE(l.sw_h == 100);
-    REQUIRE(l.tmr_h == 118);
+    REQUIRE(l.sw_h == 96);
+    REQUIRE(l.tmr_h == 114);
     REQUIRE(l.btn_h == 28);
 }
 
@@ -41,8 +41,8 @@ TEST_CASE("Layout update_for_dpi: 192 DPI doubles values", "[layout]") {
     l.update_for_dpi(192);
     REQUIRE(l.bar_h == 72);
     REQUIRE(l.clk_h == 124);
-    REQUIRE(l.sw_h == 200);
-    REQUIRE(l.tmr_h == 236);
+    REQUIRE(l.sw_h == 192);
+    REQUIRE(l.tmr_h == 228);
     REQUIRE(l.btn_h == 56);
 }
 
@@ -63,7 +63,7 @@ TEST_CASE("client_height_for: all sections visible", "[layout]") {
     l.update_for_dpi(96);
     LayoutState s{true, true, true, 2};
     // bar_h + clk_h + sw_h + 2*tmr_h
-    REQUIRE(client_height_for(l, s) == 36 + 62 + 100 + 2 * 118);
+    REQUIRE(client_height_for(l, s) == 36 + 62 + 96 + 2 * 114);
 }
 
 TEST_CASE("client_height_for: none visible", "[layout]") {
@@ -84,5 +84,5 @@ TEST_CASE("client_height_for: timers with 3 slots", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
     LayoutState s{false, false, true, 3};
-    REQUIRE(client_height_for(l, s) == 36 + 3 * 118);
+    REQUIRE(client_height_for(l, s) == 36 + 3 * 114);
 }

@@ -284,7 +284,7 @@ static int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point no
             tmr_act(i, A_TMR_RST), ctx);
 
         int pm_sz = layout.dpi_scale(22), pm_margin = layout.dpi_scale(6);
-        int pm_top = y + layout.tmr_h - pm_sz - layout.dpi_scale(4);
+        int pm_top = y + layout.tmr_h - pm_sz;
         if ((int)ctx.app.timers.size() < Config::MAX_TIMERS)
             btn(hdc, {cw-pm_margin-pm_sz, pm_top, cw-pm_margin, pm_top+pm_sz},
                 false, L"+", tmr_act(i, A_TMR_ADD), ctx);
