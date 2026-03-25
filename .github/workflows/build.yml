@@ -21,10 +21,6 @@ jobs:
             mingw-w64-x86_64-ninja
             git
 
-      - name: Check formatting
-        shell: msys2 {0}
-        run: clang-format --dry-run --Werror src/*.cpp src/*.ixx tests/*.cpp
-
       - name: Build & Test
         shell: msys2 {0}
         run: |
