@@ -288,6 +288,17 @@ static void resize_window(HWND hwnd, const WndState& s) {
                  SWP_NOMOVE | SWP_NOZORDER);
 }
 
+// ─── Timer hit detection ─────────────────────────────────────────────────────
+static int timer_index_at_y(const WndState& s, int y) {
+    if (!s.app.show_tmr) return -1;
+    int top = s.layout.bar_h;
+    if (s.app.show_clk) top += s.layout.clk_h;
+    if (s.app.show_sw)  top += s.layout.sw_h;
+    if (y < top) return -1;
+    int idx = (y - top) / s.layout.tmr_h;
+    return idx < (int)s.app.timers.size() ? idx : -1;
+}
+
 // ─── Action wrapper ──────────────────────────────────────────────────────────
 static void handle(HWND hwnd, int act, WndState& s) {
     auto now = sc::now();
@@ -413,6 +424,34 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         for (auto& [r, id] : s->btns)
             if (PtInRect(&r, pt)) { handle(hwnd, id, *s); break; }
+        return 0;
+    }
+    case WM_RBUTTONDOWN: {
+        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+        int idx = timer_index_at_y(*s, pt.y);
+        if (idx >= 0 && !s->app.timers[idx].t.touched()) {
+            struct { int secs; const wchar_t* label; } presets[] = {
+                {  60, L"1:00"},  { 120, L"2:00"},  { 180, L"3:00"},
+                { 300, L"5:00"},  { 600, L"10:00"}, { 900, L"15:00"},
+                {1200, L"20:00"}, {1500, L"25:00"}, {1800, L"30:00"},
+                {2700, L"45:00"}, {3600, L"1:00:00"},
+            };
+            HMENU menu = CreatePopupMenu();
+            for (int i = 0; i < (int)std::size(presets); ++i)
+                AppendMenuW(menu, MF_STRING, 1 + i, presets[i].label);
+            POINT scr = pt;
+            ClientToScreen(hwnd, &scr);
+            int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY,
+                                     scr.x, scr.y, 0, hwnd, nullptr);
+            DestroyMenu(menu);
+            if (cmd > 0) {
+                auto& ts = s->app.timers[idx];
+                ts.dur = seconds{presets[cmd - 1].secs};
+                ts.t.reset(); ts.t.set(ts.dur);
+                save_config(hwnd, *s);
+                InvalidateRect(hwnd, nullptr, FALSE);
+            }
+        }
         return 0;
     }
     case WM_KEYDOWN: {
