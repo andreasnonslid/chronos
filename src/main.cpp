@@ -346,7 +346,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         RECT cr; GetClientRect(hwnd, &cr);
         s->ensure_buffer(hdc, cr.right, cr.bottom);
         auto ctx = s->paint_ctx();
-        paint_all(s->mdc, cr.right, ctx);
+        paint_all(s->mdc, cr.right, cr.bottom, ctx);
         BitBlt(hdc, 0, 0, cr.right, cr.bottom, s->mdc, 0, 0, SRCCOPY);
         EndPaint(hwnd, &ps);
         return 0;
