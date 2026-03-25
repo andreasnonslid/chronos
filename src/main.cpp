@@ -24,18 +24,20 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     FileCloser log_guard;
     int argc = 0;
     wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    for (int i = 1; i < argc; ++i) {
-        if (wcscmp(argv[i], L"--debug") == 0) {
-            wchar_t exe[MAX_PATH] = {};
-            GetModuleFileNameW(nullptr, exe, MAX_PATH);
-            auto log_path = std::filesystem::path{exe}.parent_path() / "debug.log";
-            FILE* log_f = _wfopen(log_path.c_str(), L"a");
-            log_guard.f = log_f;
-            set_log_file(log_f);
-            if (log_f) fprintf(log_f, "\n=== chronos start ===\n");
+    if (argv) {
+        for (int i = 1; i < argc; ++i) {
+            if (wcscmp(argv[i], L"--debug") == 0) {
+                wchar_t exe[MAX_PATH] = {};
+                GetModuleFileNameW(nullptr, exe, MAX_PATH);
+                auto log_path = std::filesystem::path{exe}.parent_path() / "debug.log";
+                FILE* log_f = _wfopen(log_path.c_str(), L"a");
+                log_guard.f = log_f;
+                set_log_file(log_f);
+                if (log_f) fprintf(log_f, "\n=== chronos start ===\n");
+            }
         }
+        LocalFree(argv);
     }
-    LocalFree(argv);
 
     load_dpi_apis();
     if (pSetProcessDpiAwarenessContext) pSetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
