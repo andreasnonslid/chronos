@@ -538,7 +538,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 // ─── WinMain ──────────────────────────────────────────────────────────────────
+struct FileCloser {
+    FILE* f = nullptr;
+    ~FileCloser() { if (f) { fprintf(f, "=== chronos exit ===\n"); fclose(f); } }
+};
+
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
+    FileCloser log_guard;
     int argc = 0;
     wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     for (int i = 1; i < argc; ++i) {
@@ -547,6 +553,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
             GetModuleFileNameW(nullptr, exe, MAX_PATH);
             auto log_path = std::filesystem::path{exe}.parent_path() / "debug.log";
             g_log_file = _wfopen(log_path.c_str(), L"a");
+            log_guard.f = g_log_file;
             if (g_log_file) fprintf(g_log_file, "\n=== chronos start ===\n");
         }
     }
@@ -596,6 +603,5 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     }
     if (icon_sm) DestroyIcon(icon_sm);
     if (icon_lg) DestroyIcon(icon_lg);
-    if (g_log_file) { fprintf(g_log_file, "=== chronos exit ===\n"); fclose(g_log_file); }
     return (int)msg.wParam;
 }
