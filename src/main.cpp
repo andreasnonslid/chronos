@@ -6,11 +6,11 @@
 #include <windowsx.h>
 #include <shellapi.h>
 // Forward-declare DWM to avoid MinGW header chain issues (uxtheme.h missing commctrl.h).
-extern "C" __declspec(dllimport) HRESULT __stdcall
-DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
+extern "C"
+    __declspec(dllimport) HRESULT __stdcall DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
 // DPI APIs loaded dynamically to avoid hard dependency on Windows 10 1607+/1703+.
-using GetDpiForWindow_t = UINT (WINAPI *)(HWND);
-using SetProcessDpiAwarenessContext_t = BOOL (WINAPI *)(HANDLE);
+using GetDpiForWindow_t = UINT(WINAPI*)(HWND);
+using SetProcessDpiAwarenessContext_t = BOOL(WINAPI*)(HANDLE);
 static GetDpiForWindow_t pGetDpiForWindow = nullptr;
 static SetProcessDpiAwarenessContext_t pSetProcessDpiAwarenessContext = nullptr;
 static const HANDLE DPI_CTX_PER_MONITOR_V2 = ((HANDLE)(LONG_PTR)-4);
@@ -18,7 +18,8 @@ static void load_dpi_apis() {
     HMODULE user32 = GetModuleHandleW(L"user32.dll");
     if (user32) {
         pGetDpiForWindow = (GetDpiForWindow_t)GetProcAddress(user32, "GetDpiForWindow");
-        pSetProcessDpiAwarenessContext = (SetProcessDpiAwarenessContext_t)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+        pSetProcessDpiAwarenessContext =
+            (SetProcessDpiAwarenessContext_t)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
     }
 }
 #include <algorithm>
@@ -48,9 +49,8 @@ using sc = steady_clock;
 
 // ─── Named constants ─────────────────────────────────────────────────────────
 constexpr int POLL_STOPWATCH_MS = 20;
-constexpr int POLL_TIMER_MS    = 100;
-constexpr int POLL_IDLE_MS     = 1000;
-
+constexpr int POLL_TIMER_MS = 100;
+constexpr int POLL_IDLE_MS = 1000;
 
 // Process-wide log file (set before window creation).
 static FILE* g_log_file = nullptr;
@@ -64,25 +64,32 @@ static LayoutState layout_state(const WndState& s) {
     };
 }
 
-static int client_height(const WndState& s) {
-    return client_height_for(s.layout, layout_state(s));
-}
+static int client_height(const WndState& s) { return client_height_for(s.layout, layout_state(s)); }
 
 static void sync_timer(HWND hwnd, WndState& s) {
     bool any_timer_running = false;
     for (auto& ts : s.app.timers)
-        if (ts.t.is_running()) { any_timer_running = true; break; }
+        if (ts.t.is_running()) {
+            any_timer_running = true;
+            break;
+        }
     int want = (s.app.show_sw && s.app.sw.is_running()) ? POLL_STOPWATCH_MS
-             : any_timer_running ? POLL_TIMER_MS
-             : POLL_IDLE_MS;
-    if (want != s.timer_ms) { s.timer_ms = want; SetTimer(hwnd, 1, want, nullptr); }
+               : any_timer_running                      ? POLL_TIMER_MS
+                                                        : POLL_IDLE_MS;
+    if (want != s.timer_ms) {
+        s.timer_ms = want;
+        SetTimer(hwnd, 1, want, nullptr);
+    }
 }
 
 // ─── Diagnostics ──────────────────────────────────────────────────────────────
 static void dbg(const std::wstring& msg) {
     OutputDebugStringW(msg.c_str());
     OutputDebugStringW(L"\n");
-    if (g_log_file) { fwprintf(g_log_file, L"%ls\n", msg.c_str()); fflush(g_log_file); }
+    if (g_log_file) {
+        fwprintf(g_log_file, L"%ls\n", msg.c_str());
+        fflush(g_log_file);
+    }
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -102,12 +109,15 @@ static void save_config(HWND hwnd, const WndState& s) {
     const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] save_config: {}", path.wstring()));
     std::ofstream f(path);
-    if (!f) { dbg(L"[chrono] save_config: open failed"); return; }
+    if (!f) {
+        dbg(L"[chrono] save_config: open failed");
+        return;
+    }
     Config cfg;
-    cfg.show_clk   = s.app.show_clk;
-    cfg.show_sw    = s.app.show_sw;
-    cfg.show_tmr   = s.app.show_tmr;
-    cfg.topmost    = s.app.topmost;
+    cfg.show_clk = s.app.show_clk;
+    cfg.show_sw = s.app.show_sw;
+    cfg.show_tmr = s.app.show_tmr;
+    cfg.topmost = s.app.topmost;
     cfg.num_timers = (int)s.app.timers.size();
     for (int i = 0; i < (int)s.app.timers.size(); ++i) {
         cfg.timer_secs[i] = (int)s.app.timers[i].dur.count();
@@ -139,16 +149,18 @@ static void load_config(HWND hwnd, WndState& s) {
     const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] load_config: {}", path.wstring()));
     std::ifstream f(path);
-    if (!f) { dbg(L"[chrono] no config, using defaults"); return; }
+    if (!f) {
+        dbg(L"[chrono] no config, using defaults");
+        return;
+    }
     Config cfg;
     config_read(cfg, f);
-    dbg(std::format(L"[chrono] loaded: clk={} sw={} tmr={} top={} pos={} ({},{} w={})",
-                    cfg.show_clk, cfg.show_sw, cfg.show_tmr, cfg.topmost,
-                    cfg.pos_valid, cfg.win_x, cfg.win_y, cfg.win_w));
+    dbg(std::format(L"[chrono] loaded: clk={} sw={} tmr={} top={} pos={} ({},{} w={})", cfg.show_clk, cfg.show_sw,
+                    cfg.show_tmr, cfg.topmost, cfg.pos_valid, cfg.win_x, cfg.win_y, cfg.win_w));
     s.app.show_clk = cfg.show_clk;
-    s.app.show_sw  = cfg.show_sw;
+    s.app.show_sw = cfg.show_sw;
     s.app.show_tmr = cfg.show_tmr;
-    s.app.topmost  = cfg.topmost;
+    s.app.topmost = cfg.topmost;
     int n = std::min(cfg.num_timers, Config::MAX_TIMERS);
     s.app.timers.resize(n);
     for (int i = 0; i < n; ++i) {
@@ -161,10 +173,10 @@ static void load_config(HWND hwnd, WndState& s) {
         if (wlen > 0) MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, label.data(), wlen);
         s.app.timers[i].label = std::move(label);
     }
-    if (s.app.topmost)
-        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    if (s.app.topmost) SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     if (cfg.pos_valid) {
-        RECT cur; GetWindowRect(hwnd, &cur);
+        RECT cur;
+        GetWindowRect(hwnd, &cur);
         DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
         RECT adj{0, 0, s.layout.bar_min_client_w(), 0};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
@@ -173,11 +185,9 @@ static void load_config(HWND hwnd, WndState& s) {
         RECT test{cfg.win_x, cfg.win_y, cfg.win_x + w, cfg.win_y + 1};
         HMONITOR hmon = MonitorFromRect(&test, MONITOR_DEFAULTTONULL);
         if (hmon) {
-            SetWindowPos(hwnd, nullptr, cfg.win_x, cfg.win_y,
-                         w, cur.bottom - cur.top, SWP_NOZORDER);
+            SetWindowPos(hwnd, nullptr, cfg.win_x, cfg.win_y, w, cur.bottom - cur.top, SWP_NOZORDER);
         } else {
-            SetWindowPos(hwnd, nullptr, 0, 0,
-                         w, cur.bottom - cur.top, SWP_NOZORDER | SWP_NOMOVE);
+            SetWindowPos(hwnd, nullptr, 0, 0, w, cur.bottom - cur.top, SWP_NOZORDER | SWP_NOMOVE);
         }
     }
 }
@@ -193,9 +203,7 @@ static void resize_window(HWND hwnd, const WndState& s) {
     RECT wr;
     GetWindowRect(hwnd, &wr);
     int cur_w = wr.right - wr.left;
-    SetWindowPos(hwnd, nullptr, 0, 0,
-                 cur_w, client_height(s) + nonclient_height(hwnd),
-                 SWP_NOMOVE | SWP_NOZORDER);
+    SetWindowPos(hwnd, nullptr, 0, 0, cur_w, client_height(s) + nonclient_height(hwnd), SWP_NOMOVE | SWP_NOZORDER);
 }
 
 // ─── Timer hit detection ─────────────────────────────────────────────────────
@@ -203,7 +211,7 @@ static int timer_index_at_y(const WndState& s, int y) {
     if (!s.app.show_tmr) return -1;
     int top = s.layout.bar_h;
     if (s.app.show_clk) top += s.layout.clk_h;
-    if (s.app.show_sw)  top += s.layout.sw_h;
+    if (s.app.show_sw) top += s.layout.sw_h;
     if (y < top) return -1;
     int idx = (y - top) / s.layout.tmr_h;
     return idx < (int)s.app.timers.size() ? idx : -1;
@@ -212,18 +220,18 @@ static int timer_index_at_y(const WndState& s, int y) {
 // ─── Action wrapper ──────────────────────────────────────────────────────────
 static void handle(HWND hwnd, int act, WndState& s) {
     auto now = sc::now();
-    if (wants_blink(act)) { s.app.blink_act = act; s.app.blink_t = now; }
+    if (wants_blink(act)) {
+        s.app.blink_act = act;
+        s.app.blink_t = now;
+    }
 
     auto r = dispatch_action(s.app, act, now, s.cfg_path.parent_path());
 
     if (r.set_topmost)
-        SetWindowPos(hwnd, s.app.topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
-                     0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-    if (r.resize)      resize_window(hwnd, s);
+        SetWindowPos(hwnd, s.app.topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    if (r.resize) resize_window(hwnd, s);
     if (r.save_config) save_config(hwnd, s);
-    if (r.open_file)
-        ShellExecuteW(nullptr, L"open", s.app.sw_lap_file.c_str(),
-                      nullptr, nullptr, SW_SHOW);
+    if (r.open_file) ShellExecuteW(nullptr, L"open", s.app.sw_lap_file.c_str(), nullptr, nullptr, SW_SHOW);
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);
 }
@@ -238,8 +246,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         s = state.get();
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)s);
         auto* cs = (CREATESTRUCTW*)lp;
-        if (cs->lpCreateParams)
-            s->layout = *(Layout*)cs->lpCreateParams;
+        if (cs->lpCreateParams) s->layout = *(Layout*)cs->lpCreateParams;
         if (pGetDpiForWindow) {
             UINT wdpi = pGetDpiForWindow(hwnd);
             if (wdpi != 0) s->layout.update_for_dpi((int)wdpi);
@@ -250,8 +257,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         s->create_brushes();
         SetTimer(hwnd, 1, POLL_TIMER_MS, nullptr);
         BOOL dwm_dark = dark ? TRUE : FALSE;
-        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR,
-                              &dwm_dark, sizeof(dwm_dark));
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
         s->tray_icon = create_app_icon(16);
         s->cfg_path = config_path();
         load_config(hwnd, *s);
@@ -273,10 +279,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 ts.notified = true;
                 MessageBeep(MB_ICONASTERISK);
                 FLASHWINFO fi{};
-                fi.cbSize    = sizeof(fi);
-                fi.hwnd      = hwnd;
-                fi.dwFlags   = FLASHW_ALL | FLASHW_TIMERNOFG;
-                fi.uCount    = 3;
+                fi.cbSize = sizeof(fi);
+                fi.hwnd = hwnd;
+                fi.dwFlags = FLASHW_ALL | FLASHW_TIMERNOFG;
+                fi.uCount = 3;
                 fi.dwTimeout = 0;
                 FlashWindowEx(&fi);
                 if (s->tray_active) {
@@ -298,7 +304,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 title = format_stopwatch_display(s->app.sw.elapsed(now));
             }
             if (title.empty()) {
-                SYSTEMTIME st; GetLocalTime(&st);
+                SYSTEMTIME st;
+                GetLocalTime(&st);
                 title = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
             }
             title += L" \u2014 Chronos";
@@ -330,10 +337,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             AppendMenuW(menu, MF_STRING, IDM_TRAY_SHOW, L"Show");
             AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
             AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT, L"Exit");
-            POINT pt; GetCursorPos(&pt);
+            POINT pt;
+            GetCursorPos(&pt);
             SetForegroundWindow(hwnd);
-            int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY,
-                                     pt.x, pt.y, 0, hwnd, nullptr);
+            int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd, nullptr);
             DestroyMenu(menu);
             if (cmd == IDM_TRAY_SHOW) {
                 ShowWindow(hwnd, SW_RESTORE);
@@ -350,7 +357,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        RECT cr; GetClientRect(hwnd, &cr);
+        RECT cr;
+        GetClientRect(hwnd, &cr);
         s->ensure_buffer(hdc, cr.right, cr.bottom);
         auto ctx = s->paint_ctx();
         paint_all(s->mdc, cr.right, cr.bottom, ctx);
@@ -361,31 +369,35 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_LBUTTONDOWN: {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         for (auto& [r, id] : s->btns)
-            if (PtInRect(&r, pt)) { handle(hwnd, id, *s); break; }
+            if (PtInRect(&r, pt)) {
+                handle(hwnd, id, *s);
+                break;
+            }
         return 0;
     }
     case WM_LBUTTONDBLCLK: {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         for (auto& [r, id] : s->btns)
-            if (PtInRect(&r, pt)) { handle(hwnd, id, *s); return 0; }
+            if (PtInRect(&r, pt)) {
+                handle(hwnd, id, *s);
+                return 0;
+            }
         int idx = timer_index_at_y(*s, pt.y);
         if (idx >= 0) {
             auto& ts = s->app.timers[idx];
             wchar_t buf[21] = {};
-            if (!ts.label.empty())
-                wcsncpy(buf, ts.label.c_str(), 20);
+            if (!ts.label.empty()) wcsncpy(buf, ts.label.c_str(), 20);
             RECT dlg_r;
             GetClientRect(hwnd, &dlg_r);
             int top = s->layout.bar_h;
             if (s->app.show_clk) top += s->layout.clk_h;
-            if (s->app.show_sw)  top += s->layout.sw_h;
+            if (s->app.show_sw) top += s->layout.sw_h;
             int ey = top + idx * s->layout.tmr_h + s->layout.dpi_scale(2);
             int eh = s->layout.dpi_scale(18);
             int ew = s->layout.dpi_scale(120);
             int ex = (dlg_r.right - ew) / 2;
-            HWND edit = CreateWindowExW(0, L"EDIT", buf,
-                WS_CHILD | WS_VISIBLE | WS_BORDER | ES_CENTER | ES_AUTOHSCROLL,
-                ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(9000 + idx), nullptr, nullptr);
+            HWND edit = CreateWindowExW(0, L"EDIT", buf, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_CENTER | ES_AUTOHSCROLL,
+                                        ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(9000 + idx), nullptr, nullptr);
             SendMessageW(edit, EM_SETLIMITTEXT, 20, 0);
             SendMessageW(edit, WM_SETFONT, (WPARAM)s->hFontSm, TRUE);
             SetFocus(edit);
@@ -414,24 +426,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         int idx = timer_index_at_y(*s, pt.y);
         if (idx >= 0 && !s->app.timers[idx].t.touched()) {
-            struct { int secs; const wchar_t* label; } presets[] = {
-                {  60, L"1:00"},  { 120, L"2:00"},  { 180, L"3:00"},
-                { 300, L"5:00"},  { 600, L"10:00"}, { 900, L"15:00"},
-                {1200, L"20:00"}, {1500, L"25:00"}, {1800, L"30:00"},
-                {2700, L"45:00"}, {3600, L"1:00:00"},
+            struct {
+                int secs;
+                const wchar_t* label;
+            } presets[] = {
+                {60, L"1:00"},    {120, L"2:00"},   {180, L"3:00"},     {300, L"5:00"},
+                {600, L"10:00"},  {900, L"15:00"},  {1200, L"20:00"},   {1500, L"25:00"},
+                {1800, L"30:00"}, {2700, L"45:00"}, {3600, L"1:00:00"},
             };
             HMENU menu = CreatePopupMenu();
-            for (int i = 0; i < (int)std::size(presets); ++i)
-                AppendMenuW(menu, MF_STRING, 1 + i, presets[i].label);
+            for (int i = 0; i < (int)std::size(presets); ++i) AppendMenuW(menu, MF_STRING, 1 + i, presets[i].label);
             POINT scr = pt;
             ClientToScreen(hwnd, &scr);
-            int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY,
-                                     scr.x, scr.y, 0, hwnd, nullptr);
+            int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, scr.x, scr.y, 0, hwnd, nullptr);
             DestroyMenu(menu);
             if (cmd > 0) {
                 auto& ts = s->app.timers[idx];
                 ts.dur = seconds{presets[cmd - 1].secs};
-                ts.t.reset(); ts.t.set(ts.dur);
+                ts.t.reset();
+                ts.t.set(ts.dur);
                 save_config(hwnd, *s);
                 InvalidateRect(hwnd, nullptr, FALSE);
             }
@@ -476,10 +489,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case 'T':
             handle(hwnd, A_TOPMOST, *s);
             break;
-        case '1': case '2': case '3': {
+        case '1':
+        case '2':
+        case '3': {
             int idx = (int)(wp - '1');
-            if (s->app.show_tmr && idx < (int)s->app.timers.size())
-                handle(hwnd, tmr_act(idx, A_TMR_START), *s);
+            if (s->app.show_tmr && idx < (int)s->app.timers.size()) handle(hwnd, tmr_act(idx, A_TMR_START), *s);
             break;
         }
         case 'H':
@@ -519,11 +533,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         s->layout.update_for_dpi(HIWORD(wp));
         recreate_fonts(*s);
         auto* suggested = (RECT*)lp;
-        SetWindowPos(hwnd, nullptr,
-                     suggested->left, suggested->top,
-                     suggested->right - suggested->left,
-                     suggested->bottom - suggested->top,
-                     SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left,
+                     suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
         resize_window(hwnd, *s);
         InvalidateRect(hwnd, nullptr, TRUE);
         return 0;
@@ -532,8 +543,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (lp && wcscmp((LPCWSTR)lp, L"ImmersiveColorSet") == 0) {
             bool dark = system_prefers_dark();
             BOOL dwm_dark = dark ? TRUE : FALSE;
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR,
-                                  &dwm_dark, sizeof(dwm_dark));
+            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
             s->active_theme = dark ? &dark_theme : &light_theme;
             s->destroy_brushes();
             s->create_brushes();
@@ -560,7 +570,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 // ─── WinMain ──────────────────────────────────────────────────────────────────
 struct FileCloser {
     FILE* f = nullptr;
-    ~FileCloser() { if (f) { fprintf(f, "=== chronos exit ===\n"); fclose(f); } }
+    ~FileCloser() {
+        if (f) {
+            fprintf(f, "=== chronos exit ===\n");
+            fclose(f);
+        }
+    }
 };
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
@@ -580,8 +595,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     LocalFree(argv);
 
     load_dpi_apis();
-    if (pSetProcessDpiAwarenessContext)
-        pSetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
+    if (pSetProcessDpiAwarenessContext) pSetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
 
     Layout init_layout;
     HDC dc = GetDC(nullptr);
@@ -592,13 +606,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     HICON icon_lg = create_app_icon(32);
 
     WNDCLASSEXW wc{};
-    wc.cbSize        = sizeof(wc);
-    wc.style         = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
-    wc.lpfnWndProc   = WndProc;
-    wc.hInstance     = hInst;
-    wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hIcon         = icon_lg;
-    wc.hIconSm       = icon_sm;
+    wc.cbSize = sizeof(wc);
+    wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInst;
+    wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hIcon = icon_lg;
+    wc.hIconSm = icon_sm;
     wc.lpszClassName = L"ChronoApp";
     RegisterClassExW(&wc);
 
@@ -607,11 +621,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     RECT wr{0, 0, init_layout.bar_min_client_w(), init_h};
     AdjustWindowRect(&wr, ws, FALSE);
 
-    HWND hwnd = CreateWindowExW(
-        0, L"ChronoApp", L"Chronos", ws,
-        CW_USEDEFAULT, CW_USEDEFAULT,
-        wr.right - wr.left, wr.bottom - wr.top,
-        nullptr, nullptr, hInst, &init_layout);
+    HWND hwnd = CreateWindowExW(0, L"ChronoApp", L"Chronos", ws, CW_USEDEFAULT, CW_USEDEFAULT, wr.right - wr.left,
+                                wr.bottom - wr.top, nullptr, nullptr, hInst, &init_layout);
 
     ShowWindow(hwnd, nShow);
     UpdateWindow(hwnd);
