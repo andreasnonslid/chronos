@@ -23,6 +23,7 @@ if(WIN32)
             src/icon.ixx
             src/layout.ixx
             src/painting.ixx
+            src/painting_timer.ixx
             src/stopwatch.ixx
             src/theme.ixx
             src/timer.ixx
