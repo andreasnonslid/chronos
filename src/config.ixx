@@ -46,9 +46,11 @@ export bool config_read(Config& c, std::istream& f) {
         std::string_view rest{line.data() + eq + 1, line.size() - eq - 1};
         // Handle string-valued keys before numeric parsing
         bool handled_str = false;
-        if (key.size() == 12 && key.starts_with("timer") && key.ends_with("_label")) {
-            int i = key[5] - '0';
-            if (i >= 0 && i < Config::MAX_TIMERS) {
+        if (key.starts_with("timer") && key.ends_with("_label")) {
+            auto num = key.substr(5, key.size() - 11);
+            int i;
+            auto [ptr, ec] = std::from_chars(num.data(), num.data() + num.size(), i);
+            if (ec == std::errc{} && ptr == num.data() + num.size() && i >= 0 && i < Config::MAX_TIMERS) {
                 c.timer_labels[i] = std::string(rest.substr(0, 20));
                 handled_str = true;
             }
@@ -75,9 +77,11 @@ export bool config_read(Config& c, std::istream& f) {
         } else if (key == "win_w") {
             c.win_w = std::max(Config::MIN_WINDOW_W, val);
             has_w = true;
-        } else if (key.size() == 6 && key.starts_with("timer")) {
-            int i = key[5] - '0';
-            if (i >= 0 && i < Config::MAX_TIMERS)
+        } else if (key.starts_with("timer") && key.size() > 5) {
+            auto num = key.substr(5);
+            int i;
+            auto [ptr, ec] = std::from_chars(num.data(), num.data() + num.size(), i);
+            if (ec == std::errc{} && ptr == num.data() + num.size() && i >= 0 && i < Config::MAX_TIMERS)
                 c.timer_secs[i] = std::clamp(val, Config::TIMER_MIN_SECS, Config::TIMER_MAX_SECS);
         }
     }
