@@ -334,13 +334,19 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (idx >= 0 && !s->app.timers[idx].t.touched()) {
             int delta = GET_WHEEL_DELTA_WPARAM(wp);
             bool up = delta > 0;
+            RECT cr;
+            GetClientRect(hwnd, &cr);
+            int cw = cr.right;
+            int col_gap = s->layout.dpi_scale(52);
+            int sep1 = cw / 2 - col_gap / 2;
+            int sep2 = cw / 2 + col_gap / 2;
             int off;
-            if (GetKeyState(VK_CONTROL) & 0x8000)
+            if (pt.x < sep1)
                 off = up ? A_TMR_HUP : A_TMR_HDN;
-            else if (GetKeyState(VK_SHIFT) & 0x8000)
-                off = up ? A_TMR_SUP : A_TMR_SDN;
-            else
+            else if (pt.x < sep2)
                 off = up ? A_TMR_MUP : A_TMR_MDN;
+            else
+                off = up ? A_TMR_SUP : A_TMR_SDN;
             handle(hwnd, tmr_act(idx, off), *s);
         }
         return 0;
