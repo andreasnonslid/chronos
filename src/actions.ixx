@@ -114,7 +114,7 @@ export HandleResult dispatch_action(App& app, int act, sc::time_point now, const
                     const auto& laps = app.sw.laps();
                     auto n = laps.size();
                     f << format_lap_row(n, laps.back(), app.sw.cumulative()) << L'\n';
-                    app.lap_write_failed = false;
+                    app.lap_write_failed = !f.good();
                 } else {
                     app.lap_write_failed = true;
                 }
