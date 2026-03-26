@@ -180,10 +180,10 @@ TEST_CASE("A_TMR_HDN decrements hours", "[actions]") {
     REQUIRE(app.timers[0].dur == seconds{60}); // 0h 1m 0s
 }
 
-TEST_CASE("A_TMR_HDN wraps 0 to 24", "[actions]") {
-    App app; // default 0h 1m 0s
+TEST_CASE("A_TMR_HDN wraps 0 to 24 and clamps to TIMER_MAX_SECS", "[actions]") {
+    App app; // default 0h 1m 0s; wrapping h to 24 gives 24h 1m 0s = 86460 > TIMER_MAX_SECS
     dispatch_action(app, tmr_act(0, A_TMR_HDN), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{24 * 3600 + 60}); // 24h 1m 0s
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS}); // clamped to 86400
 }
 
 // ─── timer minute adjustments ────────────────────────────────────────────────
@@ -251,6 +251,15 @@ TEST_CASE("Timer adjustments ignored when timer is touched", "[actions]") {
     auto dur_before = app.timers[0].dur;
     dispatch_action(app, tmr_act(0, A_TMR_HUP), t0(), {});
     REQUIRE(app.timers[0].dur == dur_before);
+}
+
+// ─── timer adjustment clamping ───────────────────────────────────────────────
+
+TEST_CASE("Timer adjustment clamps to TIMER_MAX_SECS", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{23 * 3600 + 59 * 60 + 59}); // 23:59:59
+    dispatch_action(app, tmr_act(0, A_TMR_HUP), t0(), {});    // h → 24, total would be 89999
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
 }
 
 // ─── timer start / pause / resume ────────────────────────────────────────────
