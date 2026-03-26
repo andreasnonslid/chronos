@@ -134,12 +134,11 @@ static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point
     btn(hdc, {bx0 + 2 * (bw + gap), by0, bx0 + 3 * bw + 2 * gap, by0 + bh}, false, L"Reset", A_SW_RESET, ctx);
 
     auto& laps = ctx.app.sw.laps();
-    if (!laps.empty()) {
-        auto info = std::format(L"Lap {}  \u2014  {}", laps.size(), format_stopwatch_short(laps.back()));
-        SetTextColor(hdc, th.dim);
-        RECT ir{0, by0 + bh + layout.dpi_scale(4), cw, by0 + bh + layout.dpi_scale(22)};
-        DrawTextW(hdc, info.c_str(), -1, &ir, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    }
+    auto info = laps.empty() ? std::wstring(L"\u2014")
+                             : std::format(L"Lap {}  \u2014  {}", laps.size(), format_stopwatch_short(laps.back()));
+    SetTextColor(hdc, th.dim);
+    RECT ir{0, by0 + bh + layout.dpi_scale(4), cw, by0 + bh + layout.dpi_scale(22)};
+    DrawTextW(hdc, info.c_str(), -1, &ir, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     bool has_file = !ctx.app.sw_lap_file.empty();
     int gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
