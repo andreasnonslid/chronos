@@ -12,48 +12,44 @@ export constexpr UINT TRAY_UID = 1;
 export constexpr int IDM_TRAY_SHOW = 1;
 export constexpr int IDM_TRAY_EXIT = 2;
 
-export void tray_add(HWND hwnd, HICON icon) {
+static NOTIFYICONDATAW make_nid(HWND hwnd, UINT flags = 0) {
     NOTIFYICONDATAW nid{};
     nid.cbSize = sizeof(nid);
     nid.hWnd = hwnd;
     nid.uID = TRAY_UID;
-    nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
+    nid.uFlags = flags;
+    return nid;
+}
+
+template <size_t N>
+static void safe_copy(wchar_t (&dst)[N], const wchar_t* src) {
+    wcsncpy(dst, src, N - 1);
+    dst[N - 1] = L'\0';
+}
+
+export void tray_add(HWND hwnd, HICON icon) {
+    auto nid = make_nid(hwnd, NIF_ICON | NIF_TIP | NIF_MESSAGE);
     nid.uCallbackMessage = WM_TRAYICON;
     nid.hIcon = icon;
-    wcsncpy(nid.szTip, L"Chronos", 127);
-    nid.szTip[127] = L'\0';
+    safe_copy(nid.szTip, L"Chronos");
     Shell_NotifyIconW(NIM_ADD, &nid);
 }
 
 export void tray_update_tip(HWND hwnd, const wchar_t* tip) {
-    NOTIFYICONDATAW nid{};
-    nid.cbSize = sizeof(nid);
-    nid.hWnd = hwnd;
-    nid.uID = TRAY_UID;
-    nid.uFlags = NIF_TIP;
-    wcsncpy(nid.szTip, tip, 127);
-    nid.szTip[127] = L'\0';
+    auto nid = make_nid(hwnd, NIF_TIP);
+    safe_copy(nid.szTip, tip);
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
 export void tray_notify(HWND hwnd, const wchar_t* title, const wchar_t* msg) {
-    NOTIFYICONDATAW nid{};
-    nid.cbSize = sizeof(nid);
-    nid.hWnd = hwnd;
-    nid.uID = TRAY_UID;
-    nid.uFlags = NIF_INFO;
-    wcsncpy(nid.szInfoTitle, title, 63);
-    nid.szInfoTitle[63] = L'\0';
-    wcsncpy(nid.szInfo, msg, 255);
-    nid.szInfo[255] = L'\0';
+    auto nid = make_nid(hwnd, NIF_INFO);
+    safe_copy(nid.szInfoTitle, title);
+    safe_copy(nid.szInfo, msg);
     nid.dwInfoFlags = NIIF_INFO;
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
 export void tray_remove(HWND hwnd) {
-    NOTIFYICONDATAW nid{};
-    nid.cbSize = sizeof(nid);
-    nid.hWnd = hwnd;
-    nid.uID = TRAY_UID;
+    auto nid = make_nid(hwnd);
     Shell_NotifyIconW(NIM_DELETE, &nid);
 }
