@@ -85,10 +85,17 @@ export struct WndState {
 
     void ensure_buffer(HDC hdc, int w, int h) {
         if (w != buf_w || h != buf_h) {
+            HDC new_mdc = CreateCompatibleDC(hdc);
+            if (!new_mdc) return;
+            HBITMAP new_bmp = CreateCompatibleBitmap(hdc, w, h);
+            if (!new_bmp) {
+                DeleteDC(new_mdc);
+                return;
+            }
             if (buf_bmp) DeleteObject(buf_bmp);
             if (mdc) DeleteDC(mdc);
-            mdc = CreateCompatibleDC(hdc);
-            buf_bmp = CreateCompatibleBitmap(hdc, w, h);
+            mdc = new_mdc;
+            buf_bmp = new_bmp;
             SelectObject(mdc, buf_bmp);
             buf_w = w;
             buf_h = h;
@@ -119,32 +126,27 @@ export struct WndState {
 };
 
 export void recreate_fonts(WndState& s) {
+    HFONT newBig = make_font(26, true, s.layout);
+    HFONT newLarge = make_font(34, true, s.layout);
+    HFONT newSm = make_font(11, false, s.layout);
+    if (!newBig || !newLarge || !newSm) {
+        if (newBig) DeleteObject(newBig);
+        if (newLarge) DeleteObject(newLarge);
+        if (newSm) DeleteObject(newSm);
+        if (!s.fonts_custom) {
+            s.hFontBig = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            s.hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            s.hFontSm = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        }
+        return;
+    }
     if (s.fonts_custom) {
         DeleteObject(s.hFontBig);
         DeleteObject(s.hFontLarge);
         DeleteObject(s.hFontSm);
     }
-    s.hFontBig = make_font(26, true, s.layout);
-    s.hFontLarge = make_font(34, true, s.layout);
-    s.hFontSm = make_font(11, false, s.layout);
-    if (!s.hFontBig || !s.hFontLarge || !s.hFontSm) {
-        if (s.hFontBig) {
-            DeleteObject(s.hFontBig);
-            s.hFontBig = nullptr;
-        }
-        if (s.hFontLarge) {
-            DeleteObject(s.hFontLarge);
-            s.hFontLarge = nullptr;
-        }
-        if (s.hFontSm) {
-            DeleteObject(s.hFontSm);
-            s.hFontSm = nullptr;
-        }
-        s.hFontBig = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        s.hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        s.hFontSm = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        s.fonts_custom = false;
-    } else {
-        s.fonts_custom = true;
-    }
+    s.hFontBig = newBig;
+    s.hFontLarge = newLarge;
+    s.hFontSm = newSm;
+    s.fonts_custom = true;
 }
