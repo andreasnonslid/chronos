@@ -92,8 +92,8 @@ export struct WndState {
                 DeleteDC(new_mdc);
                 return;
             }
-            if (buf_bmp) DeleteObject(buf_bmp);
             if (mdc) DeleteDC(mdc);
+            if (buf_bmp) DeleteObject(buf_bmp);
             mdc = new_mdc;
             buf_bmp = new_bmp;
             SelectObject(mdc, buf_bmp);
