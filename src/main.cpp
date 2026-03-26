@@ -23,15 +23,19 @@ struct FileCloser {
     }
 };
 
+struct MutexGuard {
+    HANDLE h = nullptr;
+    ~MutexGuard() { if (h) CloseHandle(h); }
+};
+
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
-    HANDLE mutex = CreateMutexW(nullptr, TRUE, L"ChronosAppMutex");
+    MutexGuard mutex{CreateMutexW(nullptr, TRUE, L"ChronosAppMutex")};
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         HWND existing = FindWindowW(L"ChronoApp", nullptr);
         if (existing) {
             ShowWindow(existing, SW_RESTORE);
             SetForegroundWindow(existing);
         }
-        if (mutex) CloseHandle(mutex);
         return 0;
     }
 
