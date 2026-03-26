@@ -1,4 +1,5 @@
 module;
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <format>
@@ -179,7 +180,8 @@ export HandleResult dispatch_action(App& app, int act, sc::time_point now, const
                 else
                     changed = false;
                 if (changed) {
-                    ts.dur = seconds{h * 3600 + m * 60 + sec};
+                    auto clamped = std::clamp(h * 3600 + m * 60 + sec, 0, Config::TIMER_MAX_SECS);
+                    ts.dur = seconds{clamped};
                     ts.t.reset();
                     ts.t.set(ts.dur);
                     r.save_config = true;
