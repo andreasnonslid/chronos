@@ -355,6 +355,7 @@ static void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
     } shortcuts[] = {
         {L"Space", L"Start/Stop stopwatch or first timer"},
         {L"L", L"Record lap"},
+        {L"E", L"Open exported laps file"},
         {L"R", L"Reset stopwatch or first timer"},
         {L"T", L"Toggle always-on-top"},
         {L"1-3", L"Start/Stop timer 1-3"},
