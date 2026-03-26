@@ -24,6 +24,17 @@ struct FileCloser {
 };
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
+    HANDLE mutex = CreateMutexW(nullptr, TRUE, L"ChronosAppMutex");
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        HWND existing = FindWindowW(L"ChronoApp", nullptr);
+        if (existing) {
+            ShowWindow(existing, SW_RESTORE);
+            SetForegroundWindow(existing);
+        }
+        if (mutex) CloseHandle(mutex);
+        return 0;
+    }
+
     FileCloser log_guard;
     int argc = 0;
     wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
