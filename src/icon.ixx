@@ -9,9 +9,20 @@ import gdi;
 
 export HICON create_app_icon(int size) {
     HDC screen = GetDC(nullptr);
+    if (!screen) return nullptr;
+
     HDC mdc = CreateCompatibleDC(screen);
+    if (!mdc) { ReleaseDC(nullptr, screen); return nullptr; }
+
     HBITMAP color = CreateCompatibleBitmap(screen, size, size);
     HBITMAP mask = CreateBitmap(size, size, 1, 1, nullptr);
+    if (!color || !mask) {
+        if (color) DeleteObject(color);
+        if (mask) DeleteObject(mask);
+        DeleteDC(mdc);
+        ReleaseDC(nullptr, screen);
+        return nullptr;
+    }
     auto* old = SelectObject(mdc, color);
 
     GdiObj face{CreateSolidBrush(RGB(60, 60, 66))};
@@ -39,6 +50,13 @@ export HICON create_app_icon(int size) {
     SelectObject(mdc, old);
 
     HDC mdc2 = CreateCompatibleDC(screen);
+    if (!mdc2) {
+        DeleteDC(mdc);
+        DeleteObject(color);
+        DeleteObject(mask);
+        ReleaseDC(nullptr, screen);
+        return nullptr;
+    }
     SelectObject(mdc2, mask);
     HBRUSH white = (HBRUSH)GetStockObject(WHITE_BRUSH);
     FillRect(mdc2, &all, white);
