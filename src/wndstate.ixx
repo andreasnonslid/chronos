@@ -11,6 +11,7 @@ export module wndstate;
 import app;
 import layout;
 import painting;
+import theme;
 
 static HFONT make_font(int pt, bool bold, const Layout& layout) {
     int h = -MulDiv(pt, layout.dpi, 72);
