@@ -486,6 +486,9 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case 'L':
             if (s->app.show_sw) handle(hwnd, A_SW_LAP, *s);
             break;
+        case 'E':
+            if (s->app.show_sw) handle(hwnd, A_SW_GET, *s);
+            break;
         case 'R':
             if (s->app.show_sw)
                 handle(hwnd, A_SW_RESET, *s);
