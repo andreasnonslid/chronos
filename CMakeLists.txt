@@ -5,45 +5,49 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_program(LLD NAMES ld.lld ld.lld.exe REQUIRED)
+find_program(LLD NAMES ld.lld ld.lld.exe)
 
-add_executable(chronos WIN32 src/main.cpp)
+if(WIN32)
+    add_executable(chronos WIN32 src/main.cpp)
 
-target_sources(chronos PRIVATE
-    FILE_SET CXX_MODULES FILES
-        src/actions.ixx
-        src/app.ixx
-        src/config.ixx
-        src/config_io.ixx
-        src/debug.ixx
-        src/dpi.ixx
-        src/formatting.ixx
-        src/gdi.ixx
-        src/icon.ixx
-        src/layout.ixx
-        src/painting.ixx
-        src/stopwatch.ixx
-        src/theme.ixx
-        src/timer.ixx
-        src/tray.ixx
-        src/window.ixx
-        src/wndstate.ixx
-)
+    target_sources(chronos PRIVATE
+        FILE_SET CXX_MODULES FILES
+            src/actions.ixx
+            src/app.ixx
+            src/config.ixx
+            src/config_io.ixx
+            src/debug.ixx
+            src/dpi.ixx
+            src/formatting.ixx
+            src/gdi.ixx
+            src/icon.ixx
+            src/layout.ixx
+            src/painting.ixx
+            src/stopwatch.ixx
+            src/theme.ixx
+            src/timer.ixx
+            src/tray.ixx
+            src/window.ixx
+            src/wndstate.ixx
+    )
 
-target_compile_options(chronos PRIVATE
-    -Wall -Wextra -Wno-unused-command-line-argument
-)
+    target_compile_options(chronos PRIVATE
+        -Wall -Wextra -Wno-unused-command-line-argument
+    )
 
-target_link_options(chronos PRIVATE
-    "--ld-path=${LLD}"
-    -static-libstdc++
-    -static-libgcc
-)
+    target_link_options(chronos PRIVATE
+        -static-libstdc++
+        -static-libgcc
+    )
+    if(LLD)
+        target_link_options(chronos PRIVATE "--ld-path=${LLD}")
+    endif()
 
-target_link_libraries(chronos PRIVATE
-    -Wl,-Bstatic winpthread -Wl,-Bdynamic
-    gdi32 user32 dwmapi shell32 advapi32
-)
+    target_link_libraries(chronos PRIVATE
+        -Wl,-Bstatic winpthread -Wl,-Bdynamic
+        gdi32 user32 dwmapi shell32 advapi32
+    )
+endif()
 
 option(BUILD_TESTS "Build unit tests" OFF)
 if(BUILD_TESTS)
@@ -77,11 +81,15 @@ if(BUILD_TESTS)
     target_compile_options(chronos_tests PRIVATE
         -Wall -Wextra -Wno-unused-command-line-argument
     )
-    target_link_options(chronos_tests PRIVATE
-        "--ld-path=${LLD}"
-        -static-libstdc++
-        -static-libgcc
-    )
+    if(LLD)
+        target_link_options(chronos_tests PRIVATE "--ld-path=${LLD}")
+    endif()
+    if(WIN32)
+        target_link_options(chronos_tests PRIVATE
+            -static-libstdc++
+            -static-libgcc
+        )
+    endif()
 
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
     include(Catch2Testing OPTIONAL)

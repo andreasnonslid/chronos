@@ -1,5 +1,6 @@
 module;
 #include <chrono>
+#include <filesystem>
 #include <string>
 #include <vector>
 export module app;
@@ -15,7 +16,7 @@ export struct TimerSlot {
 
 export struct App {
     Stopwatch sw;
-    std::wstring sw_lap_file;
+    std::filesystem::path sw_lap_file;
     std::vector<TimerSlot> timers;
     bool show_clk = true;
     bool show_sw = true;
