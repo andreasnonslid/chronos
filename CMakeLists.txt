@@ -14,6 +14,9 @@ target_sources(chronos PRIVATE
         src/actions.ixx
         src/app.ixx
         src/config.ixx
+        src/config_io.ixx
+        src/debug.ixx
+        src/dpi.ixx
         src/formatting.ixx
         src/gdi.ixx
         src/icon.ixx

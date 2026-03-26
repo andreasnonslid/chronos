@@ -5,6 +5,8 @@
 #include <windows.h>
 #include <filesystem>
 #include <cstdio>
+import debug;
+import dpi;
 import icon;
 import layout;
 import window;
