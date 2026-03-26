@@ -5,6 +5,7 @@ module;
 #define _UNICODE
 #include <windows.h>
 #include <chrono>
+#include <filesystem>
 #include <format>
 #include <optional>
 #include <string>

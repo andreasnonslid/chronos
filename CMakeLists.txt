@@ -92,7 +92,7 @@ if(BUILD_TESTS)
     endif()
 
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
-    include(Catch2Testing OPTIONAL)
+    include(Catch OPTIONAL)
     if(COMMAND catch_discover_tests)
         catch_discover_tests(chronos_tests)
     else()
