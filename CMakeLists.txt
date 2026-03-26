@@ -21,9 +21,11 @@ if(WIN32)
             src/formatting.ixx
             src/gdi.ixx
             src/icon.ixx
+            src/input.ixx
             src/layout.ixx
             src/painting.ixx
             src/painting_timer.ixx
+            src/polling.ixx
             src/stopwatch.ixx
             src/theme.ixx
             src/timer.ixx
