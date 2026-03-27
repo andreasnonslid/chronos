@@ -15,7 +15,8 @@ import actions;
 import app;
 import formatting;
 import layout;
-export import painting_timer;
+import paint_ctx;
+import painting_timer;
 import theme;
 
 using namespace std::chrono;

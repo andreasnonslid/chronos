@@ -11,7 +11,7 @@ export module wndstate;
 import app;
 import gdi;
 import layout;
-import painting;
+export import paint_ctx;
 import theme;
 
 static HFONT make_font(int pt, bool bold, const Layout& layout) {

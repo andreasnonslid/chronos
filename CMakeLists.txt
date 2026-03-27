@@ -24,6 +24,7 @@ if(WIN32)
             src/icon.ixx
             src/input.ixx
             src/layout.ixx
+            src/paint_ctx.ixx
             src/painting.ixx
             src/painting_timer.ixx
             src/polling.ixx
