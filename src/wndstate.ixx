@@ -125,10 +125,14 @@ export struct WndState {
     }
 };
 
+static constexpr int FONT_PT_BIG = 26;
+static constexpr int FONT_PT_LARGE = 34;
+static constexpr int FONT_PT_SM = 11;
+
 export void recreate_fonts(WndState& s) {
-    HFONT newBig = make_font(26, true, s.layout);
-    HFONT newLarge = make_font(34, true, s.layout);
-    HFONT newSm = make_font(11, false, s.layout);
+    HFONT newBig = make_font(FONT_PT_BIG, true, s.layout);
+    HFONT newLarge = make_font(FONT_PT_LARGE, true, s.layout);
+    HFONT newSm = make_font(FONT_PT_SM, false, s.layout);
     if (!newBig || !newLarge || !newSm) {
         if (newBig) DeleteObject(newBig);
         if (newLarge) DeleteObject(newLarge);

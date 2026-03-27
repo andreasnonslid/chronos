@@ -87,6 +87,8 @@ export void handle(HWND hwnd, int act, WndState& s) {
     sync_timer(hwnd, s);
 }
 
+static constexpr int EDIT_ID_BASE = 9000;
+
 // ─── Input message dispatcher ─────────────────────────────────────────────────
 export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s) {
     switch (msg) {
@@ -109,8 +111,8 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
         int idx = timer_index_at_y(s, pt.y);
         if (idx >= 0) {
             auto& ts = s.app.timers[idx];
-            wchar_t buf[21] = {};
-            if (!ts.label.empty()) wcsncpy(buf, ts.label.c_str(), 20);
+            wchar_t buf[Config::MAX_LABEL_LEN + 1] = {};
+            if (!ts.label.empty()) wcsncpy(buf, ts.label.c_str(), Config::MAX_LABEL_LEN);
             RECT dlg_r;
             GetClientRect(hwnd, &dlg_r);
             int top = s.layout.bar_h;
@@ -121,8 +123,8 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
             int ew = s.layout.dpi_scale(120);
             int ex = (dlg_r.right - ew) / 2;
             HWND edit = CreateWindowExW(0, L"EDIT", buf, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_CENTER | ES_AUTOHSCROLL,
-                                        ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(9000 + idx), nullptr, nullptr);
-            SendMessageW(edit, EM_SETLIMITTEXT, 20, 0);
+                                        ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(EDIT_ID_BASE + idx), nullptr, nullptr);
+            SendMessageW(edit, EM_SETLIMITTEXT, Config::MAX_LABEL_LEN, 0);
             SendMessageW(edit, WM_SETFONT, (WPARAM)s.hFontSm, TRUE);
             SetFocus(edit);
             SendMessageW(edit, EM_SETSEL, 0, -1);
@@ -132,11 +134,11 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
     case WM_COMMAND: {
         int id = LOWORD(wp);
         int code = HIWORD(wp);
-        if (id >= 9000 && id < 9000 + Config::MAX_TIMERS && code == EN_KILLFOCUS) {
-            int idx = id - 9000;
+        if (id >= EDIT_ID_BASE && id < EDIT_ID_BASE + Config::MAX_TIMERS && code == EN_KILLFOCUS) {
+            int idx = id - EDIT_ID_BASE;
             HWND edit = (HWND)lp;
-            wchar_t buf[21] = {};
-            GetWindowTextW(edit, buf, 21);
+            wchar_t buf[Config::MAX_LABEL_LEN + 1] = {};
+            GetWindowTextW(edit, buf, Config::MAX_LABEL_LEN + 1);
             if (idx < (int)s.app.timers.size()) {
                 s.app.timers[idx].label = buf;
                 save_config(hwnd, s);
