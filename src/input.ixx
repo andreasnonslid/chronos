@@ -14,9 +14,11 @@ export module input;
 import actions;
 import config;
 import config_io;
+import icon;
 import layout;
 import polling;
 import theme;
+import tray;
 import wndstate;
 
 using namespace std::chrono;
@@ -81,6 +83,8 @@ export void handle(HWND hwnd, int act, WndState& s) {
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
         s.active_theme = dark ? &dark_theme : &light_theme;
         s.create_brushes();
+        s.tray_icon = IconObj{create_app_icon(16, dark)};
+        if (s.tray_active) tray_add(hwnd, s.tray_icon);
     }
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);
