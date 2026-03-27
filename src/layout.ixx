@@ -54,6 +54,30 @@ export struct LayoutState {
     int timer_count = 1;
 };
 
+export struct TimerMetrics {
+    int abw;     // arrow button width
+    int abh;     // arrow button height
+    int up_off;  // y-offset for up arrows
+    int td_off;  // y-offset for time display
+    int dn_off;  // y-offset for down arrows
+    int col_gap; // horizontal gap between h/m/s columns
+
+    static TimerMetrics from(const Layout& layout) {
+        int abh    = layout.dpi_scale(16);
+        int up_off = layout.dpi_scale(4);
+        int td_off = up_off + abh + layout.dpi_scale(2);
+        int dn_off = td_off + layout.dpi_scale(40) + layout.dpi_scale(2);
+        return {
+            .abw    = layout.dpi_scale(34),
+            .abh    = abh,
+            .up_off = up_off,
+            .td_off = td_off,
+            .dn_off = dn_off,
+            .col_gap = layout.dpi_scale(52),
+        };
+    }
+};
+
 export int client_height_for(const Layout& layout, const LayoutState& state) {
     int h = layout.bar_h;
     if (state.show_clk) h += layout.clk_h;

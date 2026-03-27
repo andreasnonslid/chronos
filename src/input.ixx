@@ -187,7 +187,7 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
             RECT cr;
             GetClientRect(hwnd, &cr);
             int cw = cr.right;
-            int col_gap = s.layout.dpi_scale(52);
+            int col_gap = TimerMetrics::from(s.layout).col_gap;
             int sep1 = cw / 2 - col_gap / 2;
             int sep2 = cw / 2 + col_gap / 2;
             int off;
