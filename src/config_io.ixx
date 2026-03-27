@@ -60,9 +60,19 @@ export void save_config(HWND hwnd, const WndState& s) {
     cfg.show_tmr = s.app.show_tmr;
     cfg.topmost = s.app.topmost;
     cfg.num_timers = (int)s.app.timers.size();
+    auto now_steady = steady_clock::now();
+    auto now_wall_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    cfg.sw_running = s.app.sw.is_running();
+    cfg.sw_elapsed_ms = duration_cast<milliseconds>(s.app.sw.elapsed(now_steady)).count();
+    if (cfg.sw_running) cfg.sw_start_epoch_ms = now_wall_ms;
     for (int i = 0; i < (int)s.app.timers.size(); ++i) {
-        cfg.timer_secs[i] = (int)s.app.timers[i].dur.count();
-        cfg.timer_labels[i] = wide_to_utf8(s.app.timers[i].label);
+        const auto& ts = s.app.timers[i];
+        cfg.timer_secs[i] = (int)ts.dur.count();
+        cfg.timer_labels[i] = wide_to_utf8(ts.label);
+        cfg.timer_running[i] = ts.t.is_running();
+        cfg.timer_elapsed_ms[i] = duration_cast<milliseconds>(ts.t.total_elapsed(now_steady)).count();
+        if (cfg.timer_running[i]) cfg.timer_start_epoch_ms[i] = now_wall_ms;
+        cfg.timer_notified[i] = ts.notified;
     }
     if (hwnd) {
         RECT wr;
@@ -105,6 +115,33 @@ export void load_config(HWND hwnd, WndState& s) {
         s.app.timers[i].t.reset();
         s.app.timers[i].t.set(s.app.timers[i].dur);
         s.app.timers[i].label = utf8_to_wide(cfg.timer_labels[i]);
+    }
+    auto now_steady = steady_clock::now();
+    auto now_wall_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    if (cfg.sw_elapsed_ms > 0 || cfg.sw_running) {
+        long long actual_ms = cfg.sw_elapsed_ms;
+        if (cfg.sw_running && cfg.sw_start_epoch_ms > 0) {
+            long long delta = now_wall_ms - cfg.sw_start_epoch_ms;
+            if (delta > 0) actual_ms += delta;
+        }
+        s.app.sw.restore(milliseconds{actual_ms}, cfg.sw_running, now_steady);
+    }
+    for (int i = 0; i < n; ++i) {
+        auto& ts = s.app.timers[i];
+        if (cfg.timer_elapsed_ms[i] <= 0 && !cfg.timer_running[i] && !cfg.timer_notified[i]) continue;
+        long long elapsed_ms = cfg.timer_elapsed_ms[i];
+        bool tmr_running = cfg.timer_running[i];
+        if (tmr_running && cfg.timer_start_epoch_ms[i] > 0) {
+            long long delta = now_wall_ms - cfg.timer_start_epoch_ms[i];
+            if (delta > 0) elapsed_ms += delta;
+        }
+        long long target_ms = duration_cast<milliseconds>(ts.dur).count();
+        if (elapsed_ms >= target_ms) {
+            elapsed_ms = target_ms;
+            tmr_running = false;
+        }
+        ts.t.restore(ts.dur, milliseconds{elapsed_ms}, tmr_running, now_steady);
+        ts.notified = cfg.timer_notified[i];
     }
     if (s.app.topmost) SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     if (cfg.pos_valid) {

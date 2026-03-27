@@ -43,6 +43,23 @@ export struct Timer {
     bool is_running() const { return running_; }
     bool touched() const { return touched_; }
 
+    dur total_elapsed(tp now) const {
+        dur e = elapsed_at_pause_;
+        if (running_) e += now - start_time_;
+        return e;
+    }
+
+    void restore(dur target, dur elapsed_paused, bool running, tp now) {
+        reset();
+        target_ = target;
+        elapsed_at_pause_ = elapsed_paused;
+        touched_ = elapsed_paused > dur::zero() || running;
+        if (running) {
+            start_time_ = now;
+            running_ = true;
+        }
+    }
+
   private:
     bool running_ = false;
     bool touched_ = false;
