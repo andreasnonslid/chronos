@@ -43,7 +43,7 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetTimer(hwnd, 1, POLL_TIMER_MS, nullptr);
         BOOL dwm_dark = dark ? TRUE : FALSE;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
-        s->tray_icon = create_app_icon(16);
+        s->tray_icon = create_app_icon(16, dark);
         s->cfg_path = config_path();
         load_config(hwnd, *s);
         resize_window(hwnd, *s);
@@ -151,6 +151,9 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             s->active_theme = dark ? &dark_theme : &light_theme;
             s->destroy_brushes();
             s->create_brushes();
+            if (s->tray_icon) DestroyIcon(s->tray_icon);
+            s->tray_icon = create_app_icon(16, dark);
+            if (s->tray_active) tray_add(hwnd, s->tray_icon);
             InvalidateRect(hwnd, nullptr, TRUE);
         }
         return 0;
