@@ -11,15 +11,12 @@ export HICON create_app_icon(int size, bool dark = true) {
     HDC screen = GetDC(nullptr);
     if (!screen) return nullptr;
 
-    HDC mdc = CreateCompatibleDC(screen);
-    if (!mdc) { ReleaseDC(nullptr, screen); return nullptr; }
+    DcObj mdc{CreateCompatibleDC(screen)};
+    if (!mdc.h) { ReleaseDC(nullptr, screen); return nullptr; }
 
-    HBITMAP color = CreateCompatibleBitmap(screen, size, size);
-    HBITMAP mask = CreateBitmap(size, size, 1, 1, nullptr);
-    if (!color || !mask) {
-        if (color) DeleteObject(color);
-        if (mask) DeleteObject(mask);
-        DeleteDC(mdc);
+    GdiObj color{CreateCompatibleBitmap(screen, size, size)};
+    GdiObj mask{CreateBitmap(size, size, 1, 1, nullptr)};
+    if (!color.h || !mask.h) {
         ReleaseDC(nullptr, screen);
         return nullptr;
     }
@@ -49,32 +46,25 @@ export HICON create_app_icon(int size, bool dark = true) {
 
     SelectObject(mdc, old);
 
-    HDC mdc2 = CreateCompatibleDC(screen);
-    if (!mdc2) {
-        DeleteDC(mdc);
-        DeleteObject(color);
-        DeleteObject(mask);
+    DcObj mdc2{CreateCompatibleDC(screen)};
+    if (!mdc2.h) {
         ReleaseDC(nullptr, screen);
         return nullptr;
     }
     SelectObject(mdc2, mask);
-    HBRUSH white = (HBRUSH)GetStockObject(WHITE_BRUSH);
-    FillRect(mdc2, &all, white);
+    FillRect(mdc2, &all, (HBRUSH)GetStockObject(WHITE_BRUSH));
     SelectObject(mdc2, (HBRUSH)GetStockObject(BLACK_BRUSH));
     SelectObject(mdc2, (HPEN)GetStockObject(NULL_PEN));
     Ellipse(mdc2, 1, 1, size - 1, size - 1);
-    DeleteDC(mdc2);
+    // mdc, mdc2, face, outline, hand cleaned up by RAII destructors
 
-    // face, outline, hand are cleaned up automatically by GdiObj destructors
-    DeleteDC(mdc);
     ReleaseDC(nullptr, screen);
 
     ICONINFO ii{};
     ii.fIcon = TRUE;
-    ii.hbmMask = mask;
-    ii.hbmColor = color;
+    ii.hbmMask = (HBITMAP)mask.h;
+    ii.hbmColor = (HBITMAP)color.h;
     HICON icon = CreateIconIndirect(&ii);
-    DeleteObject(color);
-    DeleteObject(mask);
+    // color and mask cleaned up by GdiObj destructors
     return icon;
 }

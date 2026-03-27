@@ -13,6 +13,7 @@ export module window;
 import config;
 import config_io;
 import dpi;
+import gdi;
 import icon;
 import input;
 import layout;
@@ -22,7 +23,7 @@ import theme;
 import tray;
 import wndstate;
 
-// ─── WndProc ──────────────────────────────────────────────────────────────────
+// ─── WndProc ────────────────────────────────────────────────────────────────────
 export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* s = (WndState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
@@ -48,7 +49,7 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
             s->active_theme = dark ? &dark_theme : &light_theme;
             s->create_brushes();
-            s->tray_icon = create_app_icon(16, dark);
+            s->tray_icon = IconObj{create_app_icon(16, dark)};
         }
         resize_window(hwnd, *s);
         state.release();
@@ -155,8 +156,7 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
             s->active_theme = dark ? &dark_theme : &light_theme;
             s->create_brushes();
-            if (s->tray_icon) DestroyIcon(s->tray_icon);
-            s->tray_icon = create_app_icon(16, dark);
+            s->tray_icon = IconObj{create_app_icon(16, dark)};
             if (s->tray_active) tray_add(hwnd, s->tray_icon);
             InvalidateRect(hwnd, nullptr, TRUE);
         }
@@ -166,7 +166,6 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_DESTROY: {
         if (s->tray_active) tray_remove(hwnd);
-        if (s->tray_icon) DestroyIcon(s->tray_icon);
         save_config(hwnd, *s);
         KillTimer(hwnd, 1);
         auto owned = std::unique_ptr<WndState>(s);
