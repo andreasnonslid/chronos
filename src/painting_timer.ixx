@@ -99,24 +99,20 @@ static void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     auto& ts = ctx.app.timers[i];
-    int abw = layout.dpi_scale(34), abh = layout.dpi_scale(16);
-    int up_off = layout.dpi_scale(4);
-    int td_off = up_off + abh + layout.dpi_scale(2);
-    int dn_off = td_off + layout.dpi_scale(40) + layout.dpi_scale(2);
-    int col_gap = layout.dpi_scale(52);
-    int hh_cx = cw / 2 - col_gap, mm_cx = cw / 2, ss_cx = cw / 2 + col_gap;
+    auto m = TimerMetrics::from(layout);
+    int hh_cx = cw / 2 - m.col_gap, mm_cx = cw / 2, ss_cx = cw / 2 + m.col_gap;
 
     SelectObject(hdc, ctx.fontSm);
-    btn(hdc, {hh_cx - abw / 2, y + up_off, hh_cx + abw / 2, y + up_off + abh}, false, L"\u25B2",
+    btn(hdc, {hh_cx - m.abw / 2, y + m.up_off, hh_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
         tmr_act(i, A_TMR_HUP), ctx);
-    btn(hdc, {mm_cx - abw / 2, y + up_off, mm_cx + abw / 2, y + up_off + abh}, false, L"\u25B2",
+    btn(hdc, {mm_cx - m.abw / 2, y + m.up_off, mm_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
         tmr_act(i, A_TMR_MUP), ctx);
-    btn(hdc, {ss_cx - abw / 2, y + up_off, ss_cx + abw / 2, y + up_off + abh}, false, L"\u25B2",
+    btn(hdc, {ss_cx - m.abw / 2, y + m.up_off, ss_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
         tmr_act(i, A_TMR_SUP), ctx);
 
     if (!ts.label.empty()) {
         SetTextColor(hdc, th.dim);
-        RECT lr{0, y + layout.dpi_scale(2), cw, y + up_off + abh};
+        RECT lr{0, y + layout.dpi_scale(2), cw, y + m.up_off + m.abh};
         DrawTextW(hdc, ts.label.c_str(), -1, &lr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
@@ -128,27 +124,27 @@ static void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto h_s = std::format(L"{}", total_s_edit / 3600);
     auto mm_s = std::format(L"{:02}", (total_s_edit / 60) % 60);
     auto ss_s = std::format(L"{:02}", total_s_edit % 60);
-    RECT hr{hh_cx - field_half, y + td_off, hh_cx + field_half, y + td_off + field_h};
-    RECT mr{mm_cx - field_half, y + td_off, mm_cx + field_half, y + td_off + field_h};
-    RECT sr{ss_cx - field_half, y + td_off, ss_cx + field_half, y + td_off + field_h};
+    RECT hr{hh_cx - field_half, y + m.td_off, hh_cx + field_half, y + m.td_off + field_h};
+    RECT mr{mm_cx - field_half, y + m.td_off, mm_cx + field_half, y + m.td_off + field_h};
+    RECT sr{ss_cx - field_half, y + m.td_off, ss_cx + field_half, y + m.td_off + field_h};
     DrawTextW(hdc, h_s.c_str(), -1, &hr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hdc, mm_s.c_str(), -1, &mr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hdc, ss_s.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     int sep_w = layout.dpi_scale(8);
     int sep1_cx = (hh_cx + mm_cx) / 2;
     int sep2_cx = (mm_cx + ss_cx) / 2;
-    RECT sep1r{sep1_cx - sep_w / 2, y + td_off, sep1_cx + sep_w / 2, y + td_off + field_h};
-    RECT sep2r{sep2_cx - sep_w / 2, y + td_off, sep2_cx + sep_w / 2, y + td_off + field_h};
+    RECT sep1r{sep1_cx - sep_w / 2, y + m.td_off, sep1_cx + sep_w / 2, y + m.td_off + field_h};
+    RECT sep2r{sep2_cx - sep_w / 2, y + m.td_off, sep2_cx + sep_w / 2, y + m.td_off + field_h};
     DrawTextW(hdc, L":", -1, &sep1r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hdc, L":", -1, &sep2r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     SelectObject(hdc, ctx.fontSm);
     SetTextColor(hdc, th.text);
-    btn(hdc, {hh_cx - abw / 2, y + dn_off, hh_cx + abw / 2, y + dn_off + abh}, false, L"\u25BC",
+    btn(hdc, {hh_cx - m.abw / 2, y + m.dn_off, hh_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
         tmr_act(i, A_TMR_HDN), ctx);
-    btn(hdc, {mm_cx - abw / 2, y + dn_off, mm_cx + abw / 2, y + dn_off + abh}, false, L"\u25BC",
+    btn(hdc, {mm_cx - m.abw / 2, y + m.dn_off, mm_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
         tmr_act(i, A_TMR_MDN), ctx);
-    btn(hdc, {ss_cx - abw / 2, y + dn_off, ss_cx + abw / 2, y + dn_off + abh}, false, L"\u25BC",
+    btn(hdc, {ss_cx - m.abw / 2, y + m.dn_off, ss_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
         tmr_act(i, A_TMR_SDN), ctx);
 }
 
@@ -156,10 +152,7 @@ static void paint_timer_running(HDC hdc, int cw, int y, int i, sc::time_point no
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     auto& ts = ctx.app.timers[i];
-    int abh = layout.dpi_scale(16);
-    int up_off = layout.dpi_scale(4);
-    int td_off = up_off + abh + layout.dpi_scale(2);
-    int dn_off = td_off + layout.dpi_scale(40) + layout.dpi_scale(2);
+    auto m = TimerMetrics::from(layout);
     bool expired = ts.t.expired(now);
     COLORREF tcol = expired ? th.expire : (ts.t.remaining(now) < 10s) ? th.warn : th.text;
     std::wstring tstr = format_timer_display(ts.t.remaining(now));
@@ -167,23 +160,21 @@ static void paint_timer_running(HDC hdc, int cw, int y, int i, sc::time_point no
     SelectObject(hdc, ctx.fontSm);
     SetTextColor(hdc, th.dim);
     std::wstring subtitle = ts.label.empty() ? format_timer_edit(duration_cast<Timer::dur>(ts.dur)) : ts.label;
-    RECT sr{0, y + up_off, cw, y + up_off + layout.dpi_scale(20)};
+    RECT sr{0, y + m.up_off, cw, y + m.up_off + layout.dpi_scale(20)};
     DrawTextW(hdc, subtitle.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     SelectObject(hdc, ctx.fontLarge);
     SetTextColor(hdc, tcol);
-    RECT tr{0, y + up_off + layout.dpi_scale(20), cw, y + dn_off + abh};
+    RECT tr{0, y + m.up_off + layout.dpi_scale(20), cw, y + m.dn_off + m.abh};
     DrawTextW(hdc, tstr.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 
 static void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
-    int abh = layout.dpi_scale(16), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
-    int up_off = layout.dpi_scale(4);
-    int td_off = up_off + abh + layout.dpi_scale(2);
-    int dn_off = td_off + layout.dpi_scale(40) + layout.dpi_scale(2);
-    int by_off = dn_off + abh + gap;
+    auto m = TimerMetrics::from(layout);
+    int gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
+    int by_off = m.dn_off + m.abh + gap;
     bool running = ts.t.is_running();
 
     SelectObject(hdc, ctx.fontSm);
