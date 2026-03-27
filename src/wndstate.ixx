@@ -26,10 +26,10 @@ export struct WndState {
     std::filesystem::path cfg_path;
     const Theme* active_theme = &dark_theme;
     std::vector<std::pair<RECT, int>> btns;
-    HFONT hFontBig = nullptr;
-    HFONT hFontLarge = nullptr;
-    HFONT hFontSm = nullptr;
-    bool fonts_custom = false;
+    GdiObj fontBig{nullptr}, fontLarge{nullptr}, fontSm{nullptr};
+    HFONT hFontBig = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hFontSm = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     int timer_ms = 100;
     bool tray_active = false;
     HICON tray_icon = nullptr;
@@ -51,11 +51,6 @@ export struct WndState {
     }
 
     ~WndState() {
-        if (fonts_custom) {
-            DeleteObject(hFontBig);
-            DeleteObject(hFontLarge);
-            DeleteObject(hFontSm);
-        }
         if (mdc) DeleteDC(mdc);
         if (buf_bmp) DeleteObject(buf_bmp);
     }
@@ -115,27 +110,14 @@ static constexpr int FONT_PT_LARGE = 34;
 static constexpr int FONT_PT_SM = 11;
 
 export void recreate_fonts(WndState& s) {
-    HFONT newBig = make_font(FONT_PT_BIG, true, s.layout);
-    HFONT newLarge = make_font(FONT_PT_LARGE, true, s.layout);
-    HFONT newSm = make_font(FONT_PT_SM, false, s.layout);
-    if (!newBig || !newLarge || !newSm) {
-        if (newBig) DeleteObject(newBig);
-        if (newLarge) DeleteObject(newLarge);
-        if (newSm) DeleteObject(newSm);
-        if (!s.fonts_custom) {
-            s.hFontBig = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-            s.hFontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-            s.hFontSm = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        }
-        return;
-    }
-    if (s.fonts_custom) {
-        DeleteObject(s.hFontBig);
-        DeleteObject(s.hFontLarge);
-        DeleteObject(s.hFontSm);
-    }
-    s.hFontBig = newBig;
-    s.hFontLarge = newLarge;
-    s.hFontSm = newSm;
-    s.fonts_custom = true;
+    GdiObj newBig{make_font(FONT_PT_BIG, true, s.layout)};
+    GdiObj newLarge{make_font(FONT_PT_LARGE, true, s.layout)};
+    GdiObj newSm{make_font(FONT_PT_SM, false, s.layout)};
+    if (!newBig.h || !newLarge.h || !newSm.h) return;
+    s.fontBig = std::move(newBig);
+    s.fontLarge = std::move(newLarge);
+    s.fontSm = std::move(newSm);
+    s.hFontBig = (HFONT)s.fontBig.h;
+    s.hFontLarge = (HFONT)s.fontLarge.h;
+    s.hFontSm = (HFONT)s.fontSm.h;
 }
