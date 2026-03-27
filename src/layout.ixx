@@ -3,17 +3,28 @@ export module layout;
 constexpr int STANDARD_DPI = 96;
 
 export struct Layout {
-    int bar_h = 36;
-    int clk_h = 62;
-    int sw_h = 116;
-    int tmr_h = 114;
-    int btn_h = 28;
+    static constexpr int BASE_BAR_H  = 36;
+    static constexpr int BASE_CLK_H  = 62;
+    static constexpr int BASE_SW_H   = 116;
+    static constexpr int BASE_TMR_H  = 114;
+    static constexpr int BASE_BTN_H  = 28;
+    static constexpr int BASE_W_PIN  = 44;
+    static constexpr int BASE_W_CLK  = 48;
+    static constexpr int BASE_W_SW   = 76;
+    static constexpr int BASE_W_TMR  = 54;
+    static constexpr int BASE_BAR_GAP = 6;
 
-    int w_pin = 44;
-    int w_clk = 48;
-    int w_sw = 76;
-    int w_tmr = 54;
-    int bar_gap = 6;
+    int bar_h   = BASE_BAR_H;
+    int clk_h   = BASE_CLK_H;
+    int sw_h    = BASE_SW_H;
+    int tmr_h   = BASE_TMR_H;
+    int btn_h   = BASE_BTN_H;
+
+    int w_pin   = BASE_W_PIN;
+    int w_clk   = BASE_W_CLK;
+    int w_sw    = BASE_W_SW;
+    int w_tmr   = BASE_W_TMR;
+    int bar_gap = BASE_BAR_GAP;
 
     int dpi = STANDARD_DPI;
 
@@ -23,16 +34,16 @@ export struct Layout {
 
     void update_for_dpi(int new_dpi) {
         dpi = new_dpi;
-        bar_h = dpi_scale(36);
-        clk_h = dpi_scale(62);
-        sw_h = dpi_scale(116);
-        tmr_h = dpi_scale(114);
-        btn_h = dpi_scale(28);
-        w_pin = dpi_scale(44);
-        w_clk = dpi_scale(48);
-        w_sw = dpi_scale(76);
-        w_tmr = dpi_scale(54);
-        bar_gap = dpi_scale(6);
+        bar_h   = dpi_scale(BASE_BAR_H);
+        clk_h   = dpi_scale(BASE_CLK_H);
+        sw_h    = dpi_scale(BASE_SW_H);
+        tmr_h   = dpi_scale(BASE_TMR_H);
+        btn_h   = dpi_scale(BASE_BTN_H);
+        w_pin   = dpi_scale(BASE_W_PIN);
+        w_clk   = dpi_scale(BASE_W_CLK);
+        w_sw    = dpi_scale(BASE_W_SW);
+        w_tmr   = dpi_scale(BASE_W_TMR);
+        bar_gap = dpi_scale(BASE_BAR_GAP);
     }
 };
 
