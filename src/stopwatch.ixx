@@ -26,7 +26,6 @@ export struct Stopwatch {
             dur current = elapsed(now);
             laps_.push_back(current - last_lap_elapsed_);
             last_lap_elapsed_ = current;
-            cumulative_ += laps_.back();
         }
     }
 
@@ -35,7 +34,6 @@ export struct Stopwatch {
         start_time_ = {};
         last_lap_elapsed_ = {};
         accumulated_ = {};
-        cumulative_ = {};
         laps_.clear();
     }
 
@@ -58,13 +56,12 @@ export struct Stopwatch {
 
     const std::vector<dur>& laps() const { return laps_; }
 
-    dur cumulative() const { return cumulative_; }
+    dur cumulative() const { return last_lap_elapsed_; }
 
   private:
     bool running_ = false;
     tp start_time_ = {};
     dur last_lap_elapsed_ = {};
     dur accumulated_ = {};
-    dur cumulative_ = {};
     std::vector<dur> laps_;
 };
