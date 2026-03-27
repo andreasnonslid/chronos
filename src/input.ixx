@@ -14,6 +14,7 @@ export module input;
 import actions;
 import config;
 import config_io;
+import gdi;
 import icon;
 import layout;
 import polling;
