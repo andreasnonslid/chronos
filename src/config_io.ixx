@@ -59,6 +59,7 @@ export void save_config(HWND hwnd, const WndState& s) {
     cfg.show_sw = s.app.show_sw;
     cfg.show_tmr = s.app.show_tmr;
     cfg.topmost = s.app.topmost;
+    cfg.theme_mode = s.app.theme_mode;
     cfg.num_timers = (int)s.app.timers.size();
     auto now_steady = steady_clock::now();
     auto now_wall_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
@@ -108,6 +109,7 @@ export void load_config(HWND hwnd, WndState& s) {
     s.app.show_sw = cfg.show_sw;
     s.app.show_tmr = cfg.show_tmr;
     s.app.topmost = cfg.topmost;
+    s.app.theme_mode = cfg.theme_mode;
     int n = std::min(cfg.num_timers, Config::MAX_TIMERS);
     s.app.timers.resize(n);
     for (int i = 0; i < n; ++i) {

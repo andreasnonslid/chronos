@@ -9,12 +9,14 @@ module;
 #include <algorithm>
 #include <chrono>
 #include <optional>
+extern "C" __declspec(dllimport) HRESULT __stdcall DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
 export module input;
 import actions;
 import config;
 import config_io;
 import layout;
 import polling;
+import theme;
 import wndstate;
 
 using namespace std::chrono;
@@ -72,6 +74,15 @@ export void handle(HWND hwnd, int act, WndState& s) {
     if (r.resize) resize_window(hwnd, s);
     if (r.save_config) save_config(hwnd, s);
     if (r.open_file) ShellExecuteW(nullptr, L"open", s.app.sw_lap_file.c_str(), nullptr, nullptr, SW_SHOW);
+    if (r.apply_theme) {
+        bool dark = (s.app.theme_mode == ThemeMode::Dark) ||
+                    (s.app.theme_mode == ThemeMode::Auto && system_prefers_dark());
+        BOOL dwm_dark = dark ? TRUE : FALSE;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
+        s.active_theme = dark ? &dark_theme : &light_theme;
+        s.destroy_brushes();
+        s.create_brushes();
+    }
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);
 }
@@ -210,6 +221,9 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
             break;
         case 'T':
             handle(hwnd, A_TOPMOST, s);
+            break;
+        case 'D':
+            handle(hwnd, A_THEME, s);
             break;
         case '1':
         case '2':

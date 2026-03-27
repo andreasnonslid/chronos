@@ -4,6 +4,7 @@ module;
 #include <string>
 #include <vector>
 export module app;
+import config;
 import stopwatch;
 import timer;
 
@@ -22,6 +23,7 @@ export struct App {
     bool show_sw = true;
     bool show_tmr = true;
     bool topmost = false;
+    ThemeMode theme_mode = ThemeMode::Auto;
     bool show_help = false;
     bool lap_write_failed = false;
     int blink_act = 0;
