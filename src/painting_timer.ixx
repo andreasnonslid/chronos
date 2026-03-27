@@ -27,21 +27,9 @@ export struct PaintCtx {
     App& app;
     Layout& layout;
     const Theme& theme;
+    const WndResources& res;
     std::vector<std::pair<RECT, int>>& btns;
     sc::time_point now;
-    HFONT fontBig;
-    HFONT fontLarge;
-    HFONT fontSm;
-    HBRUSH brBg;
-    HBRUSH brBar;
-    HBRUSH brBtn;
-    HBRUSH brActive;
-    HBRUSH brBlink;
-    HBRUSH brFill;
-    HBRUSH brFillExp;
-    HBRUSH brHelp;
-    HPEN pnNull;
-    HPEN pnDivider;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -52,15 +40,15 @@ export RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id, Pain
     HBRUSH brush;
     GdiObj dyn_br{nullptr};
     if (blinking) {
-        brush = ctx.brBlink;
+        brush = ctx.res.brBlink;
     } else if (override_col.has_value()) {
         dyn_br.h = CreateSolidBrush(*override_col);
         brush = (HBRUSH)dyn_br.h;
     } else {
-        brush = active ? ctx.brActive : ctx.brBtn;
+        brush = active ? ctx.res.brActive : ctx.res.brBtn;
     }
     auto* obr = (HBRUSH)SelectObject(hdc, brush);
-    auto* opn = (HPEN)SelectObject(hdc, ctx.pnNull);
+    auto* opn = (HPEN)SelectObject(hdc, ctx.res.pnNull);
     int rr = layout.dpi_scale(6);
     RoundRect(hdc, r.left, r.top, r.right, r.bottom, rr, rr);
     SelectObject(hdc, obr);
@@ -73,7 +61,7 @@ export RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id, Pain
 }
 
 export void divider(HDC hdc, int y, int cw, const PaintCtx& ctx) {
-    auto* op = (HPEN)SelectObject(hdc, ctx.pnDivider);
+    auto* op = (HPEN)SelectObject(hdc, ctx.res.pnDivider);
     MoveToEx(hdc, 0, y, nullptr);
     LineTo(hdc, cw, y);
     SelectObject(hdc, op);
@@ -84,7 +72,7 @@ static void paint_timer_progress(HDC hdc, int cw, int y, int i, sc::time_point n
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
     bool expired = ts.t.expired(now);
-    HBRUSH fillbr = expired ? ctx.brFillExp : ctx.brFill;
+    HBRUSH fillbr = expired ? ctx.res.brFillExp : ctx.res.brFill;
     int fw = cw;
     if (!expired) {
         auto total = duration_cast<microseconds>(ts.dur).count();
@@ -102,7 +90,7 @@ static void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto m = TimerMetrics::from(layout);
     int hh_cx = cw / 2 - m.col_gap, mm_cx = cw / 2, ss_cx = cw / 2 + m.col_gap;
 
-    SelectObject(hdc, ctx.fontSm);
+    SelectObject(hdc, ctx.res.fontSm);
     btn(hdc, {hh_cx - m.abw / 2, y + m.up_off, hh_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
         tmr_act(i, A_TMR_HUP), ctx);
     btn(hdc, {mm_cx - m.abw / 2, y + m.up_off, mm_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
@@ -116,7 +104,7 @@ static void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
         DrawTextW(hdc, ts.label.c_str(), -1, &lr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
-    SelectObject(hdc, ctx.fontBig);
+    SelectObject(hdc, ctx.res.fontBig);
     SetTextColor(hdc, th.text);
     int field_h = layout.dpi_scale(40);
     int field_half = layout.dpi_scale(22);
@@ -138,7 +126,7 @@ static void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     DrawTextW(hdc, L":", -1, &sep1r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hdc, L":", -1, &sep2r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
-    SelectObject(hdc, ctx.fontSm);
+    SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, th.text);
     btn(hdc, {hh_cx - m.abw / 2, y + m.dn_off, hh_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
         tmr_act(i, A_TMR_HDN), ctx);
@@ -157,13 +145,13 @@ static void paint_timer_running(HDC hdc, int cw, int y, int i, sc::time_point no
     COLORREF tcol = expired ? th.expire : (ts.t.remaining(now) < 10s) ? th.warn : th.text;
     std::wstring tstr = format_timer_display(ts.t.remaining(now));
 
-    SelectObject(hdc, ctx.fontSm);
+    SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, th.dim);
     std::wstring subtitle = ts.label.empty() ? format_timer_edit(duration_cast<Timer::dur>(ts.dur)) : ts.label;
     RECT sr{0, y + m.up_off, cw, y + m.up_off + layout.dpi_scale(20)};
     DrawTextW(hdc, subtitle.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
-    SelectObject(hdc, ctx.fontLarge);
+    SelectObject(hdc, ctx.res.fontLarge);
     SetTextColor(hdc, tcol);
     RECT tr{0, y + m.up_off + layout.dpi_scale(20), cw, y + m.dn_off + m.abh};
     DrawTextW(hdc, tstr.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -177,7 +165,7 @@ static void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     int by_off = m.dn_off + m.abh + gap;
     bool running = ts.t.is_running();
 
-    SelectObject(hdc, ctx.fontSm);
+    SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, ctx.theme.text);
     int cw2 = layout.dpi_scale(86);
     int cx0 = (cw - 2 * cw2 - gap) / 2;

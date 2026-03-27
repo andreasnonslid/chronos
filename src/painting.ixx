@@ -25,9 +25,9 @@ using sc = steady_clock;
 static int paint_bar(HDC hdc, int cw, int y, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     RECT bar{0, 0, cw, layout.bar_h};
-    FillRect(hdc, &bar, ctx.brBar);
+    FillRect(hdc, &bar, ctx.res.brBar);
 
-    SelectObject(hdc, ctx.fontSm);
+    SelectObject(hdc, ctx.res.fontSm);
     int by = (layout.bar_h - layout.btn_h) / 2;
     int bx = (cw - (layout.w_pin + layout.w_clk + layout.w_sw + layout.w_tmr + 3 * layout.bar_gap)) / 2;
     btn(hdc, {bx, by, bx + layout.w_pin, by + layout.btn_h}, ctx.app.topmost, L"Pin", A_TOPMOST, ctx);
@@ -46,7 +46,7 @@ static int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
     SYSTEMTIME st;
     GetLocalTime(&st);
     auto buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
-    SelectObject(hdc, ctx.fontBig);
+    SelectObject(hdc, ctx.res.fontBig);
     SetTextColor(hdc, ctx.theme.text);
     RECT tr{0, y, cw, y + layout.clk_h};
     DrawTextW(hdc, buf.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -60,12 +60,12 @@ static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point
     auto elap = ctx.app.sw.elapsed(now);
     std::wstring etime = format_stopwatch_display(elap);
 
-    SelectObject(hdc, ctx.fontBig);
+    SelectObject(hdc, ctx.res.fontBig);
     SetTextColor(hdc, th.text);
     RECT tr{0, y + layout.dpi_scale(4), cw, y + layout.dpi_scale(44)};
     DrawTextW(hdc, etime.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
-    SelectObject(hdc, ctx.fontSm);
+    SelectObject(hdc, ctx.res.fontSm);
     bool running = ctx.app.sw.is_running();
     int bw = layout.dpi_scale(76), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
     int bx0 = (cw - 3 * bw - 2 * gap) / 2;
@@ -93,9 +93,9 @@ static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point
 static void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     RECT cr{0, layout.bar_h, cw, y_bottom > layout.bar_h ? y_bottom : layout.bar_h + layout.dpi_scale(200)};
-    FillRect(hdc, &cr, ctx.brHelp);
+    FillRect(hdc, &cr, ctx.res.brHelp);
 
-    SelectObject(hdc, ctx.fontSm);
+    SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, ctx.theme.text);
 
     struct {
@@ -131,7 +131,7 @@ export void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     SetBkMode(hdc, TRANSPARENT);
 
     RECT all{0, 0, cw, ch};
-    FillRect(hdc, &all, ctx.brBg);
+    FillRect(hdc, &all, ctx.res.brBg);
 
     ctx.now = sc::now();
     auto now = ctx.now;

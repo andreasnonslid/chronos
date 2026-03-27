@@ -124,7 +124,7 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
             HWND edit = CreateWindowExW(0, L"EDIT", buf, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_CENTER | ES_AUTOHSCROLL,
                                         ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(EDIT_ID_BASE + idx), nullptr, nullptr);
             SendMessageW(edit, EM_SETLIMITTEXT, Config::MAX_LABEL_LEN, 0);
-            SendMessageW(edit, WM_SETFONT, (WPARAM)s.hFontSm, TRUE);
+            SendMessageW(edit, WM_SETFONT, (WPARAM)s.res.fontSm, TRUE);
             SetFocus(edit);
             SendMessageW(edit, EM_SETSEL, 0, -1);
         }
