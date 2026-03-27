@@ -62,8 +62,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
 
     Layout init_layout;
     HDC dc = GetDC(nullptr);
-    init_layout.update_for_dpi(GetDeviceCaps(dc, LOGPIXELSY));
-    ReleaseDC(nullptr, dc);
+    init_layout.update_for_dpi(dc ? GetDeviceCaps(dc, LOGPIXELSY) : 96);
+    if (dc) ReleaseDC(nullptr, dc);
 
     HICON icon_sm = create_app_icon(16);
     HICON icon_lg = create_app_icon(32);
