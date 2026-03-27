@@ -7,7 +7,7 @@ module;
 export module icon;
 import gdi;
 
-export HICON create_app_icon(int size) {
+export HICON create_app_icon(int size, bool dark = true) {
     HDC screen = GetDC(nullptr);
     if (!screen) return nullptr;
 
@@ -25,9 +25,9 @@ export HICON create_app_icon(int size) {
     }
     auto* old = SelectObject(mdc, color);
 
-    GdiObj face{CreateSolidBrush(RGB(60, 60, 66))};
-    GdiObj outline{CreatePen(PS_SOLID, 1, RGB(100, 100, 110))};
-    GdiObj hand{CreatePen(PS_SOLID, size > 20 ? 2 : 1, RGB(204, 204, 204))};
+    GdiObj face{CreateSolidBrush(dark ? RGB(60, 60, 66) : RGB(230, 230, 235))};
+    GdiObj outline{CreatePen(PS_SOLID, 1, dark ? RGB(100, 100, 110) : RGB(140, 140, 150))};
+    GdiObj hand{CreatePen(PS_SOLID, size > 20 ? 2 : 1, dark ? RGB(204, 204, 204) : RGB(40, 40, 50))};
 
     RECT all{0, 0, size, size};
     FillRect(mdc, &all, (HBRUSH)GetStockObject(BLACK_BRUSH));
