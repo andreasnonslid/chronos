@@ -34,7 +34,7 @@ jobs:
           name: chronos
           path: build/chronos.exe
 
-  build-and-test-linux:
+  test-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
