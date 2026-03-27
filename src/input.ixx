@@ -237,6 +237,14 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
             s.app.show_help = !s.app.show_help;
             InvalidateRect(hwnd, nullptr, FALSE);
             break;
+        case VK_OEM_PLUS:
+            if (s.app.show_tmr && (int)s.app.timers.size() < Config::MAX_TIMERS)
+                handle(hwnd, tmr_act((int)s.app.timers.size() - 1, A_TMR_ADD), s);
+            break;
+        case VK_OEM_MINUS:
+            if (s.app.show_tmr && (int)s.app.timers.size() > 1)
+                handle(hwnd, tmr_act((int)s.app.timers.size() - 1, A_TMR_DEL), s);
+            break;
         }
         return 0;
     }
