@@ -18,6 +18,7 @@ export struct Config {
     bool topmost = false;
     ThemeMode theme_mode = ThemeMode::Auto;
     static constexpr int MAX_TIMERS = 3;
+    static constexpr int MAX_LABEL_LEN = 20;
     static constexpr int TIMER_MIN_SECS = 0;
     static constexpr int TIMER_MAX_SECS = 86400;
     static constexpr int MIN_WINDOW_W = 260;
@@ -86,7 +87,7 @@ export bool config_read(Config& c, std::istream& f) {
             int i;
             auto [ptr, ec] = std::from_chars(num.data(), num.data() + num.size(), i);
             if (ec == std::errc{} && ptr == num.data() + num.size() && i >= 0 && i < Config::MAX_TIMERS) {
-                c.timer_labels[i] = std::string(rest.substr(0, 20));
+                c.timer_labels[i] = std::string(rest.substr(0, Config::MAX_LABEL_LEN));
                 handled_str = true;
             }
         }
