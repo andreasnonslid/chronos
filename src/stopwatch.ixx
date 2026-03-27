@@ -46,6 +46,16 @@ export struct Stopwatch {
 
     bool is_running() const { return running_; }
 
+    void restore(dur accumulated, bool running, tp now) {
+        reset();
+        accumulated_ = accumulated;
+        last_lap_elapsed_ = accumulated;
+        if (running) {
+            start_time_ = now;
+            running_ = true;
+        }
+    }
+
     const std::vector<dur>& laps() const { return laps_; }
 
     dur cumulative() const { return cumulative_; }
