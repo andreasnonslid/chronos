@@ -58,3 +58,12 @@ export struct IconObj {
     }
     operator HICON() const { return h; }
 };
+
+// ─── Flat view of GDI handles used for painting ───────────────────────────
+export struct WndResources {
+    HFONT fontBig = nullptr, fontLarge = nullptr, fontSm = nullptr;
+    HBRUSH brBg = nullptr, brBar = nullptr, brBtn = nullptr;
+    HBRUSH brActive = nullptr, brBlink = nullptr, brFill = nullptr;
+    HBRUSH brFillExp = nullptr, brHelp = nullptr;
+    HPEN pnNull = nullptr, pnDivider = nullptr;
+};
