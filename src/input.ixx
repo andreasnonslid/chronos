@@ -80,7 +80,6 @@ export void handle(HWND hwnd, int act, WndState& s) {
         BOOL dwm_dark = dark ? TRUE : FALSE;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
         s.active_theme = dark ? &dark_theme : &light_theme;
-        s.destroy_brushes();
         s.create_brushes();
     }
     InvalidateRect(hwnd, nullptr, FALSE);

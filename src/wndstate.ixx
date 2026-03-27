@@ -9,6 +9,7 @@ module;
 #include <vector>
 export module wndstate;
 import app;
+import gdi;
 import layout;
 import painting;
 import theme;
@@ -33,35 +34,20 @@ export struct WndState {
     bool tray_active = false;
     HICON tray_icon = nullptr;
 
-    HBRUSH brBg = nullptr;
-    HBRUSH brBar = nullptr;
-    HBRUSH brBtn = nullptr;
-    HBRUSH brActive = nullptr;
-    HBRUSH brBlink = nullptr;
-    HBRUSH brFill = nullptr;
-    HBRUSH brFillExp = nullptr;
-    HBRUSH brHelp = nullptr;
-    HPEN pnNull = nullptr;
-    HPEN pnDivider = nullptr;
+    GdiObj brBg, brBar, brBtn, brActive, brBlink, brFill, brFillExp, brHelp, pnNull, pnDivider;
 
     void create_brushes() {
         auto& th = *active_theme;
-        brBg = CreateSolidBrush(th.bg);
-        brBar = CreateSolidBrush(th.bar);
-        brBtn = CreateSolidBrush(th.btn);
-        brActive = CreateSolidBrush(th.active);
-        brBlink = CreateSolidBrush(th.blink);
-        brFill = CreateSolidBrush(th.fill);
-        brFillExp = CreateSolidBrush(th.fill_exp);
-        brHelp = CreateSolidBrush(th.help_bg);
-        pnNull = CreatePen(PS_NULL, 0, 0);
-        pnDivider = CreatePen(PS_SOLID, 1, th.divider);
-    }
-
-    void destroy_brushes() {
-        HGDIOBJ objs[] = {brBg, brBar, brBtn, brActive, brBlink, brFill, brFillExp, brHelp, pnNull, pnDivider};
-        for (auto h : objs)
-            if (h) DeleteObject(h);
+        brBg      = GdiObj{CreateSolidBrush(th.bg)};
+        brBar     = GdiObj{CreateSolidBrush(th.bar)};
+        brBtn     = GdiObj{CreateSolidBrush(th.btn)};
+        brActive  = GdiObj{CreateSolidBrush(th.active)};
+        brBlink   = GdiObj{CreateSolidBrush(th.blink)};
+        brFill    = GdiObj{CreateSolidBrush(th.fill)};
+        brFillExp = GdiObj{CreateSolidBrush(th.fill_exp)};
+        brHelp    = GdiObj{CreateSolidBrush(th.help_bg)};
+        pnNull    = GdiObj{CreatePen(PS_NULL, 0, 0)};
+        pnDivider = GdiObj{CreatePen(PS_SOLID, 1, th.divider)};
     }
 
     ~WndState() {
@@ -70,7 +56,6 @@ export struct WndState {
             DeleteObject(hFontLarge);
             DeleteObject(hFontSm);
         }
-        destroy_brushes();
         if (mdc) DeleteDC(mdc);
         if (buf_bmp) DeleteObject(buf_bmp);
     }
@@ -111,16 +96,16 @@ export struct WndState {
             .fontBig = hFontBig,
             .fontLarge = hFontLarge,
             .fontSm = hFontSm,
-            .brBg = brBg,
-            .brBar = brBar,
-            .brBtn = brBtn,
-            .brActive = brActive,
-            .brBlink = brBlink,
-            .brFill = brFill,
-            .brFillExp = brFillExp,
-            .brHelp = brHelp,
-            .pnNull = pnNull,
-            .pnDivider = pnDivider,
+            .brBg      = (HBRUSH)brBg.h,
+            .brBar     = (HBRUSH)brBar.h,
+            .brBtn     = (HBRUSH)brBtn.h,
+            .brActive  = (HBRUSH)brActive.h,
+            .brBlink   = (HBRUSH)brBlink.h,
+            .brFill    = (HBRUSH)brFill.h,
+            .brFillExp = (HBRUSH)brFillExp.h,
+            .brHelp    = (HBRUSH)brHelp.h,
+            .pnNull    = (HPEN)pnNull.h,
+            .pnDivider = (HPEN)pnDivider.h,
         };
     }
 };
