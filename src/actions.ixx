@@ -23,6 +23,7 @@ export enum Act {
     A_SW_LAP,
     A_SW_RESET,
     A_SW_GET,
+    A_THEME,
     A_TMR_BASE = 100,
 };
 
@@ -47,6 +48,7 @@ export bool wants_blink(int act) {
     case A_SHOW_SW:
     case A_SHOW_TMR:
     case A_SW_START:
+    case A_THEME:
         return false;
     default:
         if (act >= A_TMR_BASE) {
@@ -62,6 +64,7 @@ export struct HandleResult {
     bool resize = false;
     bool set_topmost = false;
     bool open_file = false;
+    bool apply_theme = false;
 };
 
 export HandleResult dispatch_action(App& app, int act, sc::time_point now, const std::filesystem::path& config_dir) {
@@ -127,6 +130,11 @@ export HandleResult dispatch_action(App& app, int act, sc::time_point now, const
         break;
     case A_SW_GET:
         if (!app.sw_lap_file.empty()) r.open_file = true;
+        break;
+    case A_THEME:
+        app.theme_mode = (ThemeMode)(((int)app.theme_mode + 1) % 3);
+        r.apply_theme = true;
+        r.save_config = true;
         break;
     default:
         if (act >= A_TMR_BASE) {

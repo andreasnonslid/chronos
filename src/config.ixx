@@ -9,11 +9,14 @@ module;
 #include <string_view>
 export module config;
 
+export enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
+
 export struct Config {
     bool show_clk = true;
     bool show_sw = true;
     bool show_tmr = true;
     bool topmost = false;
+    ThemeMode theme_mode = ThemeMode::Auto;
     static constexpr int MAX_TIMERS = 3;
     static constexpr int TIMER_MIN_SECS = 0;
     static constexpr int TIMER_MAX_SECS = 86400;
@@ -36,8 +39,9 @@ export struct Config {
 };
 
 export bool config_write(const Config& c, std::ostream& f) {
-    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
-                     c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, c.num_timers);
+    const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
+    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
+                     c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, c.num_timers);
     for (int i = 0; i < c.num_timers; ++i) {
         f << std::format("timer{}={}\n", i, c.timer_secs[i]);
         if (!c.timer_labels[i].empty()) f << std::format("timer{}_label={}\n", i, c.timer_labels[i]);
@@ -72,7 +76,12 @@ export bool config_read(Config& c, std::istream& f) {
         std::string_view rest{line.data() + eq + 1, line.size() - eq - 1};
         // Handle string-valued keys before numeric parsing
         bool handled_str = false;
-        if (key.starts_with("timer") && key.ends_with("_label")) {
+        if (key == "theme") {
+            if (rest == "dark") c.theme_mode = ThemeMode::Dark;
+            else if (rest == "light") c.theme_mode = ThemeMode::Light;
+            else c.theme_mode = ThemeMode::Auto;
+            handled_str = true;
+        } else if (key.starts_with("timer") && key.ends_with("_label")) {
             auto num = key.substr(5, key.size() - 11);
             int i;
             auto [ptr, ec] = std::from_chars(num.data(), num.data() + num.size(), i);
