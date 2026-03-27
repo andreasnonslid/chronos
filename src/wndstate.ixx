@@ -32,7 +32,7 @@ export struct WndState {
     HFONT hFontSm = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     int timer_ms = 100;
     bool tray_active = false;
-    HICON tray_icon = nullptr;
+    IconObj tray_icon{};
 
     GdiObj brBg, brBar, brBtn, brActive, brBlink, brFill, brFillExp, brHelp, pnNull, pnDivider;
 
@@ -50,32 +50,22 @@ export struct WndState {
         pnDivider = GdiObj{CreatePen(PS_SOLID, 1, th.divider)};
     }
 
-    ~WndState() {
-        if (mdc) DeleteDC(mdc);
-        if (buf_bmp) DeleteObject(buf_bmp);
-    }
-
     WndState(const WndState&) = delete;
     WndState& operator=(const WndState&) = delete;
     WndState() = default;
 
-    HDC mdc = nullptr;
-    HBITMAP buf_bmp = nullptr;
+    DcObj mdc{};
+    GdiObj buf_bmp{};
     int buf_w = 0, buf_h = 0;
 
     void ensure_buffer(HDC hdc, int w, int h) {
         if (w != buf_w || h != buf_h) {
-            HDC new_mdc = CreateCompatibleDC(hdc);
-            if (!new_mdc) return;
-            HBITMAP new_bmp = CreateCompatibleBitmap(hdc, w, h);
-            if (!new_bmp) {
-                DeleteDC(new_mdc);
-                return;
-            }
-            if (mdc) DeleteDC(mdc);
-            if (buf_bmp) DeleteObject(buf_bmp);
-            mdc = new_mdc;
-            buf_bmp = new_bmp;
+            DcObj new_mdc{CreateCompatibleDC(hdc)};
+            if (!new_mdc.h) return;
+            GdiObj new_bmp{CreateCompatibleBitmap(hdc, w, h)};
+            if (!new_bmp.h) return;
+            mdc = std::move(new_mdc);
+            buf_bmp = std::move(new_bmp);
             SelectObject(mdc, buf_bmp);
             buf_w = w;
             buf_h = h;
@@ -88,6 +78,7 @@ export struct WndState {
             .layout = layout,
             .theme = *active_theme,
             .btns = btns,
+            .now = {},
             .fontBig = hFontBig,
             .fontLarge = hFontLarge,
             .fontSm = hFontSm,

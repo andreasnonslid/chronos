@@ -24,3 +24,37 @@ export struct GdiObj {
     }
     operator HGDIOBJ() const { return h; }
 };
+
+// ─── RAII wrapper for HDC (CreateCompatibleDC / DeleteDC) ──────────────────
+export struct DcObj {
+    HDC h = nullptr;
+    explicit DcObj(HDC h = nullptr) : h(h) {}
+    ~DcObj() { if (h) DeleteDC(h); }
+    DcObj(const DcObj&) = delete;
+    DcObj& operator=(const DcObj&) = delete;
+    DcObj(DcObj&& o) noexcept : h(o.h) { o.h = nullptr; }
+    DcObj& operator=(DcObj&& o) noexcept {
+        if (h) DeleteDC(h);
+        h = o.h;
+        o.h = nullptr;
+        return *this;
+    }
+    operator HDC() const { return h; }
+};
+
+// ─── RAII wrapper for HICON (DestroyIcon) ────────────────────────────
+export struct IconObj {
+    HICON h = nullptr;
+    explicit IconObj(HICON h = nullptr) : h(h) {}
+    ~IconObj() { if (h) DestroyIcon(h); }
+    IconObj(const IconObj&) = delete;
+    IconObj& operator=(const IconObj&) = delete;
+    IconObj(IconObj&& o) noexcept : h(o.h) { o.h = nullptr; }
+    IconObj& operator=(IconObj&& o) noexcept {
+        if (h) DestroyIcon(h);
+        h = o.h;
+        o.h = nullptr;
+        return *this;
+    }
+    operator HICON() const { return h; }
+};
