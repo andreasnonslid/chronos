@@ -13,26 +13,11 @@ module;
 export module config_io;
 import config;
 import debug;
+import encoding;
 import layout;
 import wndstate;
 
 using namespace std::chrono;
-
-static std::string wide_to_utf8(const std::wstring& w) {
-    int len = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    if (len <= 0) return {};
-    std::string s(len - 1, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, s.data(), len, nullptr, nullptr);
-    return s;
-}
-
-static std::wstring utf8_to_wide(const std::string& s) {
-    int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
-    if (len <= 0) return {};
-    std::wstring w(len - 1, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, w.data(), len);
-    return w;
-}
 
 export std::filesystem::path config_path() {
     if (auto* appdata = _wgetenv(L"APPDATA")) {

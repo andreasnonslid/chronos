@@ -18,6 +18,7 @@ if(WIN32)
             src/config_io.ixx
             src/debug.ixx
             src/dpi.ixx
+            src/encoding.ixx
             src/formatting.ixx
             src/gdi.ixx
             src/icon.ixx
@@ -66,6 +67,7 @@ if(BUILD_TESTS)
         tests/test_stopwatch.cpp
         tests/test_timer.cpp
         tests/test_config.cpp
+        tests/test_encoding.cpp
         tests/test_formatting.cpp
         tests/test_layout.cpp
         tests/test_actions.cpp
@@ -75,6 +77,7 @@ if(BUILD_TESTS)
             src/actions.ixx
             src/app.ixx
             src/config.ixx
+            src/encoding.ixx
             src/formatting.ixx
             src/layout.ixx
             src/stopwatch.ixx
