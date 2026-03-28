@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -8,15 +8,14 @@ module;
 #include <utility>
 #include <vector>
 extern "C" __declspec(dllimport) HRESULT __stdcall DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
-export module wndstate;
-import app;
-import config;
-import gdi;
-import icon;
-import layout;
-export import paint_ctx;
-import theme;
-import tray;
+#include "app.hpp"
+#include "config.hpp"
+#include "gdi.hpp"
+#include "icon.hpp"
+#include "layout.hpp"
+#include "paint_ctx.hpp"
+#include "theme.hpp"
+#include "tray.hpp"
 
 static HFONT make_font(int pt, bool bold, const Layout& layout) {
     int h = -MulDiv(pt, layout.dpi, 72);
@@ -24,7 +23,7 @@ static HFONT make_font(int pt, bool bold, const Layout& layout) {
                        CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
 }
 
-export struct WndState {
+struct WndState {
     App app;
     Layout layout;
     std::filesystem::path cfg_path;
@@ -97,7 +96,7 @@ static constexpr int FONT_PT_BIG = 26;
 static constexpr int FONT_PT_LARGE = 34;
 static constexpr int FONT_PT_SM = 11;
 
-export void recreate_fonts(WndState& s) {
+inline void recreate_fonts(WndState& s) {
     GdiObj newBig{make_font(FONT_PT_BIG, true, s.layout)};
     GdiObj newLarge{make_font(FONT_PT_LARGE, true, s.layout)};
     GdiObj newSm{make_font(FONT_PT_SM, false, s.layout)};
@@ -110,7 +109,7 @@ export void recreate_fonts(WndState& s) {
     s.res.fontSm    = (HFONT)s.fontSm.h;
 }
 
-export void apply_theme(HWND hwnd, WndState& s) {
+inline void apply_theme(HWND hwnd, WndState& s) {
     bool dark = (s.app.theme_mode == ThemeMode::Dark) ||
                 (s.app.theme_mode == ThemeMode::Auto && system_prefers_dark());
     BOOL dwm_dark = dark ? TRUE : FALSE;

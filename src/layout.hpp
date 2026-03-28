@@ -1,8 +1,8 @@
-export module layout;
+#pragma once
 
 constexpr int STANDARD_DPI = 96;
 
-export struct Layout {
+struct Layout {
     static constexpr int BASE_BAR_H  = 36;
     static constexpr int BASE_CLK_H  = 62;
     static constexpr int BASE_SW_H   = 116;
@@ -47,14 +47,14 @@ export struct Layout {
     }
 };
 
-export struct LayoutState {
+struct LayoutState {
     bool show_clk = true;
     bool show_sw = true;
     bool show_tmr = true;
     int timer_count = 1;
 };
 
-export struct TimerMetrics {
+struct TimerMetrics {
     int abw;     // arrow button width
     int abh;     // arrow button height
     int up_off;  // y-offset for up arrows
@@ -78,7 +78,7 @@ export struct TimerMetrics {
     }
 };
 
-export int client_height_for(const Layout& layout, const LayoutState& state) {
+inline int client_height_for(const Layout& layout, const LayoutState& state) {
     int h = layout.bar_h;
     if (state.show_clk) h += layout.clk_h;
     if (state.show_sw) h += layout.sw_h;

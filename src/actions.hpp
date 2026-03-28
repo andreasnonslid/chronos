@@ -1,20 +1,19 @@
-module;
+#pragma once
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <string>
-export module actions;
-import app;
-import config;
-import formatting;
-import timer;
+#include "app.hpp"
+#include "config.hpp"
+#include "formatting.hpp"
+#include "timer.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
 
-export enum Act {
+enum Act {
     A_TOPMOST = 1,
     A_SHOW_CLK,
     A_SHOW_SW,
@@ -27,21 +26,21 @@ export enum Act {
     A_TMR_BASE = 100,
 };
 
-export constexpr int TMR_STRIDE = 10;
-export constexpr int A_TMR_HUP = 0;
-export constexpr int A_TMR_HDN = 1;
-export constexpr int A_TMR_MUP = 2;
-export constexpr int A_TMR_MDN = 3;
-export constexpr int A_TMR_SUP = 4;
-export constexpr int A_TMR_SDN = 5;
-export constexpr int A_TMR_START = 6;
-export constexpr int A_TMR_RST = 7;
-export constexpr int A_TMR_ADD = 8;
-export constexpr int A_TMR_DEL = 9;
+constexpr int TMR_STRIDE = 10;
+constexpr int A_TMR_HUP = 0;
+constexpr int A_TMR_HDN = 1;
+constexpr int A_TMR_MUP = 2;
+constexpr int A_TMR_MDN = 3;
+constexpr int A_TMR_SUP = 4;
+constexpr int A_TMR_SDN = 5;
+constexpr int A_TMR_START = 6;
+constexpr int A_TMR_RST = 7;
+constexpr int A_TMR_ADD = 8;
+constexpr int A_TMR_DEL = 9;
 
-export int tmr_act(int i, int off) { return A_TMR_BASE + i * TMR_STRIDE + off; }
+inline int tmr_act(int i, int off) { return A_TMR_BASE + i * TMR_STRIDE + off; }
 
-export bool wants_blink(int act) {
+inline bool wants_blink(int act) {
     switch (act) {
     case A_TOPMOST:
     case A_SHOW_CLK:
@@ -59,7 +58,7 @@ export bool wants_blink(int act) {
     }
 }
 
-export struct HandleResult {
+struct HandleResult {
     bool save_config = false;
     bool resize = false;
     bool set_topmost = false;
@@ -67,7 +66,7 @@ export struct HandleResult {
     bool apply_theme = false;
 };
 
-export HandleResult dispatch_action(App& app, int act, sc::time_point now, const std::filesystem::path& config_dir) {
+inline HandleResult dispatch_action(App& app, int act, sc::time_point now, const std::filesystem::path& config_dir) {
     HandleResult r;
 
     switch (act) {

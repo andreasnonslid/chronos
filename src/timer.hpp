@@ -1,8 +1,7 @@
-module;
+#pragma once
 #include <chrono>
-export module timer;
 
-export struct Timer {
+struct Timer {
     using tp = std::chrono::steady_clock::time_point;
     using dur = std::chrono::steady_clock::duration;
 

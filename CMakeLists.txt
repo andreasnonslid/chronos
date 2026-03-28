@@ -10,35 +10,7 @@ find_program(LLD NAMES ld.lld ld.lld.exe)
 if(WIN32)
     add_executable(chronos WIN32 src/main.cpp)
 
-    target_sources(chronos PRIVATE
-        FILE_SET CXX_MODULES FILES
-            src/actions.ixx
-            src/app.ixx
-            src/config.ixx
-            src/config_io.ixx
-            src/debug.ixx
-            src/dpi.ixx
-            src/encoding.ixx
-            src/formatting.ixx
-            src/geometry.ixx
-            src/gdi.ixx
-            src/icon.ixx
-            src/input.ixx
-            src/input_core.ixx
-            src/input_keyboard.ixx
-            src/input_mouse.ixx
-            src/layout.ixx
-            src/paint_ctx.ixx
-            src/painting.ixx
-            src/painting_timer.ixx
-            src/polling.ixx
-            src/stopwatch.ixx
-            src/theme.ixx
-            src/timer.ixx
-            src/tray.ixx
-            src/window.ixx
-            src/wndstate.ixx
-    )
+    target_include_directories(chronos PRIVATE src)
 
     target_compile_options(chronos PRIVATE
         -Wall -Wextra -Werror -Wno-unused-command-line-argument
@@ -77,17 +49,7 @@ if(BUILD_TESTS)
         tests/test_layout.cpp
         tests/test_actions.cpp
     )
-    target_sources(chronos_tests PRIVATE
-        FILE_SET CXX_MODULES FILES
-            src/actions.ixx
-            src/app.ixx
-            src/config.ixx
-            src/encoding.ixx
-            src/formatting.ixx
-            src/layout.ixx
-            src/stopwatch.ixx
-            src/timer.ixx
-    )
+    target_include_directories(chronos_tests PRIVATE src)
     target_link_libraries(chronos_tests PRIVATE Catch2::Catch2WithMain)
     target_compile_options(chronos_tests PRIVATE
         -Wall -Wextra -Werror -Wno-unused-command-line-argument

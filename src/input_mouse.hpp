@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -8,23 +8,22 @@ module;
 #include <algorithm>
 #include <chrono>
 #include <optional>
-export module input_mouse;
-import actions;
-import config;
-import config_io;
-import geometry;
-import gdi;
-import input_core;
-import layout;
-import wndstate;
+#include "actions.hpp"
+#include "config.hpp"
+#include "config_io.hpp"
+#include "geometry.hpp"
+#include "gdi.hpp"
+#include "input_core.hpp"
+#include "layout.hpp"
+#include "wndstate.hpp"
 
 using namespace std::chrono;
 
-static constexpr int EDIT_ID_BASE = 9000;
-static WNDPROC g_orig_edit_proc = nullptr;
-static bool g_edit_cancelled = false;
+constexpr int EDIT_ID_BASE = 9000;
+inline WNDPROC g_orig_edit_proc = nullptr;
+inline bool g_edit_cancelled = false;
 
-static LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+inline LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_KEYDOWN) {
         if (wp == VK_RETURN) {
             SetFocus(GetParent(hwnd));
@@ -39,7 +38,7 @@ static LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
     return CallWindowProcW(g_orig_edit_proc, hwnd, msg, wp, lp);
 }
 
-export std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s) {
+inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s) {
     switch (msg) {
     case WM_LBUTTONDOWN: {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};

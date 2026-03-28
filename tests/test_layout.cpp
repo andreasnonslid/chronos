@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-import layout;
+#include "../src/layout.hpp"
 
 // ── dpi_scale ───────────────────────────────────────────────────────────────
 

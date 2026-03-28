@@ -1,21 +1,20 @@
-module;
+#pragma once
 #include <chrono>
 #include <filesystem>
 #include <string>
 #include <vector>
-export module app;
-import config;
-import stopwatch;
-import timer;
+#include "config.hpp"
+#include "stopwatch.hpp"
+#include "timer.hpp"
 
-export struct TimerSlot {
+struct TimerSlot {
     Timer t;
     std::chrono::seconds dur{std::chrono::seconds{60}};
     bool notified = false;
     std::wstring label;
 };
 
-export struct App {
+struct App {
     Stopwatch sw;
     std::filesystem::path sw_lap_file;
     std::vector<TimerSlot> timers;

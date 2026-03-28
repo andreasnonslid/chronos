@@ -1,4 +1,4 @@
-module;
+#pragma once
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -10,7 +10,6 @@ module;
 #ifdef _WIN32
 #include <windows.h>
 #endif
-export module encoding;
 
 // ─── UTF-8 / wide string conversion ──────────────────────────────────────────
 // On Windows: delegates to WideCharToMultiByte / MultiByteToWideChar (UTF-16).
@@ -18,7 +17,7 @@ export module encoding;
 
 #ifdef _WIN32
 
-export std::string wide_to_utf8(const std::wstring& w) {
+inline std::string wide_to_utf8(const std::wstring& w) {
     int len = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
     if (len <= 0) return {};
     std::string s(len - 1, '\0');
@@ -26,7 +25,7 @@ export std::string wide_to_utf8(const std::wstring& w) {
     return s;
 }
 
-export std::wstring utf8_to_wide(const std::string& s) {
+inline std::wstring utf8_to_wide(const std::string& s) {
     int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
     if (len <= 0) return {};
     std::wstring w(len - 1, L'\0');
@@ -36,7 +35,7 @@ export std::wstring utf8_to_wide(const std::string& s) {
 
 #else
 
-export std::string wide_to_utf8(const std::wstring& w) {
+inline std::string wide_to_utf8(const std::wstring& w) {
     std::string out;
     out.reserve(w.size());
     for (wchar_t wc : w) {
@@ -60,7 +59,7 @@ export std::string wide_to_utf8(const std::wstring& w) {
     return out;
 }
 
-export std::wstring utf8_to_wide(const std::string& s) {
+inline std::wstring utf8_to_wide(const std::string& s) {
     std::wstring out;
     out.reserve(s.size());
     const auto* us = reinterpret_cast<const unsigned char*>(s.data());

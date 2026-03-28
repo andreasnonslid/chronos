@@ -6,11 +6,11 @@
 #include <shellapi.h>
 #include <filesystem>
 #include <cstdio>
-import debug;
-import dpi;
-import icon;
-import layout;
-import window;
+#include "debug.hpp"
+#include "dpi.hpp"
+#include "icon.hpp"
+#include "layout.hpp"
+#include "window.hpp"
 
 // ─── WinMain ──────────────────────────────────────────────────────────────────
 struct FileCloser {

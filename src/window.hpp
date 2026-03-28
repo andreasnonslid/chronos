@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -9,23 +9,22 @@ module;
 extern "C"
     __declspec(dllimport) HRESULT __stdcall DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
 #include <memory>
-export module window;
-import config;
-import config_io;
-import dpi;
-import geometry;
-import gdi;
-import icon;
-import input;
-import layout;
-import painting;
-import polling;
-import theme;
-import tray;
-import wndstate;
+#include "config.hpp"
+#include "config_io.hpp"
+#include "dpi.hpp"
+#include "geometry.hpp"
+#include "gdi.hpp"
+#include "icon.hpp"
+#include "input.hpp"
+#include "layout.hpp"
+#include "painting.hpp"
+#include "polling.hpp"
+#include "theme.hpp"
+#include "tray.hpp"
+#include "wndstate.hpp"
 
 // ─── WndProc ────────────────────────────────────────────────────────────────────
-export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* s = (WndState*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
     switch (msg) {
