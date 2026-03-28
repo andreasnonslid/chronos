@@ -84,6 +84,24 @@ export void handle(HWND hwnd, int act, WndState& s) {
 
 static constexpr int EDIT_ID_BASE = 9000;
 
+static WNDPROC g_orig_edit_proc = nullptr;
+static bool g_edit_cancelled = false;
+
+static LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    if (msg == WM_KEYDOWN) {
+        if (wp == VK_RETURN) {
+            SetFocus(GetParent(hwnd));
+            return 0;
+        }
+        if (wp == VK_ESCAPE) {
+            g_edit_cancelled = true;
+            SetFocus(GetParent(hwnd));
+            return 0;
+        }
+    }
+    return CallWindowProcW(g_orig_edit_proc, hwnd, msg, wp, lp);
+}
+
 // ─── Input message dispatcher ─────────────────────────────────────────────────
 export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s) {
     switch (msg) {
@@ -121,6 +139,8 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
                                         ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(EDIT_ID_BASE + idx), nullptr, nullptr);
             SendMessageW(edit, EM_SETLIMITTEXT, Config::MAX_LABEL_LEN, 0);
             SendMessageW(edit, WM_SETFONT, (WPARAM)s.res.fontSm, TRUE);
+            g_edit_cancelled = false;
+            g_orig_edit_proc = (WNDPROC)SetWindowLongPtrW(edit, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc);
             SetFocus(edit);
             SendMessageW(edit, EM_SETSEL, 0, -1);
         }
@@ -132,12 +152,15 @@ export std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPA
         if (id >= EDIT_ID_BASE && id < EDIT_ID_BASE + Config::MAX_TIMERS && code == EN_KILLFOCUS) {
             int idx = id - EDIT_ID_BASE;
             HWND edit = (HWND)lp;
-            wchar_t buf[Config::MAX_LABEL_LEN + 1] = {};
-            GetWindowTextW(edit, buf, Config::MAX_LABEL_LEN + 1);
-            if (idx < (int)s.app.timers.size()) {
-                s.app.timers[idx].label = buf;
-                save_config(hwnd, s);
+            if (!g_edit_cancelled) {
+                wchar_t buf[Config::MAX_LABEL_LEN + 1] = {};
+                GetWindowTextW(edit, buf, Config::MAX_LABEL_LEN + 1);
+                if (idx < (int)s.app.timers.size()) {
+                    s.app.timers[idx].label = buf;
+                    save_config(hwnd, s);
+                }
             }
+            g_edit_cancelled = false;
             DestroyWindow(edit);
             InvalidateRect(hwnd, nullptr, FALSE);
         }
