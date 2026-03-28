@@ -18,9 +18,6 @@
 #include "painting_timer.hpp"
 #include "theme.hpp"
 
-using namespace std::chrono;
-using sc = steady_clock;
-
 // ─── Paint sub-functions ──────────────────────────────────────────────────────
 static int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
     auto& layout = ctx.layout;
@@ -53,7 +50,7 @@ static int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
     return y + layout.clk_h;
 }
 
-static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point now) {
+static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::steady_clock::time_point now) {
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     divider(hdc, y, cw, ctx);
@@ -133,7 +130,7 @@ inline void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     RECT all{0, 0, cw, ch};
     FillRect(hdc, &all, ctx.res.brBg);
 
-    ctx.now = sc::now();
+    ctx.now = std::chrono::steady_clock::now();
     auto now = ctx.now;
     int y = paint_bar(hdc, cw, ctx);
     if (ctx.app.show_clk) y = paint_clock(hdc, cw, y, ctx);

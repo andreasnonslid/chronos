@@ -12,9 +12,6 @@
 #include "tray.hpp"
 #include "wndstate.hpp"
 
-using namespace std::chrono;
-using sc = steady_clock;
-
 constexpr int POLL_STOPWATCH_MS = 20;
 constexpr int POLL_TIMER_MS = 100;
 constexpr int POLL_IDLE_MS = 1000;
@@ -36,7 +33,8 @@ inline void sync_timer(HWND hwnd, WndState& s) {
 }
 
 inline void handle_wm_timer(HWND hwnd, WndState& s) {
-    auto now = sc::now();
+    using namespace std::chrono;
+    auto now = steady_clock::now();
     for (auto& ts : s.app.timers) {
         if (ts.t.touched() && ts.t.expired(now) && !ts.notified) {
             ts.notified = true;

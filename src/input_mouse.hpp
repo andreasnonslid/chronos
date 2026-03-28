@@ -17,8 +17,6 @@
 #include "layout.hpp"
 #include "wndstate.hpp"
 
-using namespace std::chrono;
-
 constexpr int EDIT_ID_BASE = 9000;
 inline WNDPROC g_orig_edit_proc = nullptr;
 inline bool g_edit_cancelled = false;
@@ -121,7 +119,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
             DestroyMenu(menu);
             if (cmd > 0) {
                 auto& ts = s.app.timers[idx];
-                ts.dur = seconds{presets[cmd - 1].secs};
+                ts.dur = std::chrono::seconds{presets[cmd - 1].secs};
                 ts.t.reset();
                 ts.t.set(ts.dur);
                 save_config(hwnd, s);

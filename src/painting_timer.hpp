@@ -17,17 +17,15 @@
 #include "theme.hpp"
 #include "timer.hpp"
 
-using namespace std::chrono;
-using sc = steady_clock;
-
 // ─── Timer painters ───────────────────────────────────────────────────────
-static void paint_timer_progress(HDC hdc, int cw, int y, int i, sc::time_point now, PaintCtx& ctx) {
+static void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
     bool expired = ts.t.expired(now);
     HBRUSH fillbr = expired ? ctx.res.brFillExp : ctx.res.brFill;
     int fw = cw;
     if (!expired) {
+        using namespace std::chrono;
         auto total = duration_cast<microseconds>(ts.dur).count();
         auto rem = duration_cast<microseconds>(ts.t.remaining(now)).count();
         fw = total > 0 ? (int)(cw * (double)(total - rem) / total) : 0;
@@ -89,18 +87,18 @@ static void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
         tmr_act(i, A_TMR_SDN), ctx);
 }
 
-static void paint_timer_running(HDC hdc, int cw, int y, int i, sc::time_point now, PaintCtx& ctx) {
+static void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     auto& ts = ctx.app.timers[i];
     auto m = TimerMetrics::from(layout);
     bool expired = ts.t.expired(now);
-    COLORREF tcol = expired ? th.expire : (ts.t.remaining(now) < 10s) ? th.warn : th.text;
+    COLORREF tcol = expired ? th.expire : (ts.t.remaining(now) < std::chrono::seconds{10}) ? th.warn : th.text;
     std::wstring tstr = format_timer_display(ts.t.remaining(now));
 
     SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, th.dim);
-    std::wstring subtitle = ts.label.empty() ? format_timer_edit(duration_cast<Timer::dur>(ts.dur)) : ts.label;
+    std::wstring subtitle = ts.label.empty() ? format_timer_edit(std::chrono::duration_cast<Timer::dur>(ts.dur)) : ts.label;
     RECT sr{0, y + m.up_off, cw, y + m.up_off + layout.dpi_scale(20)};
     DrawTextW(hdc, subtitle.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
@@ -137,7 +135,7 @@ static void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
             tmr_act(i, A_TMR_DEL), ctx);
 }
 
-inline int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point now) {
+inline int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::steady_clock::time_point now) {
     for (int i = 0; i < (int)ctx.app.timers.size(); ++i) {
         divider(hdc, y, cw, ctx);
         auto& ts = ctx.app.timers[i];

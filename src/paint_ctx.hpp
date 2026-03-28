@@ -12,8 +12,6 @@
 #include "layout.hpp"
 #include "theme.hpp"
 
-using sc = std::chrono::steady_clock;
-
 // ─── Paint context ─────────────────────────────────────────────────
 struct PaintCtx {
     App& app;
@@ -21,7 +19,7 @@ struct PaintCtx {
     const Theme& theme;
     const WndResources& res;
     std::vector<std::pair<RECT, int>>& btns;
-    sc::time_point now;
+    std::chrono::steady_clock::time_point now;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────

@@ -12,11 +12,8 @@
 #include "polling.hpp"
 #include "wndstate.hpp"
 
-using namespace std::chrono;
-using sc = steady_clock;
-
 inline void handle(HWND hwnd, int act, WndState& s) {
-    auto now = sc::now();
+    auto now = std::chrono::steady_clock::now();
     if (wants_blink(act)) {
         s.app.blink_act = act;
         s.app.blink_t = now;

@@ -3,6 +3,7 @@
 #include "../src/formatting.hpp"
 
 using namespace std::chrono;
+using steady_duration = steady_clock::duration;
 
 static steady_duration dur_ms(long long ms) { return duration_cast<steady_duration>(milliseconds(ms)); }
 
