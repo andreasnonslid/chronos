@@ -56,6 +56,12 @@ TEST_CASE("utf8_to_wide invalid lead bytes do not crash", "[encoding]") {
 TEST_CASE("utf8_to_wide valid ASCII surrounded by invalid bytes", "[encoding]") {
     REQUIRE(utf8_to_wide("a\x80\xBF" "b") == L"ab");
 }
+
+TEST_CASE("utf8_to_wide overlong encoding does not crash", "[encoding]") {
+    // \xC0\xAF is an overlong 2-byte encoding of U+002F '/'; must not crash
+    auto result = utf8_to_wide("\xC0\xAF");
+    (void)result; // exact output is implementation-defined; just verify no crash
+}
 #endif
 
 TEST_CASE("wide_to_utf8 / utf8_to_wide round-trip", "[encoding]") {
