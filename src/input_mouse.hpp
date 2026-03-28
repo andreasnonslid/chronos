@@ -18,10 +18,12 @@
 #include "wndstate.hpp"
 
 constexpr int EDIT_ID_BASE = 9000;
-inline WNDPROC g_orig_edit_proc = nullptr;
-inline bool g_edit_cancelled = false;
 
-inline LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+namespace {
+WNDPROC g_orig_edit_proc = nullptr;
+bool g_edit_cancelled = false;
+
+LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_KEYDOWN) {
         if (wp == VK_RETURN) {
             SetFocus(GetParent(hwnd));
@@ -35,6 +37,7 @@ inline LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
     }
     return CallWindowProcW(g_orig_edit_proc, hwnd, msg, wp, lp);
 }
+} // namespace
 
 inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s) {
     switch (msg) {
