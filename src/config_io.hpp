@@ -85,6 +85,8 @@ inline void save_config(HWND hwnd, const WndState& s) {
         if (ec) dbg(L"[chrono] save_config: rename failed");
     } else {
         dbg(L"[chrono] save_config: write failed, keeping old config");
+        std::error_code ec;
+        std::filesystem::remove(tmp, ec);
     }
 }
 
