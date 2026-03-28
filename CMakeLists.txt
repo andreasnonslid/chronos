@@ -12,6 +12,13 @@ if(WIN32)
 
     target_include_directories(chronos PRIVATE src)
 
+    target_compile_definitions(chronos PRIVATE
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
+        UNICODE
+        _UNICODE
+    )
+
     target_compile_options(chronos PRIVATE
         -Wall -Wextra -Werror -Wno-unused-command-line-argument
     )
@@ -58,6 +65,12 @@ if(BUILD_TESTS)
         target_link_options(chronos_tests PRIVATE "--ld-path=${LLD}")
     endif()
     if(WIN32)
+        target_compile_definitions(chronos_tests PRIVATE
+            WIN32_LEAN_AND_MEAN
+            NOMINMAX
+            UNICODE
+            _UNICODE
+        )
         target_link_options(chronos_tests PRIVATE
             -static-libstdc++
             -static-libgcc
