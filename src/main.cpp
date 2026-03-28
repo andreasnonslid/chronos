@@ -57,8 +57,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
         LocalFree(argv);
     }
 
-    load_dpi_apis();
-    if (pSetProcessDpiAwarenessContext) pSetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
+    g_dpi.load();
+    if (g_dpi.SetProcessDpiAwarenessContext) g_dpi.SetProcessDpiAwarenessContext(DPI_CTX_PER_MONITOR_V2);
 
     Layout init_layout;
     HDC dc = GetDC(nullptr);

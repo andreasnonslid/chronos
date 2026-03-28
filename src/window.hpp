@@ -34,8 +34,8 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)s);
         auto* cs = (CREATESTRUCTW*)lp;
         if (cs->lpCreateParams) s->layout = *(Layout*)cs->lpCreateParams;
-        if (pGetDpiForWindow) {
-            UINT wdpi = pGetDpiForWindow(hwnd);
+        if (g_dpi.GetDpiForWindow) {
+            UINT wdpi = g_dpi.GetDpiForWindow(hwnd);
             if (wdpi != 0) s->layout.update_for_dpi((int)wdpi);
         }
         recreate_fonts(*s);
