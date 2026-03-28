@@ -20,6 +20,7 @@ if(WIN32)
             src/dpi.ixx
             src/encoding.ixx
             src/formatting.ixx
+            src/geometry.ixx
             src/gdi.ixx
             src/icon.ixx
             src/input.ixx

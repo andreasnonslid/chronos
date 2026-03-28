@@ -13,6 +13,7 @@ export module window;
 import config;
 import config_io;
 import dpi;
+import geometry;
 import gdi;
 import icon;
 import input;
