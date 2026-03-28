@@ -22,12 +22,34 @@ jobs:
             mingw-w64-x86_64-ninja
             git
 
-      - name: Build & Test
+      - name: Configure
         shell: msys2 {0}
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON
-          cmake --build build
-          cd build && ctest --output-on-failure
+          set -o pipefail
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON 2>&1 | tee configure-output.txt
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build-output.txt
+
+      - name: Test
+        shell: msys2 {0}
+        run: |
+          set -o pipefail
+          cd build && ctest --output-on-failure 2>&1 | tee ../test-output.txt
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-logs
+          path: |
+            configure-output.txt
+            build-output.txt
+            test-output.txt
+          if-no-files-found: ignore
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -45,11 +67,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build
 
-      - name: Build & Test
+      - name: Configure
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON
-          cmake --build build
-          cd build && ctest --output-on-failure
+          set -o pipefail
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON 2>&1 | tee configure-output.txt
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build-output.txt
+
+      - name: Test
+        run: |
+          set -o pipefail
+          cd build && ctest --output-on-failure 2>&1 | tee ../test-output.txt
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release-logs
+          path: |
+            configure-output.txt
+            build-output.txt
+            test-output.txt
+          if-no-files-found: ignore
 
   test-linux-debug:
     runs-on: ubuntu-latest
@@ -61,11 +103,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build
 
-      - name: Build & Test (Debug)
+      - name: Configure
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON
-          cmake --build build
-          cd build && ctest --output-on-failure
+          set -o pipefail
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON 2>&1 | tee configure-output.txt
+
+      - name: Build (Debug)
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build-output.txt
+
+      - name: Test (Debug)
+        run: |
+          set -o pipefail
+          cd build && ctest --output-on-failure 2>&1 | tee ../test-output.txt
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-debug-logs
+          path: |
+            configure-output.txt
+            build-output.txt
+            test-output.txt
+          if-no-files-found: ignore
 
   sanitizer-check:
     runs-on: ubuntu-latest
@@ -77,12 +139,32 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build
 
-      - name: Build & Test with sanitizers
+      - name: Configure
         run: |
+          set -o pipefail
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_COMPILER=clang++ \
             -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
-            -DBUILD_TESTS=ON
-          cmake --build build
-          cd build && ctest --output-on-failure
+            -DBUILD_TESTS=ON 2>&1 | tee configure-output.txt
+
+      - name: Build with sanitizers
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build-output.txt
+
+      - name: Test with sanitizers
+        run: |
+          set -o pipefail
+          cd build && ctest --output-on-failure 2>&1 | tee ../test-output.txt
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanitizer-logs
+          path: |
+            configure-output.txt
+            build-output.txt
+            test-output.txt
+          if-no-files-found: ignore
