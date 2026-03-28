@@ -7,7 +7,7 @@
 #include "layout.hpp"
 #include "wndstate.hpp"
 
-static LayoutState layout_state(const WndState& s) {
+inline LayoutState layout_state(const WndState& s) {
     return {
         .show_clk = s.app.show_clk,
         .show_sw = s.app.show_sw,

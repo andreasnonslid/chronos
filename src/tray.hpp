@@ -11,7 +11,7 @@ constexpr UINT TRAY_UID = 1;
 constexpr int IDM_TRAY_SHOW = 1;
 constexpr int IDM_TRAY_EXIT = 2;
 
-static NOTIFYICONDATAW make_nid(HWND hwnd, UINT flags = 0) {
+inline NOTIFYICONDATAW make_nid(HWND hwnd, UINT flags = 0) {
     NOTIFYICONDATAW nid{};
     nid.cbSize = sizeof(nid);
     nid.hWnd = hwnd;
@@ -21,7 +21,7 @@ static NOTIFYICONDATAW make_nid(HWND hwnd, UINT flags = 0) {
 }
 
 template <size_t N>
-static void safe_copy(wchar_t (&dst)[N], const wchar_t* src) {
+inline void safe_copy(wchar_t (&dst)[N], const wchar_t* src) {
     wcsncpy(dst, src, N - 1);
     dst[N - 1] = L'\0';
 }
