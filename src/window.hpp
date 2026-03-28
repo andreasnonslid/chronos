@@ -1,8 +1,4 @@
 #pragma once
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#define UNICODE
-#define _UNICODE
 #include <windows.h>
 #include <shellapi.h>
 // Forward-declare DWM to avoid MinGW header chain issues (uxtheme.h missing commctrl.h).
