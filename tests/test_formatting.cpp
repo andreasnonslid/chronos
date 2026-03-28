@@ -91,3 +91,21 @@ TEST_CASE("format_lap_row: large lap number", "[formatting]") {
     auto result = format_lap_row(100, dur_ms(3456), dur_ms(80000));
     REQUIRE(result.find(L"Lap 100") != std::wstring::npos);
 }
+
+// ── negative duration clamping ──────────────────────────────────────────────
+
+TEST_CASE("format_stopwatch_short: negative duration clamps to zero", "[formatting]") {
+    REQUIRE(format_stopwatch_short(dur_ms(-500)) == L"00:00.000");
+}
+
+TEST_CASE("format_stopwatch_long: negative duration clamps to zero", "[formatting]") {
+    REQUIRE(format_stopwatch_long(dur_s(-10)) == L"00:00:00");
+}
+
+TEST_CASE("format_timer_display: negative duration clamps to zero", "[formatting]") {
+    REQUIRE(format_timer_display(dur_s(-1)) == L"00:00");
+}
+
+TEST_CASE("format_timer_edit: negative duration clamps to zero", "[formatting]") {
+    REQUIRE(format_timer_edit(dur_s(-1)) == L"0:00:00");
+}
