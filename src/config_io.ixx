@@ -34,7 +34,9 @@ export std::filesystem::path config_path() {
 export void save_config(HWND hwnd, const WndState& s) {
     const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] save_config: {}", path.wstring()));
-    std::ofstream f(path);
+    auto tmp = path;
+    tmp += L".tmp";
+    std::ofstream f(tmp);
     if (!f) {
         dbg(L"[chrono] save_config: open failed");
         return;
@@ -76,6 +78,14 @@ export void save_config(HWND hwnd, const WndState& s) {
         cfg.win_w = wr.right - wr.left;
     }
     config_write(cfg, f);
+    f.close();
+    if (f.good()) {
+        std::error_code ec;
+        std::filesystem::rename(tmp, path, ec);
+        if (ec) dbg(L"[chrono] save_config: rename failed");
+    } else {
+        dbg(L"[chrono] save_config: write failed, keeping old config");
+    }
 }
 
 export void load_config(HWND hwnd, WndState& s) {
