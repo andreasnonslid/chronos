@@ -24,6 +24,9 @@ if(WIN32)
             src/gdi.ixx
             src/icon.ixx
             src/input.ixx
+            src/input_core.ixx
+            src/input_keyboard.ixx
+            src/input_mouse.ixx
             src/layout.ixx
             src/paint_ctx.ixx
             src/painting.ixx
