@@ -122,3 +122,11 @@ TEST_CASE("Stopwatch restore clears previous laps", "[stopwatch]") {
     sw.restore(seconds(5), false, at_ms(0));
     REQUIRE(sw.laps().empty());
 }
+
+TEST_CASE("Stopwatch lap count capped at MAX_LAPS", "[stopwatch]") {
+    Stopwatch sw;
+    sw.start(at_ms(0));
+    for (int i = 1; i <= static_cast<int>(Stopwatch::MAX_LAPS) + 10; ++i)
+        sw.lap(at_ms(i));
+    REQUIRE(sw.laps().size() == Stopwatch::MAX_LAPS);
+}
