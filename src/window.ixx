@@ -42,15 +42,7 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetTimer(hwnd, 1, POLL_TIMER_MS, nullptr);
         s->cfg_path = config_path();
         load_config(hwnd, *s);
-        {
-            bool dark = (s->app.theme_mode == ThemeMode::Dark) ||
-                        (s->app.theme_mode == ThemeMode::Auto && system_prefers_dark());
-            BOOL dwm_dark = dark ? TRUE : FALSE;
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
-            s->active_theme = dark ? &dark_theme : &light_theme;
-            s->create_brushes();
-            s->tray_icon = IconObj{create_app_icon(16, dark)};
-        }
+        apply_theme(hwnd, *s);
         resize_window(hwnd, *s);
         state.release();
         return 0;
@@ -151,13 +143,7 @@ export LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_SETTINGCHANGE:
         if (lp && wcscmp((LPCWSTR)lp, L"ImmersiveColorSet") == 0 &&
                 s->app.theme_mode == ThemeMode::Auto) {
-            bool dark = system_prefers_dark();
-            BOOL dwm_dark = dark ? TRUE : FALSE;
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
-            s->active_theme = dark ? &dark_theme : &light_theme;
-            s->create_brushes();
-            s->tray_icon = IconObj{create_app_icon(16, dark)};
-            if (s->tray_active) tray_add(hwnd, s->tray_icon);
+            apply_theme(hwnd, *s);
             InvalidateRect(hwnd, nullptr, TRUE);
         }
         return 0;
