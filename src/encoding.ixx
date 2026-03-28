@@ -74,9 +74,13 @@ export std::wstring utf8_to_wide(const std::string& s) {
         else if (c < 0xE0) { cp = c & 0x1F; extra = 1; }
         else if (c < 0xF0) { cp = c & 0x0F; extra = 2; }
         else               { cp = c & 0x07; extra = 3; }
-        while (extra-- > 0 && i < s.size())
+        int got = 0;
+        while (got < extra && i < s.size()) {
             cp = (cp << 6) | (us[i++] & 0x3F);
-        out += static_cast<wchar_t>(cp);
+            ++got;
+        }
+        if (got == extra)
+            out += static_cast<wchar_t>(cp);
     }
     return out;
 }
