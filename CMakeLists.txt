@@ -37,7 +37,7 @@ if(WIN32)
     )
 
     target_compile_options(chronos PRIVATE
-        -Wall -Wextra -Wno-unused-command-line-argument
+        -Wall -Wextra -Werror -Wno-unused-command-line-argument
     )
 
     target_link_options(chronos PRIVATE
@@ -86,7 +86,7 @@ if(BUILD_TESTS)
     )
     target_link_libraries(chronos_tests PRIVATE Catch2::Catch2WithMain)
     target_compile_options(chronos_tests PRIVATE
-        -Wall -Wextra -Wno-unused-command-line-argument
+        -Wall -Wextra -Werror -Wno-unused-command-line-argument
     )
     if(LLD)
         target_link_options(chronos_tests PRIVATE "--ld-path=${LLD}")
