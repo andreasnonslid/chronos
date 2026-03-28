@@ -5,6 +5,10 @@ on:
     branches: ["**"]
     tags-ignore: ["**"]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   build:
     uses: ./.github/workflows/build.yml
