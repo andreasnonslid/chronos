@@ -170,21 +170,21 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                 int h = (int)(total / 3600);
                 int m = (int)((total / 60) % 60);
                 int sec = (int)(total % 60);
-                bool changed = true;
-                if (off == A_TMR_HUP)
-                    h = (h >= 24) ? 0 : h + 1;
-                else if (off == A_TMR_HDN)
-                    h = (h <= 0) ? 24 : h - 1;
-                else if (off == A_TMR_MUP)
-                    m = (m >= 59) ? 0 : m + 1;
-                else if (off == A_TMR_MDN)
-                    m = (m <= 0) ? 59 : m - 1;
-                else if (off == A_TMR_SUP)
-                    sec = (sec >= 59) ? 0 : sec + 1;
-                else if (off == A_TMR_SDN)
-                    sec = (sec <= 0) ? 59 : sec - 1;
-                else
-                    changed = false;
+                struct Adj { int off; int* field; int max_val; bool up; };
+                Adj adjustments[] = {
+                    {A_TMR_HUP, &h, 24, true},  {A_TMR_HDN, &h, 24, false},
+                    {A_TMR_MUP, &m, 59, true},  {A_TMR_MDN, &m, 59, false},
+                    {A_TMR_SUP, &sec, 59, true}, {A_TMR_SDN, &sec, 59, false},
+                };
+                bool changed = false;
+                for (auto& [a_off, field, max_val, up] : adjustments) {
+                    if (off == a_off) {
+                        *field = up ? (*field >= max_val ? 0 : *field + 1)
+                                    : (*field <= 0 ? max_val : *field - 1);
+                        changed = true;
+                        break;
+                    }
+                }
                 if (changed) {
                     auto clamped = std::clamp(h * 3600 + m * 60 + sec, 0, Config::TIMER_MAX_SECS);
                     ts.dur = seconds{clamped};
