@@ -23,7 +23,7 @@ using namespace std::chrono;
 using sc = steady_clock;
 
 // ─── Paint sub-functions ──────────────────────────────────────────────────────
-static int paint_bar(HDC hdc, int cw, int y, PaintCtx& ctx) {
+static int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     RECT bar{0, 0, cw, layout.bar_h};
     FillRect(hdc, &bar, ctx.res.brBar);
@@ -136,7 +136,7 @@ export void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
 
     ctx.now = sc::now();
     auto now = ctx.now;
-    int y = paint_bar(hdc, cw, 0, ctx);
+    int y = paint_bar(hdc, cw, ctx);
     if (ctx.app.show_clk) y = paint_clock(hdc, cw, y, ctx);
     if (ctx.app.show_sw) y = paint_stopwatch(hdc, cw, y, ctx, now);
     if (ctx.app.show_tmr) y = paint_timers(hdc, cw, y, ctx, now);
