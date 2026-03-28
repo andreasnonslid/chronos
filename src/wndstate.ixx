@@ -7,12 +7,16 @@ module;
 #include <filesystem>
 #include <utility>
 #include <vector>
+extern "C" __declspec(dllimport) HRESULT __stdcall DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
 export module wndstate;
 import app;
+import config;
 import gdi;
+import icon;
 import layout;
 export import paint_ctx;
 import theme;
+import tray;
 
 static HFONT make_font(int pt, bool bold, const Layout& layout) {
     int h = -MulDiv(pt, layout.dpi, 72);
@@ -104,4 +108,15 @@ export void recreate_fonts(WndState& s) {
     s.res.fontBig   = (HFONT)s.fontBig.h;
     s.res.fontLarge = (HFONT)s.fontLarge.h;
     s.res.fontSm    = (HFONT)s.fontSm.h;
+}
+
+export void apply_theme(HWND hwnd, WndState& s) {
+    bool dark = (s.app.theme_mode == ThemeMode::Dark) ||
+                (s.app.theme_mode == ThemeMode::Auto && system_prefers_dark());
+    BOOL dwm_dark = dark ? TRUE : FALSE;
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
+    s.active_theme = dark ? &dark_theme : &light_theme;
+    s.create_brushes();
+    s.tray_icon = IconObj{create_app_icon(16, dark)};
+    if (s.tray_active) tray_add(hwnd, s.tray_icon);
 }

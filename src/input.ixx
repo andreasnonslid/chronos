@@ -77,16 +77,7 @@ export void handle(HWND hwnd, int act, WndState& s) {
     if (r.resize) resize_window(hwnd, s);
     if (r.save_config) save_config(hwnd, s);
     if (r.open_file) ShellExecuteW(nullptr, L"open", s.app.sw_lap_file.c_str(), nullptr, nullptr, SW_SHOW);
-    if (r.apply_theme) {
-        bool dark = (s.app.theme_mode == ThemeMode::Dark) ||
-                    (s.app.theme_mode == ThemeMode::Auto && system_prefers_dark());
-        BOOL dwm_dark = dark ? TRUE : FALSE;
-        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
-        s.active_theme = dark ? &dark_theme : &light_theme;
-        s.create_brushes();
-        s.tray_icon = IconObj{create_app_icon(16, dark)};
-        if (s.tray_active) tray_add(hwnd, s.tray_icon);
-    }
+    if (r.apply_theme) apply_theme(hwnd, s);
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);
 }
