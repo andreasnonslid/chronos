@@ -97,3 +97,28 @@ TEST_CASE("Stopwatch lap split is correct after pause/resume", "[stopwatch]") {
     REQUIRE(sw.laps()[1] == milliseconds(2000));
     REQUIRE(sw.cumulative() == milliseconds(3000));
 }
+
+TEST_CASE("Stopwatch restore paused state", "[stopwatch]") {
+    Stopwatch sw;
+    sw.restore(seconds(45), false, at_ms(0));
+    REQUIRE_FALSE(sw.is_running());
+    REQUIRE(sw.elapsed(at_ms(0)) == seconds(45));
+    REQUIRE(sw.elapsed(at_ms(5000)) == seconds(45));
+}
+
+TEST_CASE("Stopwatch restore running state", "[stopwatch]") {
+    Stopwatch sw;
+    sw.restore(seconds(10), true, at_ms(0));
+    REQUIRE(sw.is_running());
+    REQUIRE(sw.elapsed(at_ms(0)) == seconds(10));
+    REQUIRE(sw.elapsed(at_ms(5000)) == seconds(15));
+}
+
+TEST_CASE("Stopwatch restore clears previous laps", "[stopwatch]") {
+    Stopwatch sw;
+    sw.start(at_ms(0));
+    sw.lap(at_ms(1000));
+    REQUIRE(sw.laps().size() == 1);
+    sw.restore(seconds(5), false, at_ms(0));
+    REQUIRE(sw.laps().empty());
+}

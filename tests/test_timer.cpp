@@ -90,3 +90,41 @@ TEST_CASE("Timer with zero target is not expired", "[timer]") {
     t.start(at_ms(0));
     REQUIRE_FALSE(t.expired(at_ms(1000)));
 }
+
+TEST_CASE("Timer restore paused state", "[timer]") {
+    Timer t;
+    t.restore(seconds(120), seconds(30), false, at_ms(0));
+    REQUIRE(t.touched());
+    REQUIRE_FALSE(t.is_running());
+    REQUIRE(t.remaining(at_ms(0)) == seconds(90));
+}
+
+TEST_CASE("Timer restore running state", "[timer]") {
+    Timer t;
+    t.restore(seconds(60), seconds(10), true, at_ms(0));
+    REQUIRE(t.is_running());
+    REQUIRE(t.touched());
+    REQUIRE(t.remaining(at_ms(0)) == seconds(50));
+    REQUIRE(t.remaining(at_ms(5000)) == seconds(45));
+}
+
+TEST_CASE("Timer restore expired state", "[timer]") {
+    Timer t;
+    t.restore(seconds(60), seconds(60), false, at_ms(0));
+    REQUIRE(t.expired(at_ms(0)));
+    REQUIRE(t.remaining(at_ms(0)) == dur::zero());
+}
+
+TEST_CASE("Timer restore over-elapsed clamps remaining to zero", "[timer]") {
+    Timer t;
+    t.restore(seconds(60), seconds(90), false, at_ms(0));
+    REQUIRE(t.remaining(at_ms(0)) == dur::zero());
+    REQUIRE(t.expired(at_ms(0)));
+}
+
+TEST_CASE("Timer restore with zero elapsed not running is not touched", "[timer]") {
+    Timer t;
+    t.restore(seconds(60), dur::zero(), false, at_ms(0));
+    REQUIRE_FALSE(t.touched());
+    REQUIRE_FALSE(t.is_running());
+}
