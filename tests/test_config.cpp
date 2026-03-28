@@ -147,3 +147,35 @@ TEST_CASE("Config empty stream", "[config]") {
     REQUIRE(c.show_clk);
     REQUIRE(c.num_timers == 1);
 }
+
+TEST_CASE("Config sw_lap_file round-trip", "[config]") {
+    Config orig;
+    orig.sw_running = true;
+    orig.sw_elapsed_ms = 5000;
+    orig.sw_lap_file = "/tmp/stopwatch-20260328-120000-000.txt";
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config read_back;
+    std::istringstream is(os.str());
+    config_read(read_back, is);
+
+    REQUIRE(read_back.sw_lap_file == orig.sw_lap_file);
+}
+
+TEST_CASE("Config sw_lap_file not written when sw state absent", "[config]") {
+    Config orig;
+    // sw_elapsed_ms == 0, sw_running == false — sw block should be skipped entirely
+    orig.sw_lap_file = "/tmp/some-file.txt";
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    REQUIRE(os.str().find("sw_lap_file") == std::string::npos);
+}
+
+TEST_CASE("Config sw_lap_file empty by default", "[config]") {
+    Config c;
+    REQUIRE(c.sw_lap_file.empty());
+}

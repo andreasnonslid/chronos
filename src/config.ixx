@@ -31,6 +31,7 @@ export struct Config {
     bool sw_running = false;
     long long sw_elapsed_ms = 0;
     long long sw_start_epoch_ms = 0;
+    std::string sw_lap_file;
     // Runtime state — timers
     std::array<bool, MAX_TIMERS> timer_running{};
     std::array<long long, MAX_TIMERS> timer_elapsed_ms{};
@@ -53,6 +54,8 @@ export bool config_write(const Config& c, std::ostream& f) {
         f << std::format("sw_running={}\n", c.sw_running ? 1 : 0);
         if (c.sw_running && c.sw_start_epoch_ms > 0)
             f << std::format("sw_start_epoch_ms={}\n", c.sw_start_epoch_ms);
+        if (!c.sw_lap_file.empty())
+            f << "sw_lap_file=" << c.sw_lap_file << "\n";
     }
     for (int i = 0; i < c.num_timers; ++i) {
         if (c.timer_elapsed_ms[i] > 0 || c.timer_running[i] || c.timer_notified[i]) {
@@ -81,6 +84,9 @@ export bool config_read(Config& c, std::istream& f) {
             if (rest == "dark") c.theme_mode = ThemeMode::Dark;
             else if (rest == "light") c.theme_mode = ThemeMode::Light;
             else c.theme_mode = ThemeMode::Auto;
+            handled_str = true;
+        } else if (key == "sw_lap_file") {
+            c.sw_lap_file = std::string(rest);
             handled_str = true;
         } else if (key.starts_with("timer") && key.ends_with("_label")) {
             auto num = key.substr(5, key.size() - 11);

@@ -53,6 +53,8 @@ export void save_config(HWND hwnd, const WndState& s) {
     cfg.sw_running = s.app.sw.is_running();
     cfg.sw_elapsed_ms = duration_cast<milliseconds>(s.app.sw.elapsed(now_steady)).count();
     if (cfg.sw_running) cfg.sw_start_epoch_ms = now_wall_ms;
+    if (!s.app.sw_lap_file.empty())
+        cfg.sw_lap_file = wide_to_utf8(s.app.sw_lap_file.wstring());
     for (int i = 0; i < (int)s.app.timers.size(); ++i) {
         const auto& ts = s.app.timers[i];
         cfg.timer_secs[i] = (int)ts.dur.count();
@@ -122,6 +124,8 @@ export void load_config(HWND hwnd, WndState& s) {
             if (delta > 0) actual_ms += delta;
         }
         s.app.sw.restore(milliseconds{actual_ms}, cfg.sw_running, now_steady);
+        if (!cfg.sw_lap_file.empty())
+            s.app.sw_lap_file = std::filesystem::path{utf8_to_wide(cfg.sw_lap_file)};
     }
     for (int i = 0; i < n; ++i) {
         auto& ts = s.app.timers[i];
