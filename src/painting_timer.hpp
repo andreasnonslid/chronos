@@ -18,7 +18,7 @@
 #include "timer.hpp"
 
 // ─── Timer painters ───────────────────────────────────────────────────────
-static void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
+inline void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
     bool expired = ts.t.expired(now);
@@ -34,7 +34,7 @@ static void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::ste
     FillRect(hdc, &fr, fillbr);
 }
 
-static void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
+inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     auto& ts = ctx.app.timers[i];
@@ -87,7 +87,7 @@ static void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
         tmr_act(i, A_TMR_SDN), ctx);
 }
 
-static void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
+inline void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     auto& ts = ctx.app.timers[i];
@@ -108,7 +108,7 @@ static void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::stea
     DrawTextW(hdc, tstr.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 
-static void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
+inline void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
     auto m = TimerMetrics::from(layout);

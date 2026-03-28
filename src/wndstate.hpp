@@ -17,7 +17,7 @@ extern "C" __declspec(dllimport) HRESULT __stdcall DwmSetWindowAttribute(HWND hw
 #include "theme.hpp"
 #include "tray.hpp"
 
-static HFONT make_font(int pt, bool bold, const Layout& layout) {
+inline HFONT make_font(int pt, bool bold, const Layout& layout) {
     int h = -MulDiv(pt, layout.dpi, 72);
     return CreateFontW(h, 0, 0, 0, bold ? FW_BOLD : FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                        CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
@@ -92,9 +92,9 @@ struct WndState {
     }
 };
 
-static constexpr int FONT_PT_BIG = 26;
-static constexpr int FONT_PT_LARGE = 34;
-static constexpr int FONT_PT_SM = 11;
+inline constexpr int FONT_PT_BIG = 26;
+inline constexpr int FONT_PT_LARGE = 34;
+inline constexpr int FONT_PT_SM = 11;
 
 inline void recreate_fonts(WndState& s) {
     GdiObj newBig{make_font(FONT_PT_BIG, true, s.layout)};

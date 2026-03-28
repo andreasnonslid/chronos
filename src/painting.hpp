@@ -19,7 +19,7 @@
 #include "theme.hpp"
 
 // ─── Paint sub-functions ──────────────────────────────────────────────────────
-static int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
+inline int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     RECT bar{0, 0, cw, layout.bar_h};
     FillRect(hdc, &bar, ctx.res.brBar);
@@ -37,7 +37,7 @@ static int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
     return layout.bar_h;
 }
 
-static int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
+inline int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     divider(hdc, y, cw, ctx);
     SYSTEMTIME st;
@@ -50,7 +50,7 @@ static int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
     return y + layout.clk_h;
 }
 
-static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::steady_clock::time_point now) {
+inline int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::steady_clock::time_point now) {
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     divider(hdc, y, cw, ctx);
@@ -87,7 +87,7 @@ static int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::s
     return y + layout.sw_h;
 }
 
-static void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
+inline void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     RECT cr{0, layout.bar_h, cw, y_bottom > layout.bar_h ? y_bottom : layout.bar_h + layout.dpi_scale(200)};
     FillRect(hdc, &cr, ctx.res.brHelp);
