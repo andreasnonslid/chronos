@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -7,20 +7,19 @@ module;
 #include <chrono>
 #include <format>
 #include <string>
-export module polling;
-import app;
-import formatting;
-import tray;
-import wndstate;
+#include "app.hpp"
+#include "formatting.hpp"
+#include "tray.hpp"
+#include "wndstate.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
 
-export constexpr int POLL_STOPWATCH_MS = 20;
-export constexpr int POLL_TIMER_MS = 100;
-export constexpr int POLL_IDLE_MS = 1000;
+constexpr int POLL_STOPWATCH_MS = 20;
+constexpr int POLL_TIMER_MS = 100;
+constexpr int POLL_IDLE_MS = 1000;
 
-export void sync_timer(HWND hwnd, WndState& s) {
+inline void sync_timer(HWND hwnd, WndState& s) {
     bool any_timer_running = false;
     for (auto& ts : s.app.timers)
         if (ts.t.is_running()) {
@@ -36,7 +35,7 @@ export void sync_timer(HWND hwnd, WndState& s) {
     }
 }
 
-export void handle_wm_timer(HWND hwnd, WndState& s) {
+inline void handle_wm_timer(HWND hwnd, WndState& s) {
     auto now = sc::now();
     for (auto& ts : s.app.timers) {
         if (ts.t.touched() && ts.t.expired(now) && !ts.notified) {

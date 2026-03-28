@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -10,14 +10,13 @@ module;
 #include <optional>
 #include <string>
 #include <vector>
-export module painting;
-import actions;
-import app;
-import formatting;
-import layout;
-import paint_ctx;
-import painting_timer;
-import theme;
+#include "actions.hpp"
+#include "app.hpp"
+#include "formatting.hpp"
+#include "layout.hpp"
+#include "paint_ctx.hpp"
+#include "painting_timer.hpp"
+#include "theme.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
@@ -127,7 +126,7 @@ static void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
 }
 
 // ─── Paint dispatcher ─────────────────────────────────────────────────────────
-export void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
+inline void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     ctx.btns.clear();
     SetBkMode(hdc, TRANSPARENT);
 

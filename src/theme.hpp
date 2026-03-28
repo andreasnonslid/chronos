@@ -1,16 +1,15 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
 #include <chrono>
-export module theme;
 
-export constexpr DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR = 20;
+constexpr DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR = 20;
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
-export struct Theme {
+struct Theme {
     COLORREF bg;
     COLORREF bar;
     COLORREF btn;
@@ -26,7 +25,7 @@ export struct Theme {
     COLORREF divider;
 };
 
-export constexpr Theme dark_theme{
+constexpr Theme dark_theme{
     .bg = RGB(26, 26, 26),
     .bar = RGB(35, 35, 38),
     .btn = RGB(40, 40, 44),
@@ -42,7 +41,7 @@ export constexpr Theme dark_theme{
     .divider = RGB(50, 50, 55),
 };
 
-export constexpr Theme light_theme{
+constexpr Theme light_theme{
     .bg = RGB(243, 243, 243),
     .bar = RGB(228, 228, 232),
     .btn = RGB(214, 214, 220),
@@ -59,9 +58,9 @@ export constexpr Theme light_theme{
 };
 
 // ─── Blink duration ──────────────────────────────────────────────────────────
-export constexpr auto BLINK_DUR = std::chrono::milliseconds{120};
+constexpr auto BLINK_DUR = std::chrono::milliseconds{120};
 
-export bool system_prefers_dark() {
+inline bool system_prefers_dark() {
     HKEY key;
     if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0,
                       KEY_READ, &key) == ERROR_SUCCESS) {

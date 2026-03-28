@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -10,16 +10,15 @@ module;
 #include <format>
 #include <fstream>
 #include <string>
-export module config_io;
-import config;
-import debug;
-import encoding;
-import layout;
-import wndstate;
+#include "config.hpp"
+#include "debug.hpp"
+#include "encoding.hpp"
+#include "layout.hpp"
+#include "wndstate.hpp"
 
 using namespace std::chrono;
 
-export std::filesystem::path config_path() {
+inline std::filesystem::path config_path() {
     if (auto* appdata = _wgetenv(L"APPDATA")) {
         auto dir = std::filesystem::path{appdata} / L"Chronos";
         std::error_code ec;
@@ -31,7 +30,7 @@ export std::filesystem::path config_path() {
     return std::filesystem::path{exe}.parent_path() / "config.ini";
 }
 
-export void save_config(HWND hwnd, const WndState& s) {
+inline void save_config(HWND hwnd, const WndState& s) {
     const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] save_config: {}", path.wstring()));
     auto tmp = path;
@@ -90,7 +89,7 @@ export void save_config(HWND hwnd, const WndState& s) {
     }
 }
 
-export void load_config(HWND hwnd, WndState& s) {
+inline void load_config(HWND hwnd, WndState& s) {
     const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] load_config: {}", path.wstring()));
     std::ifstream f(path);

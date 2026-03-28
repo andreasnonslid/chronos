@@ -1,17 +1,16 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
 #include <optional>
-export module input_keyboard;
-import actions;
-import config;
-import input_core;
-import wndstate;
+#include "actions.hpp"
+#include "config.hpp"
+#include "input_core.hpp"
+#include "wndstate.hpp"
 
-export std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, WndState& s) {
+inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, WndState& s) {
     switch (msg) {
     case WM_KEYDOWN:
         switch (wp) {

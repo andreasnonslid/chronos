@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -6,17 +6,16 @@ module;
 #include <windows.h>
 #include <shellapi.h>
 #include <chrono>
-export module input_core;
-import actions;
-import config_io;
-import geometry;
-import polling;
-import wndstate;
+#include "actions.hpp"
+#include "config_io.hpp"
+#include "geometry.hpp"
+#include "polling.hpp"
+#include "wndstate.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
 
-export void handle(HWND hwnd, int act, WndState& s) {
+inline void handle(HWND hwnd, int act, WndState& s) {
     auto now = sc::now();
     if (wants_blink(act)) {
         s.app.blink_act = act;

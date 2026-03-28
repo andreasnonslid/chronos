@@ -1,9 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <filesystem>
-import actions;
-import app;
-import config;
+#include "../src/actions.hpp"
+#include "../src/app.hpp"
+#include "../src/config.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;

@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <string>
-import encoding;
+#include "../src/encoding.hpp"
 
 TEST_CASE("wide_to_utf8 ASCII", "[encoding]") {
     REQUIRE(wide_to_utf8(L"hello") == "hello");

@@ -1,12 +1,11 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
-export module geometry;
-import layout;
-import wndstate;
+#include "layout.hpp"
+#include "wndstate.hpp"
 
 static LayoutState layout_state(const WndState& s) {
     return {
@@ -17,23 +16,23 @@ static LayoutState layout_state(const WndState& s) {
     };
 }
 
-export int client_height(const WndState& s) { return client_height_for(s.layout, layout_state(s)); }
+inline int client_height(const WndState& s) { return client_height_for(s.layout, layout_state(s)); }
 
-export int nonclient_height(HWND hwnd) {
+inline int nonclient_height(HWND hwnd) {
     RECT wr, cr;
     GetWindowRect(hwnd, &wr);
     GetClientRect(hwnd, &cr);
     return (wr.bottom - wr.top) - cr.bottom;
 }
 
-export void resize_window(HWND hwnd, const WndState& s) {
+inline void resize_window(HWND hwnd, const WndState& s) {
     RECT wr;
     GetWindowRect(hwnd, &wr);
     int cur_w = wr.right - wr.left;
     SetWindowPos(hwnd, nullptr, 0, 0, cur_w, client_height(s) + nonclient_height(hwnd), SWP_NOMOVE | SWP_NOZORDER);
 }
 
-export int timer_index_at_y(const WndState& s, int y) {
+inline int timer_index_at_y(const WndState& s, int y) {
     if (!s.app.show_tmr) return -1;
     int top = s.layout.bar_h;
     if (s.app.show_clk) top += s.layout.clk_h;

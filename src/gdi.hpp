@@ -1,13 +1,12 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
-export module gdi;
 
 // ─── RAII wrapper for GDI objects ────────────────────────────────────────────
-export struct GdiObj {
+struct GdiObj {
     HGDIOBJ h;
     explicit GdiObj(HGDIOBJ h = nullptr) : h(h) {}
     ~GdiObj() {
@@ -26,7 +25,7 @@ export struct GdiObj {
 };
 
 // ─── RAII wrapper for HDC (CreateCompatibleDC / DeleteDC) ──────────────────
-export struct DcObj {
+struct DcObj {
     HDC h = nullptr;
     explicit DcObj(HDC h = nullptr) : h(h) {}
     ~DcObj() { if (h) DeleteDC(h); }
@@ -43,7 +42,7 @@ export struct DcObj {
 };
 
 // ─── RAII wrapper for HICON (DestroyIcon) ────────────────────────────
-export struct IconObj {
+struct IconObj {
     HICON h = nullptr;
     explicit IconObj(HICON h = nullptr) : h(h) {}
     ~IconObj() { if (h) DestroyIcon(h); }
@@ -60,7 +59,7 @@ export struct IconObj {
 };
 
 // ─── Flat view of GDI handles used for painting ───────────────────────────
-export struct WndResources {
+struct WndResources {
     HFONT fontBig = nullptr, fontLarge = nullptr, fontSm = nullptr;
     HBRUSH brBg = nullptr, brBar = nullptr, brBtn = nullptr;
     HBRUSH brActive = nullptr, brBlink = nullptr, brFill = nullptr;

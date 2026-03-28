@@ -1,4 +1,4 @@
-module;
+#pragma once
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -7,11 +7,10 @@ module;
 #include <ostream>
 #include <string>
 #include <string_view>
-export module config;
 
-export enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
+enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
 
-export struct Config {
+struct Config {
     bool show_clk = true;
     bool show_sw = true;
     bool show_tmr = true;
@@ -40,7 +39,7 @@ export struct Config {
     Config() { timer_secs.fill(60); }
 };
 
-export bool config_write(const Config& c, std::ostream& f) {
+inline bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
     f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
                      c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, c.num_timers);
@@ -71,7 +70,7 @@ export bool config_write(const Config& c, std::ostream& f) {
     return f.good();
 }
 
-export bool config_read(Config& c, std::istream& f) {
+inline bool config_read(Config& c, std::istream& f) {
     bool has_x = false, has_y = false, has_w = false;
     for (std::string line; std::getline(f, line);) {
         auto eq = line.find('=');

@@ -1,16 +1,15 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
 #include <shellapi.h>
-export module tray;
 
-export constexpr UINT WM_TRAYICON = WM_APP + 1;
-export constexpr UINT TRAY_UID = 1;
-export constexpr int IDM_TRAY_SHOW = 1;
-export constexpr int IDM_TRAY_EXIT = 2;
+constexpr UINT WM_TRAYICON = WM_APP + 1;
+constexpr UINT TRAY_UID = 1;
+constexpr int IDM_TRAY_SHOW = 1;
+constexpr int IDM_TRAY_EXIT = 2;
 
 static NOTIFYICONDATAW make_nid(HWND hwnd, UINT flags = 0) {
     NOTIFYICONDATAW nid{};
@@ -27,7 +26,7 @@ static void safe_copy(wchar_t (&dst)[N], const wchar_t* src) {
     dst[N - 1] = L'\0';
 }
 
-export void tray_add(HWND hwnd, HICON icon) {
+inline void tray_add(HWND hwnd, HICON icon) {
     auto nid = make_nid(hwnd, NIF_ICON | NIF_TIP | NIF_MESSAGE);
     nid.uCallbackMessage = WM_TRAYICON;
     nid.hIcon = icon;
@@ -35,13 +34,13 @@ export void tray_add(HWND hwnd, HICON icon) {
     Shell_NotifyIconW(NIM_ADD, &nid);
 }
 
-export void tray_update_tip(HWND hwnd, const wchar_t* tip) {
+inline void tray_update_tip(HWND hwnd, const wchar_t* tip) {
     auto nid = make_nid(hwnd, NIF_TIP);
     safe_copy(nid.szTip, tip);
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
-export void tray_notify(HWND hwnd, const wchar_t* title, const wchar_t* msg) {
+inline void tray_notify(HWND hwnd, const wchar_t* title, const wchar_t* msg) {
     auto nid = make_nid(hwnd, NIF_INFO);
     safe_copy(nid.szInfoTitle, title);
     safe_copy(nid.szInfo, msg);
@@ -49,7 +48,7 @@ export void tray_notify(HWND hwnd, const wchar_t* title, const wchar_t* msg) {
     Shell_NotifyIconW(NIM_MODIFY, &nid);
 }
 
-export void tray_remove(HWND hwnd) {
+inline void tray_remove(HWND hwnd) {
     auto nid = make_nid(hwnd);
     Shell_NotifyIconW(NIM_DELETE, &nid);
 }

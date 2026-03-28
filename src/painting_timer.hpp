@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -7,16 +7,15 @@ module;
 #include <chrono>
 #include <format>
 #include <string>
-export module painting_timer;
-import actions;
-import app;
-import config;
-import formatting;
-import gdi;
-import layout;
-import paint_ctx;
-import theme;
-import timer;
+#include "actions.hpp"
+#include "app.hpp"
+#include "config.hpp"
+#include "formatting.hpp"
+#include "gdi.hpp"
+#include "layout.hpp"
+#include "paint_ctx.hpp"
+#include "theme.hpp"
+#include "timer.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
@@ -138,7 +137,7 @@ static void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
             tmr_act(i, A_TMR_DEL), ctx);
 }
 
-export int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point now) {
+inline int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, sc::time_point now) {
     for (int i = 0; i < (int)ctx.app.timers.size(); ++i) {
         divider(hdc, y, cw, ctx);
         auto& ts = ctx.app.timers[i];

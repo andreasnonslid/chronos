@@ -1,9 +1,8 @@
-module;
+#pragma once
 #include <chrono>
 #include <vector>
-export module stopwatch;
 
-export struct Stopwatch {
+struct Stopwatch {
     using tp = std::chrono::steady_clock::time_point;
     using dur = std::chrono::steady_clock::duration;
 

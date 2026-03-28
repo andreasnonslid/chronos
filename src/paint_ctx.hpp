@@ -1,4 +1,4 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
@@ -7,16 +7,15 @@ module;
 #include <chrono>
 #include <optional>
 #include <vector>
-export module paint_ctx;
-import app;
-import gdi;
-import layout;
-import theme;
+#include "app.hpp"
+#include "gdi.hpp"
+#include "layout.hpp"
+#include "theme.hpp"
 
 using sc = std::chrono::steady_clock;
 
 // ─── Paint context ─────────────────────────────────────────────────
-export struct PaintCtx {
+struct PaintCtx {
     App& app;
     Layout& layout;
     const Theme& theme;
@@ -26,7 +25,7 @@ export struct PaintCtx {
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────
-export RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id, PaintCtx& ctx,
+inline RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id, PaintCtx& ctx,
                 std::optional<COLORREF> override_col = std::nullopt) {
     auto& layout = ctx.layout;
     bool blinking = id && ctx.app.blink_act == id && (ctx.now - ctx.app.blink_t) < BLINK_DUR;
@@ -53,7 +52,7 @@ export RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id, Pain
     return r;
 }
 
-export void divider(HDC hdc, int y, int cw, const PaintCtx& ctx) {
+inline void divider(HDC hdc, int y, int cw, const PaintCtx& ctx) {
     auto* op = (HPEN)SelectObject(hdc, ctx.res.pnDivider);
     MoveToEx(hdc, 0, y, nullptr);
     LineTo(hdc, cw, y);

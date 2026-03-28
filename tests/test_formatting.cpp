@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
-import formatting;
+#include "../src/formatting.hpp"
 
 using namespace std::chrono;
 

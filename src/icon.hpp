@@ -1,13 +1,12 @@
-module;
+#pragma once
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
-export module icon;
-import gdi;
+#include "gdi.hpp"
 
-export HICON create_app_icon(int size, bool dark = true) {
+inline HICON create_app_icon(int size, bool dark = true) {
     HDC screen = GetDC(nullptr);
     if (!screen) return nullptr;
 
