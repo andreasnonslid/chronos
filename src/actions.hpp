@@ -10,9 +10,6 @@
 #include "formatting.hpp"
 #include "timer.hpp"
 
-using namespace std::chrono;
-using sc = steady_clock;
-
 enum Act {
     A_TOPMOST = 1,
     A_SHOW_CLK,
@@ -66,7 +63,9 @@ struct HandleResult {
     bool apply_theme = false;
 };
 
-inline HandleResult dispatch_action(App& app, int act, sc::time_point now, const std::filesystem::path& config_dir) {
+inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_point now,
+                                     const std::filesystem::path& config_dir) {
+    using namespace std::chrono;
     HandleResult r;
 
     switch (act) {

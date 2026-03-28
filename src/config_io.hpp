@@ -16,8 +16,6 @@
 #include "layout.hpp"
 #include "wndstate.hpp"
 
-using namespace std::chrono;
-
 inline std::filesystem::path config_path() {
     if (auto* appdata = _wgetenv(L"APPDATA")) {
         auto dir = std::filesystem::path{appdata} / L"Chronos";
@@ -31,6 +29,7 @@ inline std::filesystem::path config_path() {
 }
 
 inline void save_config(HWND hwnd, const WndState& s) {
+    using namespace std::chrono;
     const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] save_config: {}", path.wstring()));
     auto tmp = path;
@@ -90,6 +89,7 @@ inline void save_config(HWND hwnd, const WndState& s) {
 }
 
 inline void load_config(HWND hwnd, WndState& s) {
+    using namespace std::chrono;
     const auto& path = s.cfg_path;
     dbg(std::format(L"[chrono] load_config: {}", path.wstring()));
     std::ifstream f(path);
