@@ -16,17 +16,20 @@ All sections can be toggled on/off. The window can be pinned always-on-top. Sett
 
 | Key | Action |
 |-----|--------|
-| `Space` | Start/stop stopwatch |
-| `L` | Lap |
-| `R` | Reset |
+| `Space` | Start/stop stopwatch (or timer 1 if stopwatch is hidden) |
+| `L` | Lap (stopwatch) |
+| `R` | Reset stopwatch (or timer 1 if stopwatch is hidden) |
 | `T` | Toggle always-on-top |
-| `1` / `2` / `3` | Select timer |
+| `D` | Cycle theme (auto / light / dark) |
+| `1` / `2` / `3` | Start/pause timer by index |
+| `+` | Add a timer (up to 3) |
+| `-` | Remove last timer (minimum 1) |
 | `E` | Open exported laps file |
 | `H` or `?` | Toggle help overlay |
 
 ### Mouse
 
-- **Scroll wheel** on a timer: adjust seconds; hold `Ctrl` for minutes, `Shift` for hours
+- **Scroll wheel** on a timer: scroll over the left third of the timer to adjust hours, middle third for minutes, right third for seconds
 - **Double-click** timer label: edit label
 - **Right-click** timer: duration presets
 
@@ -74,24 +77,33 @@ Run with `--debug` to write logs to `debug.log` in the executable directory.
 
 ```
 src/
-  main.cpp        — entry point, Win32 window class, message loop
-  app.ixx         — app state (stopwatch, timers, visibility flags)
-  window.ixx      — Win32 message handling (WM_PAINT, input, DPI, tray)
-  actions.ixx     — action dispatch (button/key events → state changes)
-  painting.ixx    — GDI rendering for all UI sections
-  layout.ixx      — DPI-scaled dimensions and client height calculations
-  config.ixx      — INI config read/write (positions, timers, labels)
-  timer.ixx       — countdown timer logic (steady_clock based)
-  stopwatch.ixx   — stopwatch logic and lap tracking
-  formatting.ixx  — time display formatting (HH:MM:SS, MM:SS.mmm, etc.)
-  theme.ixx       — OS dark/light mode detection and color schemes
-  wndstate.ixx    — window state (fonts, GDI resources, double-buffer)
-  tray.ixx        — system tray icon and notifications
-  icon.ixx        — programmatic clock icon generation
-  gdi.ixx         — RAII wrapper for GDI objects
+  main.cpp          — entry point, Win32 window class, message loop
+  app.ixx           — app state (stopwatch, timers, visibility flags)
+  window.ixx        — Win32 message handling (WM_PAINT, input, DPI, tray)
+  actions.ixx       — action dispatch (button/key events → state changes)
+  painting.ixx      — GDI rendering for all UI sections
+  painting_timer.ixx — timer-specific rendering (progress bars, color warnings)
+  paint_ctx.ixx     — paint context helpers
+  layout.ixx        — DPI-scaled dimensions and client height calculations
+  config.ixx        — settings struct (positions, timers, labels)
+  config_io.ixx     — INI config read/write to %APPDATA%/Chronos/config.ini
+  input.ixx         — keyboard/mouse input dispatch
+  timer.ixx         — countdown timer logic (steady_clock based)
+  stopwatch.ixx     — stopwatch logic and lap tracking
+  formatting.ixx    — time display formatting (HH:MM:SS, MM:SS.mmm, etc.)
+  theme.ixx         — OS dark/light mode detection and color schemes
+  wndstate.ixx      — window state (fonts, GDI resources, double-buffer)
+  tray.ixx          — system tray icon and context menu
+  icon.ixx          — programmatic clock icon generation
+  gdi.ixx           — RAII wrappers for GDI/HDC/HICON objects
+  encoding.ixx      — UTF-8/UTF-16 string conversion utilities
+  dpi.ixx           — DPI awareness setup
+  polling.ixx       — window invalidation/timer polling loop
+  debug.ixx         — debug logging to file
 tests/
   test_config.cpp, test_timer.cpp, test_stopwatch.cpp,
-  test_formatting.cpp, test_layout.cpp, test_actions.cpp
+  test_formatting.cpp, test_layout.cpp, test_actions.cpp,
+  test_encoding.cpp
 ```
 
 ## License
