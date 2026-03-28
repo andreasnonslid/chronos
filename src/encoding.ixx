@@ -1,11 +1,13 @@
 module;
-#include <cstdint>
-#include <string>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define UNICODE
 #define _UNICODE
+#endif
+#include <cstdint>
+#include <string>
+#ifdef _WIN32
 #include <windows.h>
 #endif
 export module encoding;
