@@ -3,6 +3,10 @@ name: Build
 on:
   workflow_call:
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: windows-latest
