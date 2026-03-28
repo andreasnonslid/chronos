@@ -21,8 +21,10 @@ export struct Stopwatch {
         }
     }
 
+    static constexpr size_t MAX_LAPS = 999;
+
     void lap(tp now) {
-        if (running_) {
+        if (running_ && laps_.size() < MAX_LAPS) {
             dur current = elapsed(now);
             laps_.push_back(current - last_lap_elapsed_);
             last_lap_elapsed_ = current;

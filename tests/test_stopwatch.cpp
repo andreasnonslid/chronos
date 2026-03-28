@@ -97,3 +97,11 @@ TEST_CASE("Stopwatch lap split is correct after pause/resume", "[stopwatch]") {
     REQUIRE(sw.laps()[1] == milliseconds(2000));
     REQUIRE(sw.cumulative() == milliseconds(3000));
 }
+
+TEST_CASE("Stopwatch lap count capped at MAX_LAPS", "[stopwatch]") {
+    Stopwatch sw;
+    sw.start(at_ms(0));
+    for (int i = 1; i <= static_cast<int>(Stopwatch::MAX_LAPS) + 10; ++i)
+        sw.lap(at_ms(i));
+    REQUIRE(sw.laps().size() == Stopwatch::MAX_LAPS);
+}
