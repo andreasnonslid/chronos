@@ -6,8 +6,18 @@
 #include "input_core.hpp"
 #include "wndstate.hpp"
 
+constexpr int HOTKEY_GLOBAL = 1;
+
 inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, WndState& s) {
     switch (msg) {
+    case WM_HOTKEY:
+        if (wp == HOTKEY_GLOBAL) {
+            if (s.app.show_sw)
+                handle(hwnd, A_SW_START, s);
+            else if (s.app.show_tmr && !s.app.timers.empty())
+                handle(hwnd, tmr_act(0, A_TMR_START), s);
+        }
+        return 0;
     case WM_KEYDOWN:
         switch (wp) {
         case VK_SPACE:

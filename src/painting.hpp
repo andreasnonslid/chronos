@@ -106,6 +106,7 @@ inline void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
         {L"+ / =", L"Add a timer slot"},
         {L"-", L"Remove last timer slot"},
         {L"H / ?", L"Toggle this help"},
+        {L"Ctrl+Shift+Space", L"Global start/stop (any app)"},
         {L"", L""},
         {L"Scroll", L"Adjust timer value (H/M/S)"},
         {L"Dbl-click", L"Edit timer label"},

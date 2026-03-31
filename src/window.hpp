@@ -38,6 +38,7 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         load_config(hwnd, *s);
         apply_theme(hwnd, *s);
         resize_window(hwnd, *s);
+        RegisterHotKey(hwnd, HOTKEY_GLOBAL, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_SPACE);
         state.release();
         return 0;
     }
@@ -145,6 +146,7 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         save_config(hwnd, *s);
         return 0;
     case WM_DESTROY: {
+        UnregisterHotKey(hwnd, HOTKEY_GLOBAL);
         if (s->tray_active) tray_remove(hwnd);
         save_config(hwnd, *s);
         KillTimer(hwnd, 1);

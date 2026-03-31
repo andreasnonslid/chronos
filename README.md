@@ -17,6 +17,7 @@ All sections can be toggled on/off. The window can be pinned always-on-top. Sett
 | Key | Action |
 |-----|--------|
 | `Space` | Start/stop stopwatch (or timer 1 if stopwatch is hidden) |
+| `Ctrl+Shift+Space` | Global start/stop (works from any application) |
 | `L` | Lap (stopwatch) |
 | `R` | Reset stopwatch (or timer 1 if stopwatch is hidden) |
 | `T` | Toggle always-on-top |
