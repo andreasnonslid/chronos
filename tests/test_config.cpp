@@ -179,3 +179,89 @@ TEST_CASE("Config sw_lap_file empty by default", "[config]") {
     Config c;
     REQUIRE(c.sw_lap_file.empty());
 }
+
+TEST_CASE("Config theme round-trip", "[config]") {
+    for (auto mode : {ThemeMode::Auto, ThemeMode::Dark, ThemeMode::Light}) {
+        Config orig;
+        orig.theme_mode = mode;
+        std::ostringstream os;
+        config_write(orig, os);
+        Config back;
+        std::istringstream is(os.str());
+        config_read(back, is);
+        REQUIRE(back.theme_mode == mode);
+    }
+}
+
+TEST_CASE("Config stopwatch runtime state round-trip", "[config]") {
+    Config orig;
+    orig.sw_running = true;
+    orig.sw_elapsed_ms = 12345;
+    orig.sw_start_epoch_ms = 1700000000000LL;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE(back.sw_running);
+    REQUIRE(back.sw_elapsed_ms == 12345);
+    REQUIRE(back.sw_start_epoch_ms == 1700000000000LL);
+}
+
+TEST_CASE("Config stopwatch paused state round-trip", "[config]") {
+    Config orig;
+    orig.sw_running = false;
+    orig.sw_elapsed_ms = 5000;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE_FALSE(back.sw_running);
+    REQUIRE(back.sw_elapsed_ms == 5000);
+    REQUIRE(os.str().find("sw_start_epoch_ms") == std::string::npos);
+}
+
+TEST_CASE("Config timer runtime state round-trip", "[config]") {
+    Config orig;
+    orig.num_timers = 2;
+    orig.timer_secs[0] = 300;
+    orig.timer_running[0] = true;
+    orig.timer_elapsed_ms[0] = 5000;
+    orig.timer_start_epoch_ms[0] = 1700000000000LL;
+    orig.timer_notified[1] = true;
+    orig.timer_elapsed_ms[1] = 60000;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE(back.timer_running[0]);
+    REQUIRE(back.timer_elapsed_ms[0] == 5000);
+    REQUIRE(back.timer_start_epoch_ms[0] == 1700000000000LL);
+    REQUIRE(back.timer_notified[1]);
+    REQUIRE(back.timer_elapsed_ms[1] == 60000);
+}
+
+TEST_CASE("Config timer start_epoch_ms only written when running", "[config]") {
+    Config orig;
+    orig.num_timers = 1;
+    orig.timer_running[0] = false;
+    orig.timer_elapsed_ms[0] = 3000;
+    orig.timer_start_epoch_ms[0] = 1700000000000LL;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    REQUIRE(os.str().find("timer0_start_epoch_ms") == std::string::npos);
+    REQUIRE(os.str().find("timer0_running") == std::string::npos);
+}
