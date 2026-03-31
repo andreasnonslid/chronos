@@ -26,11 +26,6 @@ struct WndState {
     const Theme* active_theme = &dark_theme;
     std::vector<std::pair<RECT, int>> btns;
     GdiObj fontBig{nullptr}, fontLarge{nullptr}, fontSm{nullptr};
-    WndResources res{
-        .fontBig  = (HFONT)GetStockObject(DEFAULT_GUI_FONT),
-        .fontLarge = (HFONT)GetStockObject(DEFAULT_GUI_FONT),
-        .fontSm   = (HFONT)GetStockObject(DEFAULT_GUI_FONT),
-    };
     int timer_ms = 100;
     bool tray_active = false;
     IconObj tray_icon{};
@@ -49,16 +44,24 @@ struct WndState {
         brHelp    = GdiObj{CreateSolidBrush(th.help_bg)};
         pnNull    = GdiObj{CreatePen(PS_NULL, 0, 0)};
         pnDivider = GdiObj{CreatePen(PS_SOLID, 1, th.divider)};
-        res.brBg      = (HBRUSH)brBg.h;
-        res.brBar     = (HBRUSH)brBar.h;
-        res.brBtn     = (HBRUSH)brBtn.h;
-        res.brActive  = (HBRUSH)brActive.h;
-        res.brBlink   = (HBRUSH)brBlink.h;
-        res.brFill    = (HBRUSH)brFill.h;
-        res.brFillExp = (HBRUSH)brFillExp.h;
-        res.brHelp    = (HBRUSH)brHelp.h;
-        res.pnNull    = (HPEN)pnNull.h;
-        res.pnDivider = (HPEN)pnDivider.h;
+    }
+
+    WndResources res() const {
+        return {
+            .fontBig   = (HFONT)fontBig.h,
+            .fontLarge = (HFONT)fontLarge.h,
+            .fontSm    = (HFONT)fontSm.h,
+            .brBg      = (HBRUSH)brBg.h,
+            .brBar     = (HBRUSH)brBar.h,
+            .brBtn     = (HBRUSH)brBtn.h,
+            .brActive  = (HBRUSH)brActive.h,
+            .brBlink   = (HBRUSH)brBlink.h,
+            .brFill    = (HBRUSH)brFill.h,
+            .brFillExp = (HBRUSH)brFillExp.h,
+            .brHelp    = (HBRUSH)brHelp.h,
+            .pnNull    = (HPEN)pnNull.h,
+            .pnDivider = (HPEN)pnDivider.h,
+        };
     }
 
     WndState(const WndState&) = delete;
@@ -84,7 +87,7 @@ struct WndState {
     }
 
     PaintCtx paint_ctx() {
-        return {.app = app, .layout = layout, .theme = *active_theme, .res = res, .btns = btns, .now = {}};
+        return {.app = app, .layout = layout, .theme = *active_theme, .res = res(), .btns = btns, .now = {}};
     }
 };
 
@@ -100,9 +103,6 @@ inline void recreate_fonts(WndState& s) {
     s.fontBig = std::move(newBig);
     s.fontLarge = std::move(newLarge);
     s.fontSm = std::move(newSm);
-    s.res.fontBig   = (HFONT)s.fontBig.h;
-    s.res.fontLarge = (HFONT)s.fontLarge.h;
-    s.res.fontSm    = (HFONT)s.fontSm.h;
 }
 
 inline void apply_theme(HWND hwnd, WndState& s) {

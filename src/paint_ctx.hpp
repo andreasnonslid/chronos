@@ -13,7 +13,7 @@ struct PaintCtx {
     App& app;
     Layout& layout;
     const Theme& theme;
-    const WndResources& res;
+    WndResources res;
     std::vector<std::pair<RECT, int>>& btns;
     std::chrono::steady_clock::time_point now;
 };
