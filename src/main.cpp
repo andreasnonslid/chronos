@@ -73,7 +73,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     wc.hIcon = icon_lg;
     wc.hIconSm = icon_sm;
     wc.lpszClassName = L"ChronoApp";
-    RegisterClassExW(&wc);
+    if (!RegisterClassExW(&wc)) return 1;
 
     constexpr DWORD ws = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_THICKFRAME;
     int init_h = init_layout.bar_h + init_layout.clk_h + init_layout.sw_h + init_layout.tmr_h;
@@ -82,6 +82,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
 
     HWND hwnd = CreateWindowExW(0, L"ChronoApp", L"Chronos", ws, CW_USEDEFAULT, CW_USEDEFAULT, wr.right - wr.left,
                                 wr.bottom - wr.top, nullptr, nullptr, hInst, &init_layout);
+    if (!hwnd) return 1;
 
     ShowWindow(hwnd, nShow);
     UpdateWindow(hwnd);
