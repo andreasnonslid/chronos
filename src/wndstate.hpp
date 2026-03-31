@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <utility>
 #include <vector>
-extern "C" __declspec(dllimport) HRESULT __stdcall DwmSetWindowAttribute(HWND hwnd, DWORD attr, LPCVOID data, DWORD size);
+#include "dwm_fwd.hpp"
 #include "app.hpp"
 #include "config.hpp"
 #include "gdi.hpp"
