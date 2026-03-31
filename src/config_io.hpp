@@ -57,6 +57,8 @@ inline void save_config(HWND hwnd, const WndState& s) {
         cfg.timer_elapsed_ms[i] = duration_cast<milliseconds>(ts.t.total_elapsed(now_steady)).count();
         if (cfg.timer_running[i]) cfg.timer_start_epoch_ms[i] = now_wall_ms;
         cfg.timer_notified[i] = ts.notified;
+        cfg.timer_pomodoro[i] = ts.pomodoro;
+        cfg.timer_pomodoro_phase[i] = ts.pomodoro_phase;
     }
     if (hwnd) {
         RECT wr;
@@ -126,6 +128,8 @@ inline void load_config(HWND hwnd, WndState& s) {
     }
     for (int i = 0; i < n; ++i) {
         auto& ts = s.app.timers[i];
+        ts.pomodoro = cfg.timer_pomodoro[i];
+        ts.pomodoro_phase = cfg.timer_pomodoro_phase[i];
         if (cfg.timer_elapsed_ms[i] <= 0 && !cfg.timer_running[i] && !cfg.timer_notified[i]) continue;
         long long elapsed_ms = cfg.timer_elapsed_ms[i];
         bool tmr_running = cfg.timer_running[i];

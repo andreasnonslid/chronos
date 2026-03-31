@@ -12,6 +12,8 @@ struct TimerSlot {
     std::chrono::seconds dur{std::chrono::seconds{60}};
     bool notified = false;
     std::wstring label;
+    bool pomodoro = false;
+    int pomodoro_phase = 0;
 };
 
 struct App {

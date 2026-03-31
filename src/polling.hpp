@@ -4,7 +4,9 @@
 #include <format>
 #include <string>
 #include "app.hpp"
+#include "config_io.hpp"
 #include "formatting.hpp"
+#include "pomodoro.hpp"
 #include "tray.hpp"
 #include "wndstate.hpp"
 
@@ -45,6 +47,17 @@ inline void handle_wm_timer(HWND hwnd, WndState& s) {
             if (s.tray_active) {
                 auto lbl = ts.label.empty() ? L"Timer" : ts.label.c_str();
                 tray_notify(hwnd, L"Timer expired", lbl);
+            }
+            if (ts.pomodoro) {
+                ts.pomodoro_phase = (ts.pomodoro_phase + 1) % 8;
+                auto secs = std::chrono::seconds{pomodoro_phase_secs(ts.pomodoro_phase)};
+                ts.dur = secs;
+                ts.t.reset();
+                ts.t.set(secs);
+                ts.t.start(now);
+                ts.notified = false;
+                ts.label = pomodoro_phase_label(ts.pomodoro_phase);
+                save_config(hwnd, s);
             }
         }
     }

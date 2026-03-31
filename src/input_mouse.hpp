@@ -11,6 +11,7 @@
 #include "gdi.hpp"
 #include "input_core.hpp"
 #include "layout.hpp"
+#include "pomodoro.hpp"
 #include "wndstate.hpp"
 
 constexpr int EDIT_ID_BASE = 9000;
@@ -110,15 +111,27 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                 {600, L"10:00"},  {900, L"15:00"},  {1200, L"20:00"},   {1500, L"25:00"},
                 {1800, L"30:00"}, {2700, L"45:00"}, {3600, L"1:00:00"},
             };
+            constexpr int CMD_POMODORO = 100;
             HMENU menu = CreatePopupMenu();
             for (int i = 0; i < (int)std::size(presets); ++i) AppendMenuW(menu, MF_STRING, 1 + i, presets[i].label);
+            AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+            AppendMenuW(menu, MF_STRING, CMD_POMODORO, L"Pomodoro");
             POINT scr = pt;
             ClientToScreen(hwnd, &scr);
             int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, scr.x, scr.y, 0, hwnd, nullptr);
             DestroyMenu(menu);
             if (cmd > 0) {
                 auto& ts = s.app.timers[idx];
-                ts.dur = std::chrono::seconds{presets[cmd - 1].secs};
+                if (cmd == CMD_POMODORO) {
+                    ts.pomodoro = true;
+                    ts.pomodoro_phase = 0;
+                    ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
+                    ts.label = pomodoro_phase_label(0);
+                } else {
+                    ts.pomodoro = false;
+                    ts.dur = std::chrono::seconds{presets[cmd - 1].secs};
+                }
+                ts.notified = false;
                 ts.t.reset();
                 ts.t.set(ts.dur);
                 save_config(hwnd, s);

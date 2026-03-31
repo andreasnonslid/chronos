@@ -8,6 +8,7 @@
 #include "app.hpp"
 #include "config.hpp"
 #include "formatting.hpp"
+#include "pomodoro.hpp"
 #include "timer.hpp"
 
 enum Act {
@@ -154,9 +155,14 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                 else
                     ts.t.start(now);
             } else if (off == A_TMR_RST) {
+                ts.notified = false;
+                if (ts.pomodoro) {
+                    ts.pomodoro_phase = 0;
+                    ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
+                    ts.label = pomodoro_phase_label(0);
+                }
                 ts.t.reset();
                 ts.t.set(ts.dur);
-                ts.notified = false;
             } else if (off == A_TMR_ADD) {
                 if ((int)app.timers.size() < Config::MAX_TIMERS) {
                     TimerSlot ns;

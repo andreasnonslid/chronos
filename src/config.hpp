@@ -36,6 +36,8 @@ struct Config {
     std::array<long long, MAX_TIMERS> timer_elapsed_ms{};
     std::array<long long, MAX_TIMERS> timer_start_epoch_ms{};
     std::array<bool, MAX_TIMERS> timer_notified{};
+    std::array<bool, MAX_TIMERS> timer_pomodoro{};
+    std::array<int, MAX_TIMERS> timer_pomodoro_phase{};
     Config() { timer_secs.fill(60); }
 };
 
@@ -65,6 +67,10 @@ inline bool config_write(const Config& c, std::ostream& f) {
                     f << std::format("timer{}_start_epoch_ms={}\n", i, c.timer_start_epoch_ms[i]);
             }
             if (c.timer_notified[i]) f << std::format("timer{}_notified=1\n", i);
+        }
+        if (c.timer_pomodoro[i]) {
+            f << std::format("timer{}_pomodoro=1\n", i);
+            f << std::format("timer{}_pomodoro_phase={}\n", i, c.timer_pomodoro_phase[i]);
         }
     }
     return f.good();
@@ -141,6 +147,10 @@ inline bool config_read(Config& c, std::istream& f) {
                     c.timer_start_epoch_ms[i] = val;
                 else if (field == "_notified")
                     c.timer_notified[i] = val != 0;
+                else if (field == "_pomodoro")
+                    c.timer_pomodoro[i] = val != 0;
+                else if (field == "_pomodoro_phase")
+                    c.timer_pomodoro_phase[i] = (int)val;
             }
         }
     }
