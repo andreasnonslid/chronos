@@ -22,6 +22,9 @@ inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, 
         case 'E':
             if (s.app.show_sw) handle(hwnd, A_SW_GET, s);
             return 0;
+        case 'C':
+            if (s.app.show_sw) handle(hwnd, A_SW_COPY, s);
+            return 0;
         case 'R':
             if (s.app.show_sw)
                 handle(hwnd, A_SW_RESET, s);

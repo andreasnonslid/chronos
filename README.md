@@ -25,6 +25,7 @@ All sections can be toggled on/off. The window can be pinned always-on-top. Sett
 | `+` | Add a timer (up to 3) |
 | `-` | Remove last timer (minimum 1) |
 | `E` | Open exported laps file |
+| `C` | Copy laps to clipboard |
 | `H` or `?` | Toggle help overlay |
 
 ### Mouse

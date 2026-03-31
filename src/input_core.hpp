@@ -8,6 +8,35 @@
 #include "polling.hpp"
 #include "wndstate.hpp"
 
+inline void copy_laps_to_clipboard(HWND hwnd, const Stopwatch& sw) {
+    const auto& laps = sw.laps();
+    std::wstring text;
+    Stopwatch::dur cumulative{};
+    for (size_t i = 0; i < laps.size(); ++i) {
+        cumulative += laps[i];
+        text += format_lap_row(i + 1, laps[i], cumulative);
+        text += L'\n';
+    }
+    if (text.empty()) return;
+    size_t bytes = (text.size() + 1) * sizeof(wchar_t);
+    HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, bytes);
+    if (!hg) return;
+    auto* dest = (wchar_t*)GlobalLock(hg);
+    if (dest) {
+        memcpy(dest, text.c_str(), bytes);
+        GlobalUnlock(hg);
+        if (OpenClipboard(hwnd)) {
+            EmptyClipboard();
+            SetClipboardData(CF_UNICODETEXT, hg);
+            CloseClipboard();
+        } else {
+            GlobalFree(hg);
+        }
+    } else {
+        GlobalFree(hg);
+    }
+}
+
 inline void handle(HWND hwnd, int act, WndState& s) {
     auto now = std::chrono::steady_clock::now();
     if (wants_blink(act)) {
@@ -20,6 +49,7 @@ inline void handle(HWND hwnd, int act, WndState& s) {
     if (r.resize) resize_window(hwnd, s);
     if (r.save_config) save_config(hwnd, s);
     if (r.open_file) ShellExecuteW(nullptr, L"open", s.app.sw_lap_file.c_str(), nullptr, nullptr, SW_SHOW);
+    if (r.copy_laps) copy_laps_to_clipboard(hwnd, s.app.sw);
     if (r.apply_theme) apply_theme(hwnd, s);
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);

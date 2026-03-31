@@ -35,6 +35,7 @@ TEST_CASE("wants_blink returns false for toggle and start actions", "[actions]")
     REQUIRE_FALSE(wants_blink(A_SHOW_SW));
     REQUIRE_FALSE(wants_blink(A_SHOW_TMR));
     REQUIRE_FALSE(wants_blink(A_SW_START));
+    REQUIRE_FALSE(wants_blink(A_SW_COPY));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_START)));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_ADD)));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_DEL)));
@@ -146,6 +147,27 @@ TEST_CASE("A_SW_RESET clears stopwatch state and lap file", "[actions]") {
     dispatch_action(app, A_SW_RESET, t0(), {});
     REQUIRE_FALSE(app.sw.is_running());
     REQUIRE(app.sw_lap_file.empty());
+}
+
+TEST_CASE("A_SW_COPY sets copy_laps when laps exist", "[actions]") {
+    App app;
+    auto r = dispatch_action(app, A_SW_COPY, t0(), {});
+    REQUIRE_FALSE(r.copy_laps);
+
+    dispatch_action(app, A_SW_START, t0(), {});
+    dispatch_action(app, A_SW_LAP, at_ms(1000), {});
+    r = dispatch_action(app, A_SW_COPY, at_ms(1500), {});
+    REQUIRE(r.copy_laps);
+}
+
+TEST_CASE("A_SW_COPY works when stopwatch is paused with laps", "[actions]") {
+    App app;
+    dispatch_action(app, A_SW_START, t0(), {});
+    dispatch_action(app, A_SW_LAP, at_ms(1000), {});
+    dispatch_action(app, A_SW_START, at_ms(2000), {}); // stop
+    REQUIRE_FALSE(app.sw.is_running());
+    auto r = dispatch_action(app, A_SW_COPY, at_ms(2500), {});
+    REQUIRE(r.copy_laps);
 }
 
 TEST_CASE("A_SW_GET opens file only when lap file is set", "[actions]") {

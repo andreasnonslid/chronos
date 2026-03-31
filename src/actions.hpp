@@ -19,6 +19,7 @@ enum Act {
     A_SW_LAP,
     A_SW_RESET,
     A_SW_GET,
+    A_SW_COPY,
     A_THEME,
     A_TMR_BASE = 100,
 };
@@ -44,6 +45,7 @@ inline bool wants_blink(int act) {
     case A_SHOW_SW:
     case A_SHOW_TMR:
     case A_SW_START:
+    case A_SW_COPY:
     case A_THEME:
         return false;
     default:
@@ -60,6 +62,7 @@ struct HandleResult {
     bool resize = false;
     bool set_topmost = false;
     bool open_file = false;
+    bool copy_laps = false;
     bool apply_theme = false;
 };
 
@@ -128,6 +131,9 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         break;
     case A_SW_GET:
         if (!app.sw_lap_file.empty()) r.open_file = true;
+        break;
+    case A_SW_COPY:
+        if (!app.sw.laps().empty()) r.copy_laps = true;
         break;
     case A_THEME:
         app.theme_mode = (ThemeMode)(((int)app.theme_mode + 1) % 3);
