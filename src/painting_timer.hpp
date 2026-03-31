@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <algorithm>
 #include <chrono>
 #include <format>
 #include <string>
@@ -24,7 +25,7 @@ inline void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::ste
         using namespace std::chrono;
         auto total = duration_cast<microseconds>(ts.dur).count();
         auto rem = duration_cast<microseconds>(ts.t.remaining(now)).count();
-        fw = total > 0 ? (int)(cw * (double)(total - rem) / total) : 0;
+        fw = total > 0 ? std::clamp((int)(cw * (double)(total - rem) / total), 0, cw) : 0;
     }
     RECT fr{0, y, fw, y + layout.tmr_h};
     FillRect(hdc, &fr, fillbr);
