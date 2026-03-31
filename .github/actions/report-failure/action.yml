@@ -1,0 +1,51 @@
+name: Report CI failure
+description: Create a GitHub issue with build/test logs on failure
+
+inputs:
+  job-name:
+    description: Human-readable job name for the issue title and body
+    required: true
+  logs:
+    description: >
+      Space-separated list of log files to include
+      (default covers the standard configure/build/test trio)
+    default: configure-output.txt build-output.txt test-output.txt
+
+runs:
+  using: composite
+  steps:
+    - name: Create issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const tail = (p, n = 150) => {
+            try {
+              const lines = fs.readFileSync(p, 'utf8').split('\n');
+              return lines.slice(-n).join('\n');
+            } catch { return '(not generated)'; }
+          };
+          const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+          const jobName = `${{ inputs.job-name }}`;
+          const logFiles = `${{ inputs.logs }}`.trim().split(/\s+/);
+          const sections = logFiles.map(f => [
+            `### ${f}`,
+            '```',
+            tail(f),
+            '```',
+          ].join('\n')).join('\n');
+          const body = [
+            `## CI failure: \`${jobName}\` on \`${process.env.GITHUB_REF_NAME}\``,
+            ``,
+            `**Commit:** ${process.env.GITHUB_SHA}`,
+            `**Run:** ${runUrl}`,
+            ``,
+            sections,
+          ].join('\n').slice(0, 65000);
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `CI failure: ${jobName} on ${process.env.GITHUB_REF_NAME} @ ${process.env.GITHUB_SHA.slice(0,7)}`,
+            body,
+            labels: ['ci', 'bug'],
+          });

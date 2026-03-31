@@ -1,0 +1,19 @@
+name: Setup LLVM
+description: Install LLVM/Clang from apt.llvm.org
+
+inputs:
+  version:
+    description: LLVM major version to install
+    default: '19'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Clang ${{ inputs.version }}
+      shell: bash
+      run: |
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/llvm.asc
+        echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-${{ inputs.version }} main" \
+          | sudo tee /etc/apt/sources.list.d/llvm.list
+        sudo apt-get update
+        sudo apt-get install -y clang-${{ inputs.version }} cmake ninja-build
