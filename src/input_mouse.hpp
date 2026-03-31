@@ -53,7 +53,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                 handle(hwnd, id, s);
                 return 0;
             }
-        int idx = timer_index_at_y(s, pt.y);
+        int idx = timer_index_at_y(s.layout, layout_state(s), pt.y);
         if (idx >= 0) {
             auto& ts = s.app.timers[idx];
             wchar_t buf[Config::MAX_LABEL_LEN + 1] = {};
@@ -100,7 +100,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
     }
     case WM_RBUTTONDOWN: {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        int idx = timer_index_at_y(s, pt.y);
+        int idx = timer_index_at_y(s.layout, layout_state(s), pt.y);
         if (idx >= 0 && !s.app.timers[idx].t.touched()) {
             struct {
                 int secs;
@@ -130,7 +130,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
     case WM_MOUSEWHEEL: {
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         ScreenToClient(hwnd, &pt);
-        int idx = timer_index_at_y(s, pt.y);
+        int idx = timer_index_at_y(s.layout, layout_state(s), pt.y);
         if (idx >= 0 && !s.app.timers[idx].t.touched()) {
             int delta = GET_WHEEL_DELTA_WPARAM(wp);
             bool up = delta > 0;

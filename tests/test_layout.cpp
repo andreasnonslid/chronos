@@ -86,3 +86,36 @@ TEST_CASE("client_height_for: timers with 3 slots", "[layout]") {
     LayoutState s{false, false, true, 3};
     REQUIRE(client_height_for(l, s) == 36 + 3 * 114);
 }
+
+// ── timer_index_at_y ───────────────────────────────────────────────────────
+
+TEST_CASE("timer_index_at_y: click in timer region", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{true, true, true, 2};
+    int top = l.bar_h + l.clk_h + l.sw_h;
+    REQUIRE(timer_index_at_y(l, s, top + 1) == 0);
+    REQUIRE(timer_index_at_y(l, s, top + l.tmr_h + 1) == 1);
+}
+
+TEST_CASE("timer_index_at_y: click above timer region", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{true, true, true, 1};
+    REQUIRE(timer_index_at_y(l, s, l.bar_h) == -1);
+}
+
+TEST_CASE("timer_index_at_y: timers hidden", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{false, false, false, 0};
+    REQUIRE(timer_index_at_y(l, s, 50) == -1);
+}
+
+TEST_CASE("timer_index_at_y: click below all timers", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{false, false, true, 1};
+    int bottom = l.bar_h + l.tmr_h;
+    REQUIRE(timer_index_at_y(l, s, bottom + 10) == -1);
+}

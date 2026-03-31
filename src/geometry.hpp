@@ -27,13 +27,3 @@ inline void resize_window(HWND hwnd, const WndState& s) {
     int cur_w = wr.right - wr.left;
     SetWindowPos(hwnd, nullptr, 0, 0, cur_w, client_height(s) + nonclient_height(hwnd), SWP_NOMOVE | SWP_NOZORDER);
 }
-
-inline int timer_index_at_y(const WndState& s, int y) {
-    if (!s.app.show_tmr) return -1;
-    int top = s.layout.bar_h;
-    if (s.app.show_clk) top += s.layout.clk_h;
-    if (s.app.show_sw) top += s.layout.sw_h;
-    if (y < top) return -1;
-    int idx = (y - top) / s.layout.tmr_h;
-    return idx < (int)s.app.timers.size() ? idx : -1;
-}

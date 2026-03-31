@@ -85,3 +85,13 @@ inline int client_height_for(const Layout& layout, const LayoutState& state) {
     if (state.show_tmr) h += state.timer_count * layout.tmr_h;
     return h;
 }
+
+inline int timer_index_at_y(const Layout& layout, const LayoutState& state, int y) {
+    if (!state.show_tmr) return -1;
+    int top = layout.bar_h;
+    if (state.show_clk) top += layout.clk_h;
+    if (state.show_sw) top += layout.sw_h;
+    if (y < top) return -1;
+    int idx = (y - top) / layout.tmr_h;
+    return idx < state.timer_count ? idx : -1;
+}
