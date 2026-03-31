@@ -26,7 +26,7 @@ jobs:
         shell: msys2 {0}
         run: |
           set -o pipefail
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DBUILD_TESTS=ON 2>&1 | tee configure-output.txt
+          cmake --preset test 2>&1 | tee configure-output.txt
 
       - name: Build
         shell: msys2 {0}
@@ -74,7 +74,7 @@ jobs:
       - name: Configure
         run: |
           set -o pipefail
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++-19 -DBUILD_TESTS=ON 2>&1 | tee configure-output.txt
+          cmake --preset test -DCMAKE_CXX_COMPILER=clang++-19 2>&1 | tee configure-output.txt
 
       - name: Build
         run: |
@@ -114,7 +114,7 @@ jobs:
       - name: Configure
         run: |
           set -o pipefail
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++-19 -DBUILD_TESTS=ON 2>&1 | tee configure-output.txt
+          cmake --preset debug -DCMAKE_CXX_COMPILER=clang++-19 2>&1 | tee configure-output.txt
 
       - name: Build (Debug)
         run: |
@@ -154,11 +154,7 @@ jobs:
       - name: Configure
         run: |
           set -o pipefail
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_COMPILER=clang++-19 \
-            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
-            -DBUILD_TESTS=ON 2>&1 | tee configure-output.txt
+          cmake --preset sanitize -DCMAKE_CXX_COMPILER=clang++-19 2>&1 | tee configure-output.txt
 
       - name: Build with sanitizers
         run: |

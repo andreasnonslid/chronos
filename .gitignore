@@ -2,3 +2,4 @@ build*/
 build_*/
 build-*/
 stopwatch-*.txt
+CMakeUserPresets.json
