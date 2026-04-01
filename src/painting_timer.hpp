@@ -39,12 +39,14 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     int hh_cx = cw / 2 - m.col_gap, mm_cx = cw / 2, ss_cx = cw / 2 + m.col_gap;
 
     SelectObject(hdc, ctx.res.fontSm);
-    btn(hdc, {hh_cx - m.abw / 2, y + m.up_off, hh_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
-        tmr_act(i, A_TMR_HUP), ctx);
-    btn(hdc, {mm_cx - m.abw / 2, y + m.up_off, mm_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
-        tmr_act(i, A_TMR_MUP), ctx);
-    btn(hdc, {ss_cx - m.abw / 2, y + m.up_off, ss_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
-        tmr_act(i, A_TMR_SUP), ctx);
+    if (!ts.pomodoro) {
+        btn(hdc, {hh_cx - m.abw / 2, y + m.up_off, hh_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
+            tmr_act(i, A_TMR_HUP), ctx);
+        btn(hdc, {mm_cx - m.abw / 2, y + m.up_off, mm_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
+            tmr_act(i, A_TMR_MUP), ctx);
+        btn(hdc, {ss_cx - m.abw / 2, y + m.up_off, ss_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
+            tmr_act(i, A_TMR_SUP), ctx);
+    }
 
     if (!ts.label.empty()) {
         SetTextColor(hdc, th.dim);
@@ -76,12 +78,14 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
 
     SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, th.text);
-    btn(hdc, {hh_cx - m.abw / 2, y + m.dn_off, hh_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
-        tmr_act(i, A_TMR_HDN), ctx);
-    btn(hdc, {mm_cx - m.abw / 2, y + m.dn_off, mm_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
-        tmr_act(i, A_TMR_MDN), ctx);
-    btn(hdc, {ss_cx - m.abw / 2, y + m.dn_off, ss_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
-        tmr_act(i, A_TMR_SDN), ctx);
+    if (!ts.pomodoro) {
+        btn(hdc, {hh_cx - m.abw / 2, y + m.dn_off, hh_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
+            tmr_act(i, A_TMR_HDN), ctx);
+        btn(hdc, {mm_cx - m.abw / 2, y + m.dn_off, mm_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
+            tmr_act(i, A_TMR_MDN), ctx);
+        btn(hdc, {ss_cx - m.abw / 2, y + m.dn_off, ss_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
+            tmr_act(i, A_TMR_SDN), ctx);
+    }
 }
 
 inline void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
