@@ -12,6 +12,7 @@
 #include "input_core.hpp"
 #include "layout.hpp"
 #include "pomodoro.hpp"
+#include "timer_presets.hpp"
 #include "wndstate.hpp"
 
 constexpr int EDIT_ID_BASE = 9000;
@@ -103,17 +104,9 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         int idx = timer_index_at_y(s.layout, layout_state(s), pt.y);
         if (idx >= 0 && !s.app.timers[idx].t.touched()) {
-            struct {
-                int secs;
-                const wchar_t* label;
-            } presets[] = {
-                {60, L"1:00"},    {120, L"2:00"},   {180, L"3:00"},     {300, L"5:00"},
-                {600, L"10:00"},  {900, L"15:00"},  {1200, L"20:00"},   {1500, L"25:00"},
-                {1800, L"30:00"}, {2700, L"45:00"}, {3600, L"1:00:00"},
-            };
             constexpr int CMD_POMODORO = 100;
             HMENU menu = CreatePopupMenu();
-            for (int i = 0; i < (int)std::size(presets); ++i) AppendMenuW(menu, MF_STRING, 1 + i, presets[i].label);
+            for (int i = 0; i < (int)std::size(TIMER_PRESETS); ++i) AppendMenuW(menu, MF_STRING, 1 + i, TIMER_PRESETS[i].label);
             AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
             AppendMenuW(menu, MF_STRING, CMD_POMODORO, L"Pomodoro");
             POINT scr = pt;
@@ -130,7 +123,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                 } else {
                     ts.pomodoro = false;
                     ts.label.clear();
-                    ts.dur = std::chrono::seconds{presets[cmd - 1].secs};
+                    ts.dur = std::chrono::seconds{TIMER_PRESETS[cmd - 1].secs};
                 }
                 ts.notified = false;
                 ts.t.reset();
