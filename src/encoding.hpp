@@ -66,7 +66,8 @@ inline std::wstring utf8_to_wide(const std::string& s) {
         else if (c < 0xC0) continue; // invalid continuation byte, skip
         else if (c < 0xE0) { cp = c & 0x1F; extra = 1; }
         else if (c < 0xF0) { cp = c & 0x0F; extra = 2; }
-        else               { cp = c & 0x07; extra = 3; }
+        else if (c < 0xF5) { cp = c & 0x07; extra = 3; }
+        else               continue; // invalid lead byte (0xF5–0xFF), skip
         int got = 0;
         while (got < extra && i < s.size()) {
             cp = (cp << 6) | (us[i++] & 0x3F);
