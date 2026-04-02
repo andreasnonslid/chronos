@@ -10,7 +10,7 @@
 
 // ─── Paint context ─────────────────────────────────────────────────
 struct PaintCtx {
-    App& app;
+    const App& app;
     Layout& layout;
     const Theme& theme;
     WndResources res;
