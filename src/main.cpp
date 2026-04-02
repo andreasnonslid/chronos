@@ -61,8 +61,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
     init_layout.update_for_dpi(dc ? GetDeviceCaps(dc, LOGPIXELSY) : 96);
     if (dc) ReleaseDC(nullptr, dc);
 
-    HICON icon_sm = create_app_icon(16);
-    HICON icon_lg = create_app_icon(32);
+    IconObj icon_sm{create_app_icon(16)};
+    IconObj icon_lg{create_app_icon(32)};
 
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc);
@@ -92,7 +92,5 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
-    if (icon_sm) DestroyIcon(icon_sm);
-    if (icon_lg) DestroyIcon(icon_lg);
     return (int)msg.wParam;
 }
