@@ -127,3 +127,27 @@ TEST_CASE("A_TMR_RST on non-Pomodoro timer leaves label unchanged", "[pomodoro][
     REQUIRE_FALSE(ts.pomodoro);
     REQUIRE(ts.label == L"Tea");
 }
+
+// ─── Negative phase values ────────────────────────────────────────────────────
+
+TEST_CASE("pomodoro_phase_secs: negative multiples of 8 behave like phase 0", "[pomodoro]") {
+    // -8 % 8 == 0 in C++, so these map to work phases
+    REQUIRE(pomodoro_phase_secs(-8)  == POMODORO_WORK_SECS);
+    REQUIRE(pomodoro_phase_secs(-16) == POMODORO_WORK_SECS);
+}
+
+TEST_CASE("pomodoro_phase_secs: negative phases do not crash", "[pomodoro]") {
+    // Verify no crash or UB; C++ truncates % toward zero
+    REQUIRE_NOTHROW(pomodoro_phase_secs(-1));
+    REQUIRE_NOTHROW(pomodoro_phase_secs(-7));
+}
+
+TEST_CASE("pomodoro_phase_label: negative multiples of 8 behave like phase 0", "[pomodoro]") {
+    REQUIRE(pomodoro_phase_label(-8)  == pomodoro_phase_label(0));
+    REQUIRE(pomodoro_phase_label(-16) == pomodoro_phase_label(0));
+}
+
+TEST_CASE("pomodoro_phase_label: negative phases do not crash", "[pomodoro]") {
+    REQUIRE_NOTHROW(pomodoro_phase_label(-1));
+    REQUIRE_NOTHROW(pomodoro_phase_label(-7));
+}
