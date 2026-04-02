@@ -55,6 +55,7 @@ if(BUILD_TESTS)
         tests/test_formatting.cpp
         tests/test_layout.cpp
         tests/test_actions.cpp
+        tests/test_pomodoro.cpp
     )
     target_include_directories(chronos_tests PRIVATE src)
     target_link_libraries(chronos_tests PRIVATE Catch2::Catch2WithMain)
