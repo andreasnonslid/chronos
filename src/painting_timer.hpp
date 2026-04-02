@@ -48,31 +48,32 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
             tmr_act(i, A_TMR_SUP), ctx);
     }
 
-    if (!ts.label.empty()) {
+    if (!ts.label.empty() && !ts.pomodoro) {
         SetTextColor(hdc, th.dim);
         RECT lr{0, y + layout.dpi_scale(2), cw, y + m.up_off + m.abh};
         DrawTextW(hdc, ts.label.c_str(), -1, &lr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
-    SelectObject(hdc, ctx.res.fontBig);
+    SelectObject(hdc, ts.pomodoro ? ctx.res.fontLarge : ctx.res.fontBig);
     SetTextColor(hdc, th.text);
-    int field_h = layout.dpi_scale(40);
-    int field_half = layout.dpi_scale(22);
+    int field_h   = ts.pomodoro ? (m.dn_off + m.abh - m.up_off) : layout.dpi_scale(40);
+    int td_y      = ts.pomodoro ? (y + m.up_off) : (y + m.td_off);
+    int field_half = ts.pomodoro ? layout.dpi_scale(28) : layout.dpi_scale(22);
     long long total_s_edit = ts.dur.count();
     auto h_s = std::format(L"{}", total_s_edit / 3600);
     auto mm_s = std::format(L"{:02}", (total_s_edit / 60) % 60);
     auto ss_s = std::format(L"{:02}", total_s_edit % 60);
-    RECT hr{hh_cx - field_half, y + m.td_off, hh_cx + field_half, y + m.td_off + field_h};
-    RECT mr{mm_cx - field_half, y + m.td_off, mm_cx + field_half, y + m.td_off + field_h};
-    RECT sr{ss_cx - field_half, y + m.td_off, ss_cx + field_half, y + m.td_off + field_h};
+    RECT hr{hh_cx - field_half, td_y, hh_cx + field_half, td_y + field_h};
+    RECT mr{mm_cx - field_half, td_y, mm_cx + field_half, td_y + field_h};
+    RECT sr{ss_cx - field_half, td_y, ss_cx + field_half, td_y + field_h};
     DrawTextW(hdc, h_s.c_str(), -1, &hr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hdc, mm_s.c_str(), -1, &mr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hdc, ss_s.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     int sep_w = layout.dpi_scale(8);
     int sep1_cx = (hh_cx + mm_cx) / 2;
     int sep2_cx = (mm_cx + ss_cx) / 2;
-    RECT sep1r{sep1_cx - sep_w / 2, y + m.td_off, sep1_cx + sep_w / 2, y + m.td_off + field_h};
-    RECT sep2r{sep2_cx - sep_w / 2, y + m.td_off, sep2_cx + sep_w / 2, y + m.td_off + field_h};
+    RECT sep1r{sep1_cx - sep_w / 2, td_y, sep1_cx + sep_w / 2, td_y + field_h};
+    RECT sep2r{sep2_cx - sep_w / 2, td_y, sep2_cx + sep_w / 2, td_y + field_h};
     DrawTextW(hdc, L":", -1, &sep1r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     DrawTextW(hdc, L":", -1, &sep2r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
