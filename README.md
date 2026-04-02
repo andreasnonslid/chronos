@@ -37,7 +37,7 @@ A lightweight Windows desktop clock, stopwatch, and timer app. Built with C++26 
 
 - **Scroll wheel** on a timer — left third adjusts hours, middle third minutes, right third seconds
 - **Double-click** timer label — edit label
-- **Right-click** timer — duration presets
+- **Right-click** untouched timer — duration presets or enable Pomodoro mode
 
 ### System Tray
 
@@ -76,6 +76,13 @@ cmake --preset test
 cmake --build build
 ./build/chronos_tests
 ```
+
+Other presets for development:
+
+| Preset | Purpose |
+|--------|---------|
+| `debug` | Debug build with tests |
+| `sanitize` | Debug + AddressSanitizer / UndefinedBehaviorSanitizer |
 
 ### Debugging
 
