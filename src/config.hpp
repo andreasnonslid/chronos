@@ -150,7 +150,7 @@ inline bool config_read(Config& c, std::istream& f) {
                 else if (field == "_pomodoro")
                     c.timer_pomodoro[i] = val != 0;
                 else if (field == "_pomodoro_phase")
-                    c.timer_pomodoro_phase[i] = (int)val;
+                    c.timer_pomodoro_phase[i] = (int)val % 8;
             }
         }
     }
