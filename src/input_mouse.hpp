@@ -144,7 +144,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         ScreenToClient(hwnd, &pt);
         int idx = timer_index_at_y(s.layout, layout_state(s), pt.y);
-        if (idx >= 0 && !s.app.timers[idx].t.touched()) {
+        if (idx >= 0 && !s.app.timers[idx].t.touched() && !s.app.timers[idx].pomodoro) {
             int delta = GET_WHEEL_DELTA_WPARAM(wp);
             bool up = delta > 0;
             RECT cr;
