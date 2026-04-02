@@ -129,6 +129,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                     ts.label = pomodoro_phase_label(0);
                 } else {
                     ts.pomodoro = false;
+                    ts.label.clear();
                     ts.dur = std::chrono::seconds{presets[cmd - 1].secs};
                 }
                 ts.notified = false;
