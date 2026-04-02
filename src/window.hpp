@@ -65,12 +65,15 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         }
         break;
-    case WM_TRAYICON:
-        if (lp == WM_LBUTTONUP) {
+    case WM_TRAYICON: {
+        auto tray_restore = [&] {
             ShowWindow(hwnd, SW_RESTORE);
             SetForegroundWindow(hwnd);
             tray_remove(hwnd);
             s->tray_active = false;
+        };
+        if (lp == WM_LBUTTONUP) {
+            tray_restore();
         } else if (lp == WM_RBUTTONUP) {
             HMENU menu = CreatePopupMenu();
             AppendMenuW(menu, MF_STRING, IDM_TRAY_SHOW, L"Show");
@@ -82,10 +85,7 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd, nullptr);
             DestroyMenu(menu);
             if (cmd == IDM_TRAY_SHOW) {
-                ShowWindow(hwnd, SW_RESTORE);
-                SetForegroundWindow(hwnd);
-                tray_remove(hwnd);
-                s->tray_active = false;
+                tray_restore();
             } else if (cmd == IDM_TRAY_EXIT) {
                 tray_remove(hwnd);
                 s->tray_active = false;
@@ -93,6 +93,7 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
         }
         return 0;
+    }
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
