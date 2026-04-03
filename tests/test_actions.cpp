@@ -284,6 +284,20 @@ TEST_CASE("Timer adjustment clamps to TIMER_MAX_SECS", "[actions]") {
     REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
 }
 
+TEST_CASE("A_TMR_MUP at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS}); // 24h 0m 0s
+    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS}); // still 24h 0m 0s
+}
+
+TEST_CASE("A_TMR_SUP at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS}); // 24h 0m 0s
+    dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS}); // still 24h 0m 0s
+}
+
 // ─── timer start / pause / resume ────────────────────────────────────────────
 
 TEST_CASE("A_TMR_START starts untouched timer", "[actions]") {

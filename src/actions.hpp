@@ -198,6 +198,7 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                     }
                 }
                 if (changed) {
+                    if (h == 24) { m = 0; sec = 0; }
                     auto clamped = std::clamp(h * 3600 + m * 60 + sec, 0, Config::TIMER_MAX_SECS);
                     ts.dur = seconds{clamped};
                     ts.t.reset();
