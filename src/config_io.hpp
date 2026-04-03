@@ -128,6 +128,7 @@ inline void load_config(HWND hwnd, WndState& s) {
             long long delta = now_wall_ms - cfg.sw_start_epoch_ms;
             if (delta > 0) actual_ms += delta;
         }
+        actual_ms = std::max(actual_ms, 0LL);
         s.app.sw.restore(milliseconds{actual_ms}, cfg.sw_running, now_steady);
         if (!cfg.sw_lap_file.empty())
             s.app.sw_lap_file = std::filesystem::path{utf8_to_wide(cfg.sw_lap_file)};
@@ -143,6 +144,7 @@ inline void load_config(HWND hwnd, WndState& s) {
             long long delta = now_wall_ms - cfg.timer_start_epoch_ms[i];
             if (delta > 0) elapsed_ms += delta;
         }
+        elapsed_ms = std::max(elapsed_ms, 0LL);
         long long target_ms = duration_cast<milliseconds>(ts.dur).count();
         if (elapsed_ms >= target_ms) {
             elapsed_ms = target_ms;
