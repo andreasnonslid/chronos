@@ -151,3 +151,68 @@ TEST_CASE("pomodoro_phase_label: negative phases do not crash", "[pomodoro]") {
     REQUIRE_NOTHROW(pomodoro_phase_label(-1));
     REQUIRE_NOTHROW(pomodoro_phase_label(-7));
 }
+
+// ─── Custom Pomodoro durations ────────────────────────────────────────────────
+
+TEST_CASE("pomodoro_phase_secs: custom durations used when provided", "[pomodoro]") {
+    constexpr int WORK = 50 * 60;
+    constexpr int SHORT = 10 * 60;
+    constexpr int LONG = 20 * 60;
+    REQUIRE(pomodoro_phase_secs(0, WORK, SHORT, LONG) == WORK);
+    REQUIRE(pomodoro_phase_secs(1, WORK, SHORT, LONG) == SHORT);
+    REQUIRE(pomodoro_phase_secs(3, WORK, SHORT, LONG) == SHORT);
+    REQUIRE(pomodoro_phase_secs(7, WORK, SHORT, LONG) == LONG);
+}
+
+TEST_CASE("pomodoro_phase_secs: default args match constants", "[pomodoro]") {
+    for (int phase = 0; phase < 8; ++phase)
+        REQUIRE(pomodoro_phase_secs(phase) == pomodoro_phase_secs(phase, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS));
+}
+
+TEST_CASE("Config pomodoro durations default values", "[pomodoro][config]") {
+    Config c;
+    REQUIRE(c.pomodoro_work_secs == 25 * 60);
+    REQUIRE(c.pomodoro_short_secs == 5 * 60);
+    REQUIRE(c.pomodoro_long_secs == 15 * 60);
+}
+
+TEST_CASE("Config pomodoro durations round-trip", "[pomodoro][config]") {
+    Config orig;
+    orig.pomodoro_work_secs = 50 * 60;
+    orig.pomodoro_short_secs = 10 * 60;
+    orig.pomodoro_long_secs = 20 * 60;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE(back.pomodoro_work_secs == 50 * 60);
+    REQUIRE(back.pomodoro_short_secs == 10 * 60);
+    REQUIRE(back.pomodoro_long_secs == 20 * 60);
+}
+
+TEST_CASE("Config pomodoro durations not written at defaults", "[pomodoro][config]") {
+    Config orig;
+    // durations at default values — should produce zero config change
+    REQUIRE(orig.pomodoro_work_secs == 25 * 60);
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    REQUIRE(os.str().find("pomodoro_work") == std::string::npos);
+}
+
+TEST_CASE("Config pomodoro durations written when any differs from default", "[pomodoro][config]") {
+    Config orig;
+    orig.pomodoro_work_secs = 30 * 60; // only one changed
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    REQUIRE(os.str().find("pomodoro_work=1800") != std::string::npos);
+    REQUIRE(os.str().find("pomodoro_short=300") != std::string::npos);
+    REQUIRE(os.str().find("pomodoro_long=900") != std::string::npos);
+}

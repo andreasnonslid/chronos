@@ -8,11 +8,14 @@ constexpr int POMODORO_WORK_SECS        = 25 * 60;
 constexpr int POMODORO_SHORT_BREAK_SECS = 5 * 60;
 constexpr int POMODORO_LONG_BREAK_SECS  = 15 * 60;
 
-inline int pomodoro_phase_secs(int phase) {
+inline int pomodoro_phase_secs(int phase,
+                               int work_secs  = POMODORO_WORK_SECS,
+                               int short_secs = POMODORO_SHORT_BREAK_SECS,
+                               int long_secs  = POMODORO_LONG_BREAK_SECS) {
     int p = phase % 8;
-    if (p % 2 == 0) return POMODORO_WORK_SECS;
-    if (p == 7) return POMODORO_LONG_BREAK_SECS;
-    return POMODORO_SHORT_BREAK_SECS;
+    if (p % 2 == 0) return work_secs;
+    if (p == 7) return long_secs;
+    return short_secs;
 }
 
 inline std::wstring pomodoro_phase_label(int phase) {

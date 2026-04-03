@@ -38,6 +38,9 @@ struct Config {
     std::array<bool, MAX_TIMERS> timer_notified{};
     std::array<bool, MAX_TIMERS> timer_pomodoro{};
     std::array<int, MAX_TIMERS> timer_pomodoro_phase{};
+    int pomodoro_work_secs = 25 * 60;
+    int pomodoro_short_secs = 5 * 60;
+    int pomodoro_long_secs = 15 * 60;
     Config() { timer_secs.fill(60); }
 };
 
@@ -45,6 +48,9 @@ inline bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
     f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
                      c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, c.num_timers);
+    if (c.pomodoro_work_secs != 25 * 60 || c.pomodoro_short_secs != 5 * 60 || c.pomodoro_long_secs != 15 * 60)
+        f << std::format("pomodoro_work={}\npomodoro_short={}\npomodoro_long={}\n",
+                         c.pomodoro_work_secs, c.pomodoro_short_secs, c.pomodoro_long_secs);
     for (int i = 0; i < c.num_timers; ++i) {
         f << std::format("timer{}={}\n", i, c.timer_secs[i]);
         if (!c.timer_labels[i].empty()) f << std::format("timer{}_label={}\n", i, c.timer_labels[i]);
@@ -124,7 +130,13 @@ inline bool config_read(Config& c, std::istream& f) {
         } else if (key == "win_w") {
             c.win_w = std::max(Config::MIN_WINDOW_W, (int)val);
             has_w = true;
-        } else if (key == "sw_running")
+        } else if (key == "pomodoro_work")
+            c.pomodoro_work_secs = std::clamp((int)val, 60, Config::TIMER_MAX_SECS);
+        else if (key == "pomodoro_short")
+            c.pomodoro_short_secs = std::clamp((int)val, 60, Config::TIMER_MAX_SECS);
+        else if (key == "pomodoro_long")
+            c.pomodoro_long_secs = std::clamp((int)val, 60, Config::TIMER_MAX_SECS);
+        else if (key == "sw_running")
             c.sw_running = val != 0;
         else if (key == "sw_elapsed_ms")
             c.sw_elapsed_ms = val;

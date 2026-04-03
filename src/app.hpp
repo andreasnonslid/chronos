@@ -25,6 +25,9 @@ struct App {
     bool show_tmr = true;
     bool topmost = false;
     ThemeMode theme_mode = ThemeMode::Auto;
+    int pomodoro_work_secs = 25 * 60;
+    int pomodoro_short_secs = 5 * 60;
+    int pomodoro_long_secs = 15 * 60;
     bool show_help = false;
     bool lap_write_failed = false;
     int blink_act = 0;

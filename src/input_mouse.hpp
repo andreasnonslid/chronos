@@ -3,6 +3,7 @@
 #include <windowsx.h>
 #include <algorithm>
 #include <chrono>
+#include <format>
 #include <optional>
 #include "actions.hpp"
 #include "config.hpp"
@@ -48,7 +49,12 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
             HMENU menu = CreatePopupMenu();
             for (int i = 0; i < (int)std::size(TIMER_PRESETS); ++i) AppendMenuW(menu, MF_STRING, 1 + i, TIMER_PRESETS[i].label);
             AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-            AppendMenuW(menu, MF_STRING, CMD_POMODORO, L"Pomodoro");
+            int pom_min = s.app.pomodoro_work_secs / 60;
+            int pom_sec = s.app.pomodoro_work_secs % 60;
+            auto pom_label = pom_sec > 0
+                ? std::format(L"Pomodoro ({:02}:{:02})", pom_min, pom_sec)
+                : std::format(L"Pomodoro ({}:00)", pom_min);
+            AppendMenuW(menu, MF_STRING, CMD_POMODORO, pom_label.c_str());
             POINT scr = pt;
             ClientToScreen(hwnd, &scr);
             int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, scr.x, scr.y, 0, hwnd, nullptr);
@@ -58,7 +64,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                 if (cmd == CMD_POMODORO) {
                     ts.pomodoro = true;
                     ts.pomodoro_phase = 0;
-                    ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
+                    ts.dur = std::chrono::seconds{s.app.pomodoro_work_secs};
                     ts.label = pomodoro_phase_label(0);
                 } else {
                     ts.pomodoro = false;
