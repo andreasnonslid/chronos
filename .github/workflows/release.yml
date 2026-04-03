@@ -15,14 +15,36 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: chronos
+
+      - name: Extract changelog section
+        id: changelog
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          # Extract the section for this version from CHANGELOG.md
+          BODY=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## /{exit} found" CHANGELOG.md)
+          # Fall back to the Unreleased section if no versioned entry exists yet
+          if [ -z "$BODY" ]; then
+            BODY=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## /{exit} found' CHANGELOG.md)
+          fi
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.body }}
           files: chronos.exe
