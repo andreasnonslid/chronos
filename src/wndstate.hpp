@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <chrono>
 #include <filesystem>
 #include <utility>
 #include <vector>
@@ -28,6 +29,7 @@ struct WndState {
     GdiObj fontBig{nullptr}, fontLarge{nullptr}, fontSm{nullptr};
     int timer_ms = 100;
     bool tray_active = false;
+    std::chrono::steady_clock::time_point clipboard_copied_until{};
     IconObj tray_icon{};
 
     GdiObj brBg, brBar, brBtn, brActive, brBlink, brFill, brFillExp, brHelp, pnNull, pnDivider;

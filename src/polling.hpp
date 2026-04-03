@@ -80,6 +80,7 @@ inline void handle_wm_timer(HWND hwnd, WndState& s) {
             title = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
         }
         title += L" \u2014 Chronos";
+        if (now < s.clipboard_copied_until) title = L"Copied \u2014 Chronos";
         SetWindowTextW(hwnd, title.c_str());
         if (s.tray_active) tray_update_tip(hwnd, title.c_str());
     }

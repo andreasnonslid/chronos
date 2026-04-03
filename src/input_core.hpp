@@ -49,7 +49,10 @@ inline void handle(HWND hwnd, int act, WndState& s) {
     if (r.resize) resize_window(hwnd, s);
     if (r.save_config) save_config(hwnd, s);
     if (r.open_file) ShellExecuteW(nullptr, L"open", s.app.sw_lap_file.c_str(), nullptr, nullptr, SW_SHOW);
-    if (r.copy_laps) copy_laps_to_clipboard(hwnd, s.app.sw);
+    if (r.copy_laps) {
+        copy_laps_to_clipboard(hwnd, s.app.sw);
+        s.clipboard_copied_until = now + std::chrono::seconds{1};
+    }
     if (r.apply_theme) apply_theme(hwnd, s);
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);
