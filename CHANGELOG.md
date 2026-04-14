@@ -28,6 +28,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pomodoro: label cleared when switching back to a normal preset
 - Pomodoro: idle time display expanded to fill space left by hidden buttons
 
+## [1.0.1] — 2026-04-14
+
+### Changed
+- CI now runs all four test jobs (Windows, Linux release, Linux debug, sanitizer) on pull requests, not just pushes
+
 ## [1.0.0] — 2026-03-19
 
 Initial public release.
@@ -52,5 +57,6 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/andreasnonslid/chronos/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/andreasnonslid/chronos/releases/tag/v1.0.0
