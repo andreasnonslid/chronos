@@ -1,0 +1,36 @@
+name: Auto-tag release
+
+# Fires on every main push. Reads the top versioned section from CHANGELOG.md
+# and pushes a tag if it doesn't exist yet. That tag push triggers release.yml.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tag from CHANGELOG
+        run: |
+          VERSION=$(grep -m1 '^## \[[0-9]' CHANGELOG.md | sed 's/^## \[\([^]]*\)\].*/\1/')
+          if [ -z "$VERSION" ]; then
+            echo "No versioned section found in CHANGELOG.md, skipping."
+            exit 0
+          fi
+          echo "Detected version: $VERSION"
+          if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "v${VERSION}$"; then
+            echo "Tag v$VERSION already exists on remote, skipping."
+            exit 0
+          fi
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git tag -a "v$VERSION" HEAD -m "Release v$VERSION"
+          git push origin "v$VERSION"
