@@ -265,3 +265,33 @@ TEST_CASE("Config timer start_epoch_ms only written when running", "[config]") {
     REQUIRE(os.str().find("timer0_start_epoch_ms") == std::string::npos);
     REQUIRE(os.str().find("timer0_running") == std::string::npos);
 }
+
+TEST_CASE("Config negative sw_elapsed_ms clamped to 0", "[config]") {
+    std::istringstream is("sw_elapsed_ms=-1000\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.sw_elapsed_ms == 0);
+}
+
+TEST_CASE("Config negative sw_start_epoch_ms clamped to 0", "[config]") {
+    std::istringstream is("sw_start_epoch_ms=-500\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.sw_start_epoch_ms == 0);
+}
+
+TEST_CASE("Config negative timer_elapsed_ms clamped to 0", "[config]") {
+    std::istringstream is("timer0_elapsed_ms=-2500\ntimer1_elapsed_ms=-1\n");
+    Config c;
+    c.num_timers = 2;
+    config_read(c, is);
+    REQUIRE(c.timer_elapsed_ms[0] == 0);
+    REQUIRE(c.timer_elapsed_ms[1] == 0);
+}
+
+TEST_CASE("Config negative timer_start_epoch_ms clamped to 0", "[config]") {
+    std::istringstream is("timer0_start_epoch_ms=-999\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.timer_start_epoch_ms[0] == 0);
+}

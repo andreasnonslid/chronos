@@ -144,9 +144,9 @@ inline bool config_read(Config& c, std::istream& f) {
         else if (key == "sw_running")
             c.sw_running = val != 0;
         else if (key == "sw_elapsed_ms")
-            c.sw_elapsed_ms = val;
+            c.sw_elapsed_ms = std::max(val, 0LL);
         else if (key == "sw_start_epoch_ms")
-            c.sw_start_epoch_ms = val;
+            c.sw_start_epoch_ms = std::max(val, 0LL);
         else if (key.starts_with("timer") && key.size() > 5) {
             auto suffix = key.substr(5);
             int i = -1;
@@ -157,11 +157,11 @@ inline bool config_read(Config& c, std::istream& f) {
                 if (field.empty())
                     c.timer_secs[i] = std::clamp((int)val, Config::TIMER_MIN_SECS, Config::TIMER_MAX_SECS);
                 else if (field == "_elapsed_ms")
-                    c.timer_elapsed_ms[i] = val;
+                    c.timer_elapsed_ms[i] = std::max(val, 0LL);
                 else if (field == "_running")
                     c.timer_running[i] = val != 0;
                 else if (field == "_start_epoch_ms")
-                    c.timer_start_epoch_ms[i] = val;
+                    c.timer_start_epoch_ms[i] = std::max(val, 0LL);
                 else if (field == "_notified")
                     c.timer_notified[i] = val != 0;
                 else if (field == "_pomodoro")
