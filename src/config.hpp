@@ -8,6 +8,8 @@
 #include <string>
 #include <string_view>
 
+#include "pomodoro.hpp"
+
 enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
 
 struct Config {
@@ -38,9 +40,9 @@ struct Config {
     std::array<bool, MAX_TIMERS> timer_notified{};
     std::array<bool, MAX_TIMERS> timer_pomodoro{};
     std::array<int, MAX_TIMERS> timer_pomodoro_phase{};
-    int pomodoro_work_secs = 25 * 60;
-    int pomodoro_short_secs = 5 * 60;
-    int pomodoro_long_secs = 15 * 60;
+    int pomodoro_work_secs = POMODORO_WORK_SECS;
+    int pomodoro_short_secs = POMODORO_SHORT_BREAK_SECS;
+    int pomodoro_long_secs = POMODORO_LONG_BREAK_SECS;
     Config() { timer_secs.fill(60); }
 };
 
@@ -48,7 +50,10 @@ inline bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
     f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
                      c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, c.num_timers);
-    if (c.pomodoro_work_secs != 25 * 60 || c.pomodoro_short_secs != 5 * 60 || c.pomodoro_long_secs != 15 * 60)
+    Config defaults;
+    if (c.pomodoro_work_secs != defaults.pomodoro_work_secs ||
+        c.pomodoro_short_secs != defaults.pomodoro_short_secs ||
+        c.pomodoro_long_secs != defaults.pomodoro_long_secs)
         f << std::format("pomodoro_work={}\npomodoro_short={}\npomodoro_long={}\n",
                          c.pomodoro_work_secs, c.pomodoro_short_secs, c.pomodoro_long_secs);
     for (int i = 0; i < c.num_timers; ++i) {
