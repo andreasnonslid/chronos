@@ -45,6 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-logs
+          retention-days: 7
           path: |
             configure-output.txt
             build-output.txt
@@ -91,6 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-release-logs
+          retention-days: 7
           path: |
             configure-output.txt
             build-output.txt
@@ -131,6 +133,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-debug-logs
+          retention-days: 7
           path: |
             configure-output.txt
             build-output.txt
@@ -171,6 +174,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sanitizer-logs
+          retention-days: 7
           path: |
             configure-output.txt
             build-output.txt
