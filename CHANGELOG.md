@@ -28,6 +28,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pomodoro: label cleared when switching back to a normal preset
 - Pomodoro: idle time display expanded to fill space left by hidden buttons
 
+## [1.0.8] — 2026-04-19
+
+### Fixed
+- Config parser now clamps numeric values at `long long` before narrowing to `int`, preventing silent wrap-around on values like 2^32+60 that previously bypassed range checks (#227)
+
+### Added
+- Nine new test cases for config parsing edge cases: integer overflow, int-wrapping values, epoch zero with running state, duplicate keys, empty labels, and whitespace around delimiters (#227)
+
 ## [1.0.7] — 2026-04-19
 
 ### Added
