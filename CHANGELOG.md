@@ -28,6 +28,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pomodoro: label cleared when switching back to a normal preset
 - Pomodoro: idle time display expanded to fill space left by hidden buttons
 
+## [1.0.5] — 2026-04-19
+
+### Fixed
+- Added `static_assert` in non-Windows encoding path to catch platforms where `wchar_t` is not 4 bytes at compile time, preventing silent UTF-8 corruption (#223)
+
 ## [1.0.4] — 2026-04-17
 
 ### Changed
