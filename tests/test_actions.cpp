@@ -424,3 +424,55 @@ TEST_CASE("Out-of-range timer index does not crash or change state", "[actions]"
     REQUIRE(app.timers.size() == 1);
     REQUIRE(app.timers[0].dur == dur_before);
 }
+
+// ─── timer duration adjustment edge cases ────────────────────────────────────
+
+TEST_CASE("A_TMR_MDN at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+}
+
+TEST_CASE("A_TMR_SDN at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_SDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+}
+
+TEST_CASE("A_TMR_HDN wraps and clamps when both minutes and seconds are nonzero", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{30 * 60 + 30}); // 0:30:30
+    dispatch_action(app, tmr_act(0, A_TMR_HDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+}
+
+TEST_CASE("All adjustments at 24h boundary stay clamped", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_SDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+}
+
+TEST_CASE("Zero duration reached via adjustment prevents start", "[actions]") {
+    App app; // default 0:01:00
+    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{0});
+    dispatch_action(app, tmr_act(0, A_TMR_START), t0(), {});
+    REQUIRE_FALSE(app.timers[0].t.is_running());
+    REQUIRE_FALSE(app.timers[0].t.touched());
+}
+
+TEST_CASE("A_TMR_MUP wraps without carrying to hours", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{59 * 60 + 30}); // 0:59:30
+    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{30}); // 0:00:30
+}
