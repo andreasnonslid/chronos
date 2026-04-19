@@ -384,6 +384,37 @@ TEST_CASE("A_TMR_START does not start untouched zero-duration timer", "[actions]
     REQUIRE_FALSE(app.timers[0].t.is_running());
 }
 
+// ─── theme cycling ──────────────────────────────────────────────────────────
+
+TEST_CASE("A_THEME cycles theme mode and signals apply_theme", "[actions]") {
+    App app;
+    REQUIRE(app.theme_mode == ThemeMode::Auto);
+
+    auto r1 = dispatch_action(app, A_THEME, t0(), {});
+    REQUIRE(app.theme_mode == ThemeMode::Dark);
+    REQUIRE(r1.apply_theme);
+    REQUIRE(r1.save_config);
+
+    auto r2 = dispatch_action(app, A_THEME, t0(), {});
+    REQUIRE(app.theme_mode == ThemeMode::Light);
+    REQUIRE(r2.apply_theme);
+    REQUIRE(r2.save_config);
+
+    auto r3 = dispatch_action(app, A_THEME, t0(), {});
+    REQUIRE(app.theme_mode == ThemeMode::Auto);
+    REQUIRE(r3.apply_theme);
+    REQUIRE(r3.save_config);
+}
+
+TEST_CASE("A_THEME does not set resize or set_topmost", "[actions]") {
+    App app;
+    auto r = dispatch_action(app, A_THEME, t0(), {});
+    REQUIRE_FALSE(r.resize);
+    REQUIRE_FALSE(r.set_topmost);
+    REQUIRE_FALSE(r.open_file);
+    REQUIRE_FALSE(r.copy_laps);
+}
+
 // ─── out-of-range index ──────────────────────────────────────────────────────
 
 TEST_CASE("Out-of-range timer index does not crash or change state", "[actions]") {
