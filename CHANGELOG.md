@@ -28,6 +28,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pomodoro: label cleared when switching back to a normal preset
 - Pomodoro: idle time display expanded to fill space left by hidden buttons
 
+## [1.0.7] — 2026-04-19
+
+### Added
+- Test coverage for `A_THEME` action dispatch — verifies theme mode cycling (Auto→Dark→Light→Auto) and correct `HandleResult` flags (#217)
+
 ## [1.0.6] — 2026-04-19
 
 ### Fixed
@@ -82,7 +87,8 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.6...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/andreasnonslid/chronos/compare/v1.0.6...v1.0.7
 [1.0.6]: https://github.com/andreasnonslid/chronos/compare/v1.0.5...v1.0.6
 [1.0.5]: https://github.com/andreasnonslid/chronos/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/andreasnonslid/chronos/compare/v1.0.3...v1.0.4
