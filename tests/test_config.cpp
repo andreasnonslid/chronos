@@ -295,3 +295,66 @@ TEST_CASE("Config negative timer_start_epoch_ms clamped to 0", "[config]") {
     config_read(c, is);
     REQUIRE(c.timer_start_epoch_ms[0] == 0);
 }
+
+TEST_CASE("Config integer overflow timer value clamped to max", "[config]") {
+    std::istringstream is("timer0=99999999999999999\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.timer_secs[0] == Config::TIMER_MAX_SECS);
+}
+
+TEST_CASE("Config int-wrapping timer value clamped to max", "[config]") {
+    // 2^32 + 60 = 4294967356 would wrap to 60 with naive (int) cast
+    std::istringstream is("timer0=4294967356\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.timer_secs[0] == Config::TIMER_MAX_SECS);
+}
+
+TEST_CASE("Config integer overflow num_timers clamped", "[config]") {
+    std::istringstream is("num_timers=99999999999999999\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.num_timers >= 1);
+    REQUIRE(c.num_timers <= Config::MAX_TIMERS);
+}
+
+TEST_CASE("Config integer overflow pomodoro values clamped", "[config]") {
+    std::istringstream is("pomodoro_work=99999999999999999\npomodoro_short=99999999999999999\npomodoro_long=99999999999999999\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.pomodoro_work_secs <= Config::TIMER_MAX_SECS);
+    REQUIRE(c.pomodoro_short_secs <= Config::TIMER_MAX_SECS);
+    REQUIRE(c.pomodoro_long_secs <= Config::TIMER_MAX_SECS);
+}
+
+TEST_CASE("Config epoch zero with running stopwatch", "[config]") {
+    std::istringstream is("sw_running=1\nsw_start_epoch_ms=0\nsw_elapsed_ms=5000\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.sw_running);
+    REQUIRE(c.sw_start_epoch_ms == 0);
+    REQUIRE(c.sw_elapsed_ms == 5000);
+}
+
+TEST_CASE("Config duplicate keys last value wins", "[config]") {
+    std::istringstream is("show_clk=0\nshow_clk=1\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.show_clk);
+}
+
+TEST_CASE("Config empty label value produces empty string", "[config]") {
+    std::istringstream is("timer0_label=\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.timer_labels[0].empty());
+}
+
+TEST_CASE("Config whitespace around equals is ignored", "[config]") {
+    std::istringstream is("timer0 = 60\nshow_clk = 0\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.timer_secs[0] == 60);  // default unchanged, line skipped
+    REQUIRE(c.show_clk);             // default unchanged, line skipped
+}
