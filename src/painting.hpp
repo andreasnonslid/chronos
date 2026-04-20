@@ -38,11 +38,32 @@ inline int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
     divider(hdc, y, cw, ctx);
     SYSTEMTIME st;
     GetLocalTime(&st);
-    auto buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
+    std::wstring buf;
+    switch (ctx.app.clock_view) {
+    case ClockView::H24_HMS:
+        buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
+        break;
+    case ClockView::H24_HM:
+        buf = std::format(L"{:02}:{:02}", st.wHour, st.wMinute);
+        break;
+    case ClockView::H12_HMS: {
+        int h = st.wHour % 12;
+        if (h == 0) h = 12;
+        buf = std::format(L"{}:{:02}:{:02} {}", h, st.wMinute, st.wSecond, st.wHour < 12 ? L"AM" : L"PM");
+        break;
+    }
+    case ClockView::H12_HM: {
+        int h = st.wHour % 12;
+        if (h == 0) h = 12;
+        buf = std::format(L"{}:{:02} {}", h, st.wMinute, st.wHour < 12 ? L"AM" : L"PM");
+        break;
+    }
+    }
     SelectObject(hdc, ctx.res.fontBig);
     SetTextColor(hdc, ctx.theme.text);
     RECT tr{0, y, cw, y + layout.clk_h};
     DrawTextW(hdc, buf.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    ctx.btns.push_back({tr, A_CLK_CYCLE});
     return y + layout.clk_h;
 }
 
@@ -109,6 +130,7 @@ inline void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
         {L"Ctrl+Shift+Space", L"Global start/stop (any app)"},
         {L"", L""},
         {L"Scroll", L"Adjust timer value (H/M/S)"},
+        {L"Click clock", L"Cycle clock format"},
         {L"Dbl-click", L"Edit timer label"},
         {L"Right-click", L"Timer presets / Pomodoro (untouched)"},
     };

@@ -29,6 +29,8 @@ inline std::wstring utf8_to_wide(const std::string& s) {
 
 #else
 
+static_assert(sizeof(wchar_t) == 4, "Non-Windows encoding assumes wchar_t is UTF-32 (4 bytes)");
+
 inline std::string wide_to_utf8(const std::wstring& w) {
     std::string out;
     out.reserve(w.size());

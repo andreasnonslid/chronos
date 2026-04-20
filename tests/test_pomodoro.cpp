@@ -205,6 +205,63 @@ TEST_CASE("Config pomodoro durations not written at defaults", "[pomodoro][confi
     REQUIRE(os.str().find("pomodoro_work") == std::string::npos);
 }
 
+TEST_CASE("Config pomodoro work elapsed round-trip", "[pomodoro][config]") {
+    Config orig;
+    orig.num_timers = 1;
+    orig.timer_pomodoro[0] = true;
+    orig.timer_pomodoro_phase[0] = 3;
+    orig.timer_pomodoro_work_secs[0] = 75 * 60;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE(back.timer_pomodoro_work_secs[0] == 75 * 60);
+}
+
+TEST_CASE("Config pomodoro work elapsed not written when zero", "[pomodoro][config]") {
+    Config orig;
+    orig.num_timers = 1;
+    orig.timer_pomodoro[0] = true;
+    orig.timer_pomodoro_work_secs[0] = 0;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    REQUIRE(os.str().find("pomodoro_work_secs") == std::string::npos);
+}
+
+TEST_CASE("Config pomodoro work elapsed not written when pomodoro inactive", "[pomodoro][config]") {
+    Config orig;
+    orig.num_timers = 1;
+    orig.timer_pomodoro[0] = false;
+    orig.timer_pomodoro_work_secs[0] = 5000;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    REQUIRE(os.str().find("pomodoro_work_secs") == std::string::npos);
+}
+
+TEST_CASE("A_TMR_RST on Pomodoro timer resets work elapsed", "[pomodoro][actions]") {
+    App app;
+    auto& ts = app.timers[0];
+    ts.pomodoro = true;
+    ts.pomodoro_phase = 3;
+    ts.pomodoro_work_elapsed = seconds{75 * 60};
+    ts.dur = seconds{POMODORO_SHORT_BREAK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    dispatch_action(app, A_TMR_BASE + A_TMR_RST, t0(), {});
+
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{0});
+}
+
 TEST_CASE("Config pomodoro durations written when any differs from default", "[pomodoro][config]") {
     Config orig;
     orig.pomodoro_work_secs = 30 * 60; // only one changed

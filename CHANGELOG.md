@@ -28,6 +28,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pomodoro: label cleared when switching back to a normal preset
 - Pomodoro: idle time display expanded to fill space left by hidden buttons
 
+## [1.0.9] — 2026-04-20
+
+### Changed
+- App icon rewritten with 32-bit ARGB for proper per-pixel alpha transparency (#231)
+- Cleaner minimal clock design with anti-aliased ring, tick marks, and hands
+
+## [1.0.8] — 2026-04-19
+
+### Fixed
+- Config parser now clamps numeric values at `long long` before narrowing to `int`, preventing silent wrap-around on values like 2^32+60 that previously bypassed range checks (#227)
+
+### Added
+- Nine new test cases for config parsing edge cases: integer overflow, int-wrapping values, epoch zero with running state, duplicate keys, empty labels, and whitespace around delimiters (#227)
+
+## [1.0.7] — 2026-04-19
+
+### Added
+- Test coverage for `A_THEME` action dispatch — verifies theme mode cycling (Auto→Dark→Light→Auto) and correct `HandleResult` flags (#217)
+
+## [1.0.6] — 2026-04-19
+
+### Fixed
+- Release workflow now warns and uses a fallback body when no changelog section matches the tag version or `[Unreleased]`, instead of silently creating a release with an empty description (#218)
+
+## [1.0.5] — 2026-04-19
+
+### Fixed
+- Added `static_assert` in non-Windows encoding path to catch platforms where `wchar_t` is not 4 bytes at compile time, preventing silent UTF-8 corruption (#223)
+
 ## [1.0.4] — 2026-04-17
 
 ### Changed
@@ -72,7 +101,10 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/andreasnonslid/chronos/compare/v1.0.6...v1.0.7
+[1.0.6]: https://github.com/andreasnonslid/chronos/compare/v1.0.5...v1.0.6
+[1.0.5]: https://github.com/andreasnonslid/chronos/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/andreasnonslid/chronos/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/andreasnonslid/chronos/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/andreasnonslid/chronos/compare/v1.0.1...v1.0.2

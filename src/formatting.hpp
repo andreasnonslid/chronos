@@ -46,6 +46,14 @@ inline std::wstring format_timer_edit(std::chrono::steady_clock::duration d) {
     return std::format(L"{}:{:02}:{:02}", h, m, s);
 }
 
+inline std::wstring format_worked_time(std::chrono::seconds s) {
+    auto total = s.count();
+    auto h = total / 3600;
+    auto m = (total / 60) % 60;
+    if (h > 0) return std::format(L"Worked: {}h {:02}m", h, m);
+    return std::format(L"Worked: {}m", m);
+}
+
 inline std::wstring format_lap_row(std::size_t lap_number, std::chrono::steady_clock::duration split,
                                     std::chrono::steady_clock::duration total) {
     return std::format(L"Lap {:<3}   split {:<14}   total {}", lap_number, format_stopwatch_short(split),

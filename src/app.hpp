@@ -14,6 +14,7 @@ struct TimerSlot {
     std::wstring label;
     bool pomodoro = false;
     int pomodoro_phase = 0;
+    std::chrono::seconds pomodoro_work_elapsed{};
 };
 
 struct App {
@@ -25,6 +26,7 @@ struct App {
     bool show_tmr = true;
     bool topmost = false;
     ThemeMode theme_mode = ThemeMode::Auto;
+    ClockView clock_view = ClockView::H24_HMS;
     int pomodoro_work_secs = 25 * 60;
     int pomodoro_short_secs = 5 * 60;
     int pomodoro_long_secs = 15 * 60;

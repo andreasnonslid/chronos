@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <climits>
 #include <format>
 #include <istream>
 #include <ostream>
@@ -11,6 +12,8 @@
 #include "pomodoro.hpp"
 
 enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
+enum class ClockView { H24_HMS = 0, H24_HM = 1, H12_HMS = 2, H12_HM = 3 };
+inline constexpr int CLOCK_VIEW_COUNT = 4;
 
 struct Config {
     bool show_clk = true;
@@ -40,16 +43,18 @@ struct Config {
     std::array<bool, MAX_TIMERS> timer_notified{};
     std::array<bool, MAX_TIMERS> timer_pomodoro{};
     std::array<int, MAX_TIMERS> timer_pomodoro_phase{};
+    std::array<long long, MAX_TIMERS> timer_pomodoro_work_secs{};
     int pomodoro_work_secs = POMODORO_WORK_SECS;
     int pomodoro_short_secs = POMODORO_SHORT_BREAK_SECS;
     int pomodoro_long_secs = POMODORO_LONG_BREAK_SECS;
+    ClockView clock_view = ClockView::H24_HMS;
     Config() { timer_secs.fill(60); }
 };
 
 inline bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
-    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
-                     c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, c.num_timers);
+    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nclock_view={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
+                     c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, (int)c.clock_view, c.num_timers);
     Config defaults;
     if (c.pomodoro_work_secs != defaults.pomodoro_work_secs ||
         c.pomodoro_short_secs != defaults.pomodoro_short_secs ||
@@ -82,6 +87,8 @@ inline bool config_write(const Config& c, std::ostream& f) {
         if (c.timer_pomodoro[i]) {
             f << std::format("timer{}_pomodoro=1\n", i);
             f << std::format("timer{}_pomodoro_phase={}\n", i, c.timer_pomodoro_phase[i]);
+            if (c.timer_pomodoro_work_secs[i] > 0)
+                f << std::format("timer{}_pomodoro_work_secs={}\n", i, c.timer_pomodoro_work_secs[i]);
         }
     }
     return f.good();
@@ -116,7 +123,12 @@ inline bool config_read(Config& c, std::istream& f) {
         if (handled_str) continue;
         long long val;
         if (std::from_chars(rest.data(), rest.data() + rest.size(), val).ec != std::errc{}) continue;
-        if (key == "show_clk")
+        auto clamp_int = [](long long v, int lo, int hi) -> int {
+            return (int)std::clamp(v, (long long)lo, (long long)hi);
+        };
+        if (key == "clock_view") {
+            c.clock_view = (ClockView)clamp_int(val, 0, CLOCK_VIEW_COUNT - 1);
+        } else if (key == "show_clk")
             c.show_clk = val != 0;
         else if (key == "show_sw")
             c.show_sw = val != 0;
@@ -125,22 +137,22 @@ inline bool config_read(Config& c, std::istream& f) {
         else if (key == "topmost")
             c.topmost = val != 0;
         else if (key == "num_timers")
-            c.num_timers = std::clamp((int)val, 1, Config::MAX_TIMERS);
+            c.num_timers = clamp_int(val, 1, Config::MAX_TIMERS);
         else if (key == "win_x") {
-            c.win_x = (int)val;
+            c.win_x = clamp_int(val, INT_MIN, INT_MAX);
             has_x = true;
         } else if (key == "win_y") {
-            c.win_y = (int)val;
+            c.win_y = clamp_int(val, INT_MIN, INT_MAX);
             has_y = true;
         } else if (key == "win_w") {
-            c.win_w = std::max(Config::MIN_WINDOW_W, (int)val);
+            c.win_w = clamp_int(val, Config::MIN_WINDOW_W, INT_MAX);
             has_w = true;
         } else if (key == "pomodoro_work")
-            c.pomodoro_work_secs = std::clamp((int)val, 60, Config::TIMER_MAX_SECS);
+            c.pomodoro_work_secs = clamp_int(val, 60, Config::TIMER_MAX_SECS);
         else if (key == "pomodoro_short")
-            c.pomodoro_short_secs = std::clamp((int)val, 60, Config::TIMER_MAX_SECS);
+            c.pomodoro_short_secs = clamp_int(val, 60, Config::TIMER_MAX_SECS);
         else if (key == "pomodoro_long")
-            c.pomodoro_long_secs = std::clamp((int)val, 60, Config::TIMER_MAX_SECS);
+            c.pomodoro_long_secs = clamp_int(val, 60, Config::TIMER_MAX_SECS);
         else if (key == "sw_running")
             c.sw_running = val != 0;
         else if (key == "sw_elapsed_ms")
@@ -155,7 +167,7 @@ inline bool config_read(Config& c, std::istream& f) {
             else {
                 std::string_view field{ptr, suffix.data() + suffix.size()};
                 if (field.empty())
-                    c.timer_secs[i] = std::clamp((int)val, Config::TIMER_MIN_SECS, Config::TIMER_MAX_SECS);
+                    c.timer_secs[i] = clamp_int(val, Config::TIMER_MIN_SECS, Config::TIMER_MAX_SECS);
                 else if (field == "_elapsed_ms")
                     c.timer_elapsed_ms[i] = std::max(val, 0LL);
                 else if (field == "_running")
@@ -167,7 +179,9 @@ inline bool config_read(Config& c, std::istream& f) {
                 else if (field == "_pomodoro")
                     c.timer_pomodoro[i] = val != 0;
                 else if (field == "_pomodoro_phase")
-                    c.timer_pomodoro_phase[i] = (int)val % 8;
+                    c.timer_pomodoro_phase[i] = clamp_int(val, 0, 7);
+                else if (field == "_pomodoro_work_secs")
+                    c.timer_pomodoro_work_secs[i] = std::max(val, 0LL);
             }
         }
     }

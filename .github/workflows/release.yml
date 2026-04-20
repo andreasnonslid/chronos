@@ -37,6 +37,10 @@ jobs:
           if [ -z "$BODY" ]; then
             BODY=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## /{exit} found' CHANGELOG.md)
           fi
+          if [ -z "$BODY" ]; then
+            echo "::warning::No changelog section found for $VERSION or [Unreleased]"
+            BODY="No changelog entry for this release."
+          fi
           echo "body<<EOF" >> "$GITHUB_OUTPUT"
           echo "$BODY" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"

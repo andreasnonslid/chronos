@@ -22,6 +22,7 @@ enum Act {
     A_SW_GET,
     A_SW_COPY,
     A_THEME,
+    A_CLK_CYCLE,
     A_TMR_BASE = 100,
 };
 
@@ -48,6 +49,7 @@ inline bool wants_blink(int act) {
     case A_SW_START:
     case A_SW_COPY:
     case A_THEME:
+    case A_CLK_CYCLE:
         return false;
     default:
         if (act >= A_TMR_BASE) {
@@ -141,6 +143,10 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         r.apply_theme = true;
         r.save_config = true;
         break;
+    case A_CLK_CYCLE:
+        app.clock_view = (ClockView)(((int)app.clock_view + 1) % CLOCK_VIEW_COUNT);
+        r.save_config = true;
+        break;
     default:
         if (act >= A_TMR_BASE) {
             int idx = (act - A_TMR_BASE) / TMR_STRIDE;
@@ -160,6 +166,7 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                     ts.pomodoro_phase = 0;
                     ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
                     ts.label = pomodoro_phase_label(0);
+                    ts.pomodoro_work_elapsed = {};
                 }
                 ts.t.reset();
                 ts.t.set(ts.dur);

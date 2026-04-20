@@ -36,6 +36,7 @@ TEST_CASE("wants_blink returns false for toggle and start actions", "[actions]")
     REQUIRE_FALSE(wants_blink(A_SHOW_TMR));
     REQUIRE_FALSE(wants_blink(A_SW_START));
     REQUIRE_FALSE(wants_blink(A_SW_COPY));
+    REQUIRE_FALSE(wants_blink(A_CLK_CYCLE));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_START)));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_ADD)));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_DEL)));
@@ -384,6 +385,70 @@ TEST_CASE("A_TMR_START does not start untouched zero-duration timer", "[actions]
     REQUIRE_FALSE(app.timers[0].t.is_running());
 }
 
+// ─── theme cycling ──────────────────────────────────────────────────────────
+
+TEST_CASE("A_THEME cycles theme mode and signals apply_theme", "[actions]") {
+    App app;
+    REQUIRE(app.theme_mode == ThemeMode::Auto);
+
+    auto r1 = dispatch_action(app, A_THEME, t0(), {});
+    REQUIRE(app.theme_mode == ThemeMode::Dark);
+    REQUIRE(r1.apply_theme);
+    REQUIRE(r1.save_config);
+
+    auto r2 = dispatch_action(app, A_THEME, t0(), {});
+    REQUIRE(app.theme_mode == ThemeMode::Light);
+    REQUIRE(r2.apply_theme);
+    REQUIRE(r2.save_config);
+
+    auto r3 = dispatch_action(app, A_THEME, t0(), {});
+    REQUIRE(app.theme_mode == ThemeMode::Auto);
+    REQUIRE(r3.apply_theme);
+    REQUIRE(r3.save_config);
+}
+
+TEST_CASE("A_THEME does not set resize or set_topmost", "[actions]") {
+    App app;
+    auto r = dispatch_action(app, A_THEME, t0(), {});
+    REQUIRE_FALSE(r.resize);
+    REQUIRE_FALSE(r.set_topmost);
+    REQUIRE_FALSE(r.open_file);
+    REQUIRE_FALSE(r.copy_laps);
+}
+
+// ─── clock view cycling ─────────────────────────────────────────────────────
+
+TEST_CASE("A_CLK_CYCLE cycles through all clock views", "[actions]") {
+    App app;
+    REQUIRE(app.clock_view == ClockView::H24_HMS);
+
+    auto r1 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H24_HM);
+    REQUIRE(r1.save_config);
+
+    auto r2 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H12_HMS);
+    REQUIRE(r2.save_config);
+
+    auto r3 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H12_HM);
+    REQUIRE(r3.save_config);
+
+    auto r4 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H24_HMS);
+    REQUIRE(r4.save_config);
+}
+
+TEST_CASE("A_CLK_CYCLE does not set resize or apply_theme", "[actions]") {
+    App app;
+    auto r = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE_FALSE(r.resize);
+    REQUIRE_FALSE(r.set_topmost);
+    REQUIRE_FALSE(r.apply_theme);
+    REQUIRE_FALSE(r.open_file);
+    REQUIRE_FALSE(r.copy_laps);
+}
+
 // ─── out-of-range index ──────────────────────────────────────────────────────
 
 TEST_CASE("Out-of-range timer index does not crash or change state", "[actions]") {
@@ -392,4 +457,56 @@ TEST_CASE("Out-of-range timer index does not crash or change state", "[actions]"
     dispatch_action(app, tmr_act(5, A_TMR_HUP), t0(), {});
     REQUIRE(app.timers.size() == 1);
     REQUIRE(app.timers[0].dur == dur_before);
+}
+
+// ─── timer duration adjustment edge cases ────────────────────────────────────
+
+TEST_CASE("A_TMR_MDN at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+}
+
+TEST_CASE("A_TMR_SDN at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_SDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+}
+
+TEST_CASE("A_TMR_HDN wraps and clamps when both minutes and seconds are nonzero", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{30 * 60 + 30}); // 0:30:30
+    dispatch_action(app, tmr_act(0, A_TMR_HDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+}
+
+TEST_CASE("All adjustments at 24h boundary stay clamped", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+    dispatch_action(app, tmr_act(0, A_TMR_SDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
+}
+
+TEST_CASE("Zero duration reached via adjustment prevents start", "[actions]") {
+    App app; // default 0:01:00
+    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{0});
+    dispatch_action(app, tmr_act(0, A_TMR_START), t0(), {});
+    REQUIRE_FALSE(app.timers[0].t.is_running());
+    REQUIRE_FALSE(app.timers[0].t.touched());
+}
+
+TEST_CASE("A_TMR_MUP wraps without carrying to hours", "[actions]") {
+    App app;
+    set_timer_dur(app, 0, seconds{59 * 60 + 30}); // 0:59:30
+    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
+    REQUIRE(app.timers[0].dur == seconds{30}); // 0:00:30
 }

@@ -62,6 +62,8 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
         SelectObject(hdc, ctx.res.fontSm);
         SetTextColor(hdc, th.dim);
         std::wstring phase_lbl = pomodoro_phase_label(ts.pomodoro_phase);
+        if (ts.pomodoro_work_elapsed.count() > 0)
+            phase_lbl += L" \u00B7 " + format_worked_time(ts.pomodoro_work_elapsed);
         RECT lr{0, y + m.up_off, cw, y + m.up_off + layout.dpi_scale(20)};
         DrawTextW(hdc, phase_lbl.c_str(), -1, &lr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
@@ -119,6 +121,8 @@ inline void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::stea
     SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, th.dim);
     std::wstring subtitle = ts.label.empty() ? format_timer_edit(std::chrono::duration_cast<Timer::dur>(ts.dur)) : ts.label;
+    if (ts.pomodoro && ts.pomodoro_work_elapsed.count() > 0)
+        subtitle += L" \u00B7 " + format_worked_time(ts.pomodoro_work_elapsed);
     RECT sr{0, y + m.up_off, cw, y + m.up_off + layout.dpi_scale(20)};
     DrawTextW(hdc, subtitle.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
