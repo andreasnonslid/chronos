@@ -41,6 +41,7 @@ struct Config {
     std::array<bool, MAX_TIMERS> timer_notified{};
     std::array<bool, MAX_TIMERS> timer_pomodoro{};
     std::array<int, MAX_TIMERS> timer_pomodoro_phase{};
+    std::array<long long, MAX_TIMERS> timer_pomodoro_work_secs{};
     int pomodoro_work_secs = POMODORO_WORK_SECS;
     int pomodoro_short_secs = POMODORO_SHORT_BREAK_SECS;
     int pomodoro_long_secs = POMODORO_LONG_BREAK_SECS;
@@ -83,6 +84,8 @@ inline bool config_write(const Config& c, std::ostream& f) {
         if (c.timer_pomodoro[i]) {
             f << std::format("timer{}_pomodoro=1\n", i);
             f << std::format("timer{}_pomodoro_phase={}\n", i, c.timer_pomodoro_phase[i]);
+            if (c.timer_pomodoro_work_secs[i] > 0)
+                f << std::format("timer{}_pomodoro_work_secs={}\n", i, c.timer_pomodoro_work_secs[i]);
         }
     }
     return f.good();
@@ -172,6 +175,8 @@ inline bool config_read(Config& c, std::istream& f) {
                     c.timer_pomodoro[i] = val != 0;
                 else if (field == "_pomodoro_phase")
                     c.timer_pomodoro_phase[i] = clamp_int(val, 0, 7);
+                else if (field == "_pomodoro_work_secs")
+                    c.timer_pomodoro_work_secs[i] = std::max(val, 0LL);
             }
         }
     }

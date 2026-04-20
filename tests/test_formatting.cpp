@@ -92,6 +92,28 @@ TEST_CASE("format_lap_row: large lap number", "[formatting]") {
     REQUIRE(result.find(L"Lap 100") != std::wstring::npos);
 }
 
+// ── format_worked_time ─────────────────────────────────────────────────────
+
+TEST_CASE("format_worked_time: zero minutes", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{0}) == L"Worked: 0m");
+}
+
+TEST_CASE("format_worked_time: minutes only", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{25 * 60}) == L"Worked: 25m");
+}
+
+TEST_CASE("format_worked_time: hours and minutes", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{75 * 60}) == L"Worked: 1h 15m");
+}
+
+TEST_CASE("format_worked_time: exact hours", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{2 * 3600}) == L"Worked: 2h 00m");
+}
+
+TEST_CASE("format_worked_time: partial seconds truncated to minutes", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{25 * 60 + 30}) == L"Worked: 25m");
+}
+
 // ── negative duration clamping ──────────────────────────────────────────────
 
 TEST_CASE("format_stopwatch_short: negative duration clamps to zero", "[formatting]") {

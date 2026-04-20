@@ -14,6 +14,7 @@ struct TimerSlot {
     std::wstring label;
     bool pomodoro = false;
     int pomodoro_phase = 0;
+    std::chrono::seconds pomodoro_work_elapsed{};
 };
 
 struct App {

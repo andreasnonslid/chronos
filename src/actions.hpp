@@ -160,6 +160,7 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                     ts.pomodoro_phase = 0;
                     ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
                     ts.label = pomodoro_phase_label(0);
+                    ts.pomodoro_work_elapsed = {};
                 }
                 ts.t.reset();
                 ts.t.set(ts.dur);

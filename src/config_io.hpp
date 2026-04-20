@@ -62,6 +62,7 @@ inline void save_config(HWND hwnd, const WndState& s) {
         cfg.timer_notified[i] = ts.notified;
         cfg.timer_pomodoro[i] = ts.pomodoro;
         cfg.timer_pomodoro_phase[i] = ts.pomodoro_phase;
+        cfg.timer_pomodoro_work_secs[i] = ts.pomodoro_work_elapsed.count();
     }
     if (hwnd) {
         RECT wr;
@@ -137,6 +138,7 @@ inline void load_config(HWND hwnd, WndState& s) {
         auto& ts = s.app.timers[i];
         ts.pomodoro = cfg.timer_pomodoro[i];
         ts.pomodoro_phase = cfg.timer_pomodoro_phase[i];
+        ts.pomodoro_work_elapsed = std::chrono::seconds{cfg.timer_pomodoro_work_secs[i]};
         if (cfg.timer_elapsed_ms[i] <= 0 && !cfg.timer_running[i] && !cfg.timer_notified[i]) continue;
         long long elapsed_ms = cfg.timer_elapsed_ms[i];
         bool tmr_running = cfg.timer_running[i];
