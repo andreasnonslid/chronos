@@ -22,6 +22,7 @@ enum Act {
     A_SW_GET,
     A_SW_COPY,
     A_THEME,
+    A_CLK_CYCLE,
     A_TMR_BASE = 100,
 };
 
@@ -48,6 +49,7 @@ inline bool wants_blink(int act) {
     case A_SW_START:
     case A_SW_COPY:
     case A_THEME:
+    case A_CLK_CYCLE:
         return false;
     default:
         if (act >= A_TMR_BASE) {
@@ -139,6 +141,10 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
     case A_THEME:
         app.theme_mode = (ThemeMode)(((int)app.theme_mode + 1) % 3);
         r.apply_theme = true;
+        r.save_config = true;
+        break;
+    case A_CLK_CYCLE:
+        app.clock_view = (ClockView)(((int)app.clock_view + 1) % CLOCK_VIEW_COUNT);
         r.save_config = true;
         break;
     default:

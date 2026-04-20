@@ -12,6 +12,8 @@
 #include "pomodoro.hpp"
 
 enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
+enum class ClockView { H24_HMS = 0, H24_HM = 1, H12_HMS = 2, H12_HM = 3 };
+inline constexpr int CLOCK_VIEW_COUNT = 4;
 
 struct Config {
     bool show_clk = true;
@@ -45,13 +47,14 @@ struct Config {
     int pomodoro_work_secs = POMODORO_WORK_SECS;
     int pomodoro_short_secs = POMODORO_SHORT_BREAK_SECS;
     int pomodoro_long_secs = POMODORO_LONG_BREAK_SECS;
+    ClockView clock_view = ClockView::H24_HMS;
     Config() { timer_secs.fill(60); }
 };
 
 inline bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
-    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
-                     c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, c.num_timers);
+    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nclock_view={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
+                     c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, (int)c.clock_view, c.num_timers);
     Config defaults;
     if (c.pomodoro_work_secs != defaults.pomodoro_work_secs ||
         c.pomodoro_short_secs != defaults.pomodoro_short_secs ||
@@ -123,7 +126,9 @@ inline bool config_read(Config& c, std::istream& f) {
         auto clamp_int = [](long long v, int lo, int hi) -> int {
             return (int)std::clamp(v, (long long)lo, (long long)hi);
         };
-        if (key == "show_clk")
+        if (key == "clock_view") {
+            c.clock_view = (ClockView)clamp_int(val, 0, CLOCK_VIEW_COUNT - 1);
+        } else if (key == "show_clk")
             c.show_clk = val != 0;
         else if (key == "show_sw")
             c.show_sw = val != 0;

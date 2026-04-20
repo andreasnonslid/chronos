@@ -36,6 +36,7 @@ TEST_CASE("wants_blink returns false for toggle and start actions", "[actions]")
     REQUIRE_FALSE(wants_blink(A_SHOW_TMR));
     REQUIRE_FALSE(wants_blink(A_SW_START));
     REQUIRE_FALSE(wants_blink(A_SW_COPY));
+    REQUIRE_FALSE(wants_blink(A_CLK_CYCLE));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_START)));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_ADD)));
     REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_DEL)));
@@ -411,6 +412,39 @@ TEST_CASE("A_THEME does not set resize or set_topmost", "[actions]") {
     auto r = dispatch_action(app, A_THEME, t0(), {});
     REQUIRE_FALSE(r.resize);
     REQUIRE_FALSE(r.set_topmost);
+    REQUIRE_FALSE(r.open_file);
+    REQUIRE_FALSE(r.copy_laps);
+}
+
+// ─── clock view cycling ─────────────────────────────────────────────────────
+
+TEST_CASE("A_CLK_CYCLE cycles through all clock views", "[actions]") {
+    App app;
+    REQUIRE(app.clock_view == ClockView::H24_HMS);
+
+    auto r1 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H24_HM);
+    REQUIRE(r1.save_config);
+
+    auto r2 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H12_HMS);
+    REQUIRE(r2.save_config);
+
+    auto r3 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H12_HM);
+    REQUIRE(r3.save_config);
+
+    auto r4 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H24_HMS);
+    REQUIRE(r4.save_config);
+}
+
+TEST_CASE("A_CLK_CYCLE does not set resize or apply_theme", "[actions]") {
+    App app;
+    auto r = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE_FALSE(r.resize);
+    REQUIRE_FALSE(r.set_topmost);
+    REQUIRE_FALSE(r.apply_theme);
     REQUIRE_FALSE(r.open_file);
     REQUIRE_FALSE(r.copy_laps);
 }

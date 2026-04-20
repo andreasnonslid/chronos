@@ -193,6 +193,27 @@ TEST_CASE("Config theme round-trip", "[config]") {
     }
 }
 
+TEST_CASE("Config clock_view round-trip", "[config]") {
+    for (auto view : {ClockView::H24_HMS, ClockView::H24_HM, ClockView::H12_HMS, ClockView::H12_HM}) {
+        Config orig;
+        orig.clock_view = view;
+        std::ostringstream os;
+        config_write(orig, os);
+        Config back;
+        std::istringstream is(os.str());
+        config_read(back, is);
+        REQUIRE(back.clock_view == view);
+    }
+}
+
+TEST_CASE("Config clock_view invalid value clamped", "[config]") {
+    std::istringstream is("clock_view=99\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE((int)c.clock_view >= 0);
+    REQUIRE((int)c.clock_view < CLOCK_VIEW_COUNT);
+}
+
 TEST_CASE("Config stopwatch runtime state round-trip", "[config]") {
     Config orig;
     orig.sw_running = true;

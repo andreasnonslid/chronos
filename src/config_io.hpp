@@ -37,6 +37,7 @@ inline void save_config(HWND hwnd, const WndState& s) {
     }
     Config cfg;
     cfg.show_clk = s.app.show_clk;
+    cfg.clock_view = s.app.clock_view;
     cfg.show_sw = s.app.show_sw;
     cfg.show_tmr = s.app.show_tmr;
     cfg.topmost = s.app.topmost;
@@ -106,6 +107,7 @@ inline void load_config(HWND hwnd, WndState& s) {
     dbg(std::format(L"[chrono] loaded: clk={} sw={} tmr={} top={} pos={} ({},{} w={})", cfg.show_clk, cfg.show_sw,
                     cfg.show_tmr, cfg.topmost, cfg.pos_valid, cfg.win_x, cfg.win_y, cfg.win_w));
     s.app.show_clk = cfg.show_clk;
+    s.app.clock_view = cfg.clock_view;
     s.app.show_sw = cfg.show_sw;
     s.app.show_tmr = cfg.show_tmr;
     s.app.topmost = cfg.topmost;
