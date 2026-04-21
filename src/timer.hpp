@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include "assert.hpp"
 
 struct Timer {
     using tp = std::chrono::steady_clock::time_point;
@@ -8,18 +9,16 @@ struct Timer {
     void set(dur d) { target_ = d; }
 
     void start(tp now) {
-        if (!running_) {
-            start_time_ = now;
-            running_ = true;
-            touched_ = true;
-        }
+        CHRONOS_ASSERT(!running_);
+        start_time_ = now;
+        running_ = true;
+        touched_ = true;
     }
 
     void pause(tp now) {
-        if (running_) {
-            elapsed_at_pause_ += now - start_time_;
-            running_ = false;
-        }
+        CHRONOS_ASSERT(running_);
+        elapsed_at_pause_ += now - start_time_;
+        running_ = false;
     }
 
     void reset() {

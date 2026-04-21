@@ -1,29 +1,29 @@
 #pragma once
 #include <chrono>
 #include <vector>
+#include "assert.hpp"
 
 struct Stopwatch {
     using tp = std::chrono::steady_clock::time_point;
     using dur = std::chrono::steady_clock::duration;
 
     void start(tp now) {
-        if (!running_) {
-            start_time_ = now;
-            running_ = true;
-        }
+        CHRONOS_ASSERT(!running_);
+        start_time_ = now;
+        running_ = true;
     }
 
     void stop(tp now) {
-        if (running_) {
-            accumulated_ += now - start_time_;
-            running_ = false;
-        }
+        CHRONOS_ASSERT(running_);
+        accumulated_ += now - start_time_;
+        running_ = false;
     }
 
     static constexpr size_t MAX_LAPS = 999;
 
     void lap(tp now) {
-        if (running_ && laps_.size() < MAX_LAPS) {
+        CHRONOS_ASSERT(running_);
+        if (laps_.size() < MAX_LAPS) {
             dur current = elapsed(now);
             laps_.push_back(current - last_lap_elapsed_);
             last_lap_elapsed_ = current;

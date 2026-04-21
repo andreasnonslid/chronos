@@ -51,7 +51,7 @@ inline void handle_wm_timer(HWND hwnd, WndState& s) {
             if (ts.pomodoro) {
                 if (ts.pomodoro_phase % 2 == 0)
                     ts.pomodoro_work_elapsed += ts.dur;
-                ts.pomodoro_phase = (ts.pomodoro_phase + 1) % 8;
+                ts.pomodoro_phase = (ts.pomodoro_phase + 1) % POMODORO_PHASE_COUNT;
                 auto secs = std::chrono::seconds{pomodoro_phase_secs(ts.pomodoro_phase,
                     s.app.pomodoro_work_secs, s.app.pomodoro_short_secs, s.app.pomodoro_long_secs)};
                 ts.dur = secs;

@@ -12,6 +12,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Clipboard copy for stopwatch laps (`C` key) — same format as file export
 - Title briefly shows "Copied — Chronos" for 1 s after clipboard copy
 - `E` key shortcut to open the exported laps file
+- Offensive programming assertions across internal modules — `Timer`, `Stopwatch`, `Pomodoro`, layout, painting, and action dispatch now enforce preconditions via `CHRONOS_ASSERT` / `CHRONOS_UNREACHABLE` in debug builds (#215)
+- `static_assert` tying `CLOCK_VIEW_COUNT` to `ClockView` enum to catch desync at compile time
+- `POMODORO_PHASE_COUNT` constant replacing magic number `8` in phase arithmetic
 
 ### Fixed
 - Stopwatch lap count capped at 999 to prevent unbounded memory growth (#175)

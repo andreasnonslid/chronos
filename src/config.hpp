@@ -14,6 +14,8 @@
 enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
 enum class ClockView { H24_HMS = 0, H24_HM = 1, H12_HMS = 2, H12_HM = 3 };
 inline constexpr int CLOCK_VIEW_COUNT = 4;
+static_assert((int)ClockView::H12_HM == CLOCK_VIEW_COUNT - 1,
+              "CLOCK_VIEW_COUNT out of sync with ClockView enum");
 
 struct Config {
     bool show_clk = true;

@@ -5,6 +5,7 @@
 #include <format>
 #include <fstream>
 #include <string>
+#include "assert.hpp"
 #include "app.hpp"
 #include "config.hpp"
 #include "formatting.hpp"
@@ -38,7 +39,10 @@ constexpr int A_TMR_RST = 7;
 constexpr int A_TMR_ADD = 8;
 constexpr int A_TMR_DEL = 9;
 
-inline int tmr_act(int i, int off) { return A_TMR_BASE + i * TMR_STRIDE + off; }
+inline int tmr_act(int i, int off) {
+    CHRONOS_ASSERT(i >= 0 && off >= 0 && off < TMR_STRIDE);
+    return A_TMR_BASE + i * TMR_STRIDE + off;
+}
 
 inline bool wants_blink(int act) {
     switch (act) {

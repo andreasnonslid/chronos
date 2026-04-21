@@ -68,21 +68,22 @@ TEST_CASE("Timer touched flag", "[timer]") {
     REQUIRE(t.touched());
 }
 
-TEST_CASE("Timer double-start is a no-op", "[timer]") {
+TEST_CASE("Timer start requires not running (offensive contract)", "[timer]") {
     Timer t;
     t.set(seconds(10));
-    t.start(at_ms(0));
-    t.start(at_ms(5000));
-    REQUIRE(t.remaining(at_ms(3000)) == seconds(7));
-}
-
-TEST_CASE("Timer pause when not running is a no-op", "[timer]") {
-    Timer t;
-    t.set(seconds(10));
-    t.pause(at_ms(100));
     REQUIRE_FALSE(t.is_running());
     t.start(at_ms(0));
-    REQUIRE(t.remaining(at_ms(1000)) == seconds(9));
+    REQUIRE(t.is_running());
+}
+
+TEST_CASE("Timer pause requires running (offensive contract)", "[timer]") {
+    Timer t;
+    t.set(seconds(10));
+    t.start(at_ms(0));
+    REQUIRE(t.is_running());
+    t.pause(at_ms(3000));
+    REQUIRE_FALSE(t.is_running());
+    REQUIRE(t.remaining(at_ms(9999)) == seconds(7));
 }
 
 TEST_CASE("Timer with zero target is not expired", "[timer]") {

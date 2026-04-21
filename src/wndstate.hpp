@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <utility>
 #include <vector>
+#include "assert.hpp"
 #include "dwm_fwd.hpp"
 #include "app.hpp"
 #include "config.hpp"
@@ -89,6 +90,7 @@ struct WndState {
     }
 
     PaintCtx paint_ctx() {
+        CHRONOS_ASSERT(active_theme);
         return {.app = app, .layout = layout, .theme = *active_theme, .res = res(), .btns = btns, .now = {}};
     }
 };

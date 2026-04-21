@@ -55,10 +55,12 @@ TEST_CASE("Stopwatch cumulative lap time", "[stopwatch]") {
     REQUIRE(sw.cumulative() == dur::zero());
 }
 
-TEST_CASE("Stopwatch lap ignored when not running", "[stopwatch]") {
+TEST_CASE("Stopwatch lap requires running (offensive contract)", "[stopwatch]") {
     Stopwatch sw;
+    sw.start(at_ms(0));
+    REQUIRE(sw.is_running());
     sw.lap(at_ms(100));
-    REQUIRE(sw.laps().empty());
+    REQUIRE(sw.laps().size() == 1);
 }
 
 TEST_CASE("Stopwatch reset clears everything", "[stopwatch]") {
@@ -72,19 +74,20 @@ TEST_CASE("Stopwatch reset clears everything", "[stopwatch]") {
     REQUIRE(sw.laps().empty());
 }
 
-TEST_CASE("Stopwatch double-start is a no-op", "[stopwatch]") {
+TEST_CASE("Stopwatch start requires not running (offensive contract)", "[stopwatch]") {
     Stopwatch sw;
+    REQUIRE_FALSE(sw.is_running());
     sw.start(at_ms(0));
-    sw.start(at_ms(500));
-    sw.stop(at_ms(100));
-    REQUIRE(sw.elapsed(at_ms(0)) == milliseconds(100));
+    REQUIRE(sw.is_running());
 }
 
-TEST_CASE("Stopwatch stop when not running is a no-op", "[stopwatch]") {
+TEST_CASE("Stopwatch stop requires running (offensive contract)", "[stopwatch]") {
     Stopwatch sw;
-    sw.stop(at_ms(100));
+    sw.start(at_ms(0));
+    REQUIRE(sw.is_running());
+    sw.stop(at_ms(250));
     REQUIRE_FALSE(sw.is_running());
-    REQUIRE(sw.elapsed(at_ms(200)) == dur::zero());
+    REQUIRE(sw.elapsed(at_ms(9999)) == milliseconds(250));
 }
 
 TEST_CASE("Stopwatch lap split is correct after pause/resume", "[stopwatch]") {

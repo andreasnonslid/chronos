@@ -4,6 +4,7 @@
 #include <chrono>
 #include <format>
 #include <string>
+#include "assert.hpp"
 #include "actions.hpp"
 #include "app.hpp"
 #include "config.hpp"
@@ -17,6 +18,7 @@
 
 // ─── Timer painters ───────────────────────────────────────────────────────
 inline void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
+    CHRONOS_ASSERT(i >= 0 && i < (int)ctx.app.timers.size());
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
     bool expired = ts.t.expired(now);
@@ -33,6 +35,7 @@ inline void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::ste
 }
 
 inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
+    CHRONOS_ASSERT(i >= 0 && i < (int)ctx.app.timers.size());
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     auto& ts = ctx.app.timers[i];
@@ -110,6 +113,7 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
 }
 
 inline void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::steady_clock::time_point now, PaintCtx& ctx) {
+    CHRONOS_ASSERT(i >= 0 && i < (int)ctx.app.timers.size());
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
     auto& ts = ctx.app.timers[i];
@@ -133,6 +137,7 @@ inline void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::stea
 }
 
 inline void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
+    CHRONOS_ASSERT(i >= 0 && i < (int)ctx.app.timers.size());
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
     auto m = TimerMetrics::from(layout);

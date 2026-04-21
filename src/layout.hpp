@@ -1,4 +1,5 @@
 #pragma once
+#include "assert.hpp"
 
 constexpr int STANDARD_DPI = 96;
 
@@ -30,9 +31,13 @@ struct Layout {
 
     int bar_min_client_w() const { return w_pin + w_clk + w_sw + w_tmr + 3 * bar_gap + 2 * dpi_scale(8); }
 
-    int dpi_scale(int value) const { return value * dpi / STANDARD_DPI; }
+    int dpi_scale(int value) const {
+        CHRONOS_ASSERT(dpi > 0);
+        return value * dpi / STANDARD_DPI;
+    }
 
     void update_for_dpi(int new_dpi) {
+        CHRONOS_ASSERT(new_dpi > 0);
         dpi = new_dpi;
         bar_h   = dpi_scale(BASE_BAR_H);
         clk_h   = dpi_scale(BASE_CLK_H);

@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include "assert.hpp"
 #include "actions.hpp"
 #include "app.hpp"
 #include "formatting.hpp"
@@ -58,6 +59,7 @@ inline int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
         buf = std::format(L"{}:{:02} {}", h, st.wMinute, st.wHour < 12 ? L"AM" : L"PM");
         break;
     }
+    default: CHRONOS_UNREACHABLE();
     }
     SelectObject(hdc, ctx.res.fontBig);
     SetTextColor(hdc, ctx.theme.text);
