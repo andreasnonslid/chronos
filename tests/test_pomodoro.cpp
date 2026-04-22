@@ -2,7 +2,7 @@
 #include <chrono>
 #include <sstream>
 #include "../src/actions.hpp"
-#include "../src/config.hpp"
+#include "../src/config_serial.hpp"
 #include "../src/pomodoro.hpp"
 
 using namespace std::chrono;

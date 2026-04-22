@@ -6,7 +6,7 @@
 #include <format>
 #include <fstream>
 #include <string>
-#include "config.hpp"
+#include "config_serial.hpp"
 #include "debug.hpp"
 #include "encoding.hpp"
 #include "layout.hpp"

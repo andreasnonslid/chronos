@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <sstream>
 #include <string>
-#include "../src/config.hpp"
+#include "../src/config_serial.hpp"
 
 TEST_CASE("Config defaults", "[config]") {
     Config c;
