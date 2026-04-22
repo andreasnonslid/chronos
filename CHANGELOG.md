@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.12] — 2026-04-22
+
+### Removed
+- Deleted `auto-tag.yml` workflow — tags are now created manually and `release.yml` already handles tag-triggered releases (#232)
+
 ## [1.0.11] — 2026-04-22
 
 ### Changed
@@ -116,7 +121,8 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.11...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.12...HEAD
+[1.0.12]: https://github.com/andreasnonslid/chronos/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/andreasnonslid/chronos/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/andreasnonslid/chronos/compare/v1.0.9...v1.0.10
 [1.0.9]: https://github.com/andreasnonslid/chronos/compare/v1.0.8...v1.0.9
