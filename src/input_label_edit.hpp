@@ -2,28 +2,25 @@
 #include <windows.h>
 #include "config_io.hpp"
 #include "geometry.hpp"
+#include "wndstate.hpp"
 
 constexpr int EDIT_ID_BASE = 9000;
 
-namespace {
-WNDPROC g_orig_edit_proc = nullptr;
-bool g_edit_cancelled = false;
-
-LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+inline LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* s = (WndState*)GetWindowLongPtr(GetParent(hwnd), GWLP_USERDATA);
     if (msg == WM_KEYDOWN) {
         if (wp == VK_RETURN) {
             SetFocus(GetParent(hwnd));
             return 0;
         }
         if (wp == VK_ESCAPE) {
-            g_edit_cancelled = true;
+            s->edit_cancelled = true;
             SetFocus(GetParent(hwnd));
             return 0;
         }
     }
-    return CallWindowProcW(g_orig_edit_proc, hwnd, msg, wp, lp);
+    return CallWindowProcW(s->orig_edit_proc, hwnd, msg, wp, lp);
 }
-} // namespace
 
 inline void try_start_label_edit(HWND hwnd, POINT pt, WndState& s) {
     int idx = timer_index_at_y(s.layout, layout_state(s), pt.y);
@@ -45,8 +42,8 @@ inline void try_start_label_edit(HWND hwnd, POINT pt, WndState& s) {
                                 ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(EDIT_ID_BASE + idx), nullptr, nullptr);
     SendMessageW(edit, EM_SETLIMITTEXT, Config::MAX_LABEL_LEN, 0);
     SendMessageW(edit, WM_SETFONT, (WPARAM)(HFONT)s.fontSm.h, TRUE);
-    g_edit_cancelled = false;
-    g_orig_edit_proc = (WNDPROC)SetWindowLongPtrW(edit, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc);
+    s.edit_cancelled = false;
+    s.orig_edit_proc = (WNDPROC)SetWindowLongPtrW(edit, GWLP_WNDPROC, (LONG_PTR)EditSubclassProc);
     SetFocus(edit);
     SendMessageW(edit, EM_SETSEL, 0, -1);
 }
@@ -57,7 +54,7 @@ inline bool handle_label_edit_command(HWND hwnd, WPARAM wp, LPARAM lp, WndState&
     if (id >= EDIT_ID_BASE && id < EDIT_ID_BASE + Config::MAX_TIMERS && code == EN_KILLFOCUS) {
         int idx = id - EDIT_ID_BASE;
         HWND edit = (HWND)lp;
-        if (!g_edit_cancelled) {
+        if (!s.edit_cancelled) {
             wchar_t buf[Config::MAX_LABEL_LEN + 1] = {};
             GetWindowTextW(edit, buf, Config::MAX_LABEL_LEN + 1);
             if (idx < (int)s.app.timers.size()) {
@@ -65,7 +62,7 @@ inline bool handle_label_edit_command(HWND hwnd, WPARAM wp, LPARAM lp, WndState&
                 save_config(hwnd, s);
             }
         }
-        g_edit_cancelled = false;
+        s.edit_cancelled = false;
         DestroyWindow(edit);
         InvalidateRect(hwnd, nullptr, FALSE);
         return true;

@@ -71,6 +71,9 @@ struct WndState {
     WndState& operator=(const WndState&) = delete;
     WndState() = default;
 
+    WNDPROC orig_edit_proc = nullptr;
+    bool edit_cancelled = false;
+
     DcObj mdc{};
     GdiObj buf_bmp{};
     int buf_w = 0, buf_h = 0;
