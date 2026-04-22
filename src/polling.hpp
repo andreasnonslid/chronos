@@ -30,6 +30,31 @@ inline void sync_timer(HWND hwnd, WndState& s) {
     }
 }
 
+inline void update_title(HWND hwnd, WndState& s) {
+    using namespace std::chrono;
+    auto now = steady_clock::now();
+    std::wstring title;
+    for (auto& ts : s.app.timers) {
+        if (ts.t.is_running()) {
+            title = format_timer_display(ts.t.remaining(now));
+            if (ts.t.expired(now)) title = L"EXPIRED " + title;
+            break;
+        }
+    }
+    if (title.empty() && s.app.sw.is_running()) {
+        title = format_stopwatch_display(s.app.sw.elapsed(now));
+    }
+    if (title.empty()) {
+        SYSTEMTIME st;
+        GetLocalTime(&st);
+        title = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
+    }
+    title += L" — Chronos";
+    if (now < s.clipboard_copied_until) title = L"Copied — Chronos";
+    SetWindowTextW(hwnd, title.c_str());
+    if (s.tray_active) tray_update_tip(hwnd, title.c_str());
+}
+
 inline void handle_wm_timer(HWND hwnd, WndState& s) {
     using namespace std::chrono;
     auto now = steady_clock::now();
@@ -64,28 +89,7 @@ inline void handle_wm_timer(HWND hwnd, WndState& s) {
             }
         }
     }
-    {
-        std::wstring title;
-        for (auto& ts : s.app.timers) {
-            if (ts.t.is_running()) {
-                title = format_timer_display(ts.t.remaining(now));
-                if (ts.t.expired(now)) title = L"EXPIRED " + title;
-                break;
-            }
-        }
-        if (title.empty() && s.app.sw.is_running()) {
-            title = format_stopwatch_display(s.app.sw.elapsed(now));
-        }
-        if (title.empty()) {
-            SYSTEMTIME st;
-            GetLocalTime(&st);
-            title = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
-        }
-        title += L" \u2014 Chronos";
-        if (now < s.clipboard_copied_until) title = L"Copied \u2014 Chronos";
-        SetWindowTextW(hwnd, title.c_str());
-        if (s.tray_active) tray_update_tip(hwnd, title.c_str());
-    }
+    update_title(hwnd, s);
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);
 }
