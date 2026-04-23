@@ -3,6 +3,12 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.0] — 2026-04-23
+
+### Added
+- **P** keyboard shortcut to toggle Pomodoro mode on the first timer — press P to enable Pomodoro on an idle timer, press again to disable (#219)
+- P shortcut documented in the help overlay (H/?)
+
 ## [1.0.12] — 2026-04-22
 
 ### Removed
@@ -121,7 +127,8 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.0.12...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/andreasnonslid/chronos/compare/v1.0.12...v1.1.0
 [1.0.12]: https://github.com/andreasnonslid/chronos/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/andreasnonslid/chronos/compare/v1.0.10...v1.0.11
 [1.0.10]: https://github.com/andreasnonslid/chronos/compare/v1.0.9...v1.0.10

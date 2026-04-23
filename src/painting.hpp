@@ -123,6 +123,7 @@ inline void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
         {L"E", L"Open exported laps file"},
         {L"C", L"Copy laps to clipboard"},
         {L"R", L"Reset stopwatch or first timer"},
+        {L"P", L"Toggle Pomodoro on first timer"},
         {L"T", L"Toggle always-on-top"},
         {L"D", L"Cycle theme: Auto \u2192 Dark \u2192 Light"},
         {L"1-3", L"Start/Stop timer 1-3"},
