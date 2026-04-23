@@ -126,6 +126,7 @@ inline void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
         {L"T", L"Toggle always-on-top"},
         {L"D", L"Cycle theme: Auto \u2192 Dark \u2192 Light"},
         {L"1-3", L"Start/Stop timer 1-3"},
+        {L"Shift+1-3", L"Reset timer 1-3"},
         {L"+ / =", L"Add a timer slot"},
         {L"-", L"Remove last timer slot"},
         {L"H / ?", L"Toggle this help"},

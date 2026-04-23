@@ -51,7 +51,10 @@ inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, 
         case '2':
         case '3': {
             int idx = (int)(wp - '1');
-            if (s.app.show_tmr && idx < (int)s.app.timers.size()) handle(hwnd, tmr_act(idx, A_TMR_START), s);
+            if (s.app.show_tmr && idx < (int)s.app.timers.size()) {
+                int act = (GetKeyState(VK_SHIFT) < 0) ? A_TMR_RST : A_TMR_START;
+                handle(hwnd, tmr_act(idx, act), s);
+            }
             return 0;
         }
         case 'H':
