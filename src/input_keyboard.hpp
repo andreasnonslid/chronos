@@ -58,23 +58,8 @@ inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, 
             return 0;
         }
         case 'P':
-            if (s.app.show_tmr && !s.app.timers.empty()) {
-                auto& ts = s.app.timers[0];
-                if (ts.pomodoro) {
-                    ts.pomodoro = false;
-                    ts.label.clear();
-                } else if (!ts.t.touched()) {
-                    ts.pomodoro = true;
-                    ts.pomodoro_phase = 0;
-                    ts.dur = std::chrono::seconds{s.app.pomodoro_work_secs};
-                    ts.label = pomodoro_phase_label(0);
-                    ts.notified = false;
-                    ts.t.reset();
-                    ts.t.set(ts.dur);
-                }
-                save_config(hwnd, s);
-                InvalidateRect(hwnd, nullptr, FALSE);
-            }
+            if (s.app.show_tmr && !s.app.timers.empty())
+                handle(hwnd, tmr_act(0, A_TMR_POMO), s);
             return 0;
         case 'H':
             s.app.show_help = !s.app.show_help;

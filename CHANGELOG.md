@@ -6,8 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.1.0] — 2026-04-23
 
 ### Added
-- **P** keyboard shortcut to toggle Pomodoro mode on the first timer — press P to enable Pomodoro on an idle timer, press again to disable (#219)
-- P shortcut documented in the help overlay (H/?)
+- **P** keyboard shortcut to toggle Pomodoro mode on the first idle timer (#219)
 
 ## [1.0.12] — 2026-04-22
 
