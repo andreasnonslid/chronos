@@ -129,6 +129,7 @@ inline void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
         {L"Shift+1-3", L"Reset timer 1-3"},
         {L"+ / =", L"Add a timer slot"},
         {L"-", L"Remove last timer slot"},
+        {L"P", L"Toggle Pomodoro on first timer"},
         {L"H / ?", L"Toggle this help"},
         {L"Ctrl+Shift+Space", L"Global start/stop (any app)"},
         {L"", L""},

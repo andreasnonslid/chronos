@@ -27,7 +27,7 @@ enum Act {
     A_TMR_BASE = 100,
 };
 
-constexpr int TMR_STRIDE = 10;
+constexpr int TMR_STRIDE = 12;
 constexpr int A_TMR_HUP = 0;
 constexpr int A_TMR_HDN = 1;
 constexpr int A_TMR_MUP = 2;
@@ -38,6 +38,7 @@ constexpr int A_TMR_START = 6;
 constexpr int A_TMR_RST = 7;
 constexpr int A_TMR_ADD = 8;
 constexpr int A_TMR_DEL = 9;
+constexpr int A_TMR_POMO = 10;
 
 inline int tmr_act(int i, int off) {
     CHRONOS_ASSERT(i >= 0 && off >= 0 && off < TMR_STRIDE);
@@ -186,6 +187,23 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                 if ((int)app.timers.size() > 1) {
                     app.timers.erase(app.timers.begin() + idx);
                     r.resize = true;
+                    r.save_config = true;
+                }
+            } else if (off == A_TMR_POMO) {
+                if (!ts.t.touched()) {
+                    if (ts.pomodoro) {
+                        ts.pomodoro = false;
+                        ts.label.clear();
+                    } else {
+                        ts.pomodoro = true;
+                        ts.pomodoro_phase = 0;
+                        ts.pomodoro_work_elapsed = {};
+                        ts.dur = seconds{app.pomodoro_work_secs};
+                        ts.label = pomodoro_phase_label(0);
+                        ts.notified = false;
+                        ts.t.reset();
+                        ts.t.set(ts.dur);
+                    }
                     r.save_config = true;
                 }
             } else if (!ts.t.touched()) {
