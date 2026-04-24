@@ -1,14 +1,12 @@
 name: Backfill releases
 
 # One-off workflow: iterate through every '## [x.y.z]' section of CHANGELOG.md,
-# tag the appropriate commit if no tag exists yet, and create a GitHub release
-# for the tag if one doesn't exist. Used to backfill the releases page for
-# versions whose tags were created by the old auto-tag.yml workflow but never
-# got a corresponding GitHub release (since GITHUB_TOKEN tag pushes don't
-# trigger the tag-triggered release workflow).
+# tag the appropriate commit if no tag exists yet, and create-or-update the
+# GitHub release for the tag so the release body matches the CHANGELOG entry.
 #
-# Safe to re-run: skips any version that already has a tag + release.
-# Delete this workflow file once all historical releases are in place.
+# Safe to re-run: POSTs a new release when none exists, PATCHes the body/name
+# when an empty stub release already exists. Delete this workflow file once
+# all historical releases are in place.
 
 on:
   push:
@@ -39,18 +37,18 @@ jobs:
             local TAG="$1"
             local SHA="$2"
             if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG$"; then
-              echo "Tag $TAG already exists on remote, skipping."
+              echo "Tag $TAG already on remote, skipping."
               return 0
             fi
-            echo "Tag $TAG missing; creating at $SHA"
-            git tag -a "$TAG" "$SHA" -m "Release $TAG" || { echo "tag create failed"; return 1; }
-            git push origin "$TAG" || { echo "tag push failed"; return 1; }
+            echo "Creating tag $TAG at $SHA"
+            git tag -a "$TAG" "$SHA" -m "Release $TAG" || return 0
+            git push origin "$TAG" || echo "WARN: push of $TAG failed"
           }
 
-          ensure_tag v1.0.1 eaaaa58f183d7df5b4f6712dafde5cbf9e8ce0df || true
-          ensure_tag v1.0.12 5675656789d5254be29d7b61c3453d567b153ab2 || true
+          ensure_tag v1.0.1 eaaaa58f183d7df5b4f6712dafde5cbf9e8ce0df
+          ensure_tag v1.0.12 5675656789d5254be29d7b61c3453d567b153ab2
 
-      - name: Create releases for versions missing one
+      - name: Create or update releases from CHANGELOG
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -72,16 +70,6 @@ jobs:
               continue
             fi
 
-            STATUS=$(curl -sS -o /tmp/rel.json -w '%{http_code}' \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "$API/repos/$REPO/releases/tags/$TAG" || echo curlfail)
-            echo "GET releases/tags/$TAG -> $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "Release $TAG already exists, skipping."
-              continue
-            fi
-
             BODY=$(awk -v v="$VERSION" '
               $0 ~ "^## \\[" v "\\]" { found=1; next }
               found && /^## / { exit }
@@ -97,16 +85,31 @@ jobs:
               --arg body "$BODY" \
               '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}')
 
-            echo "Creating release $TAG..."
-            RESPONSE=$(curl -sS -X POST \
+            EXISTING=$(curl -sS \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "$API/repos/$REPO/releases" \
-              -d "$PAYLOAD" || echo '{"error":"curlfail"}')
-            echo "POST response: $RESPONSE"
-            if echo "$RESPONSE" | jq -e '.id' >/dev/null 2>&1; then
-              echo "Created $TAG"
+              "$API/repos/$REPO/releases/tags/$TAG")
+            REL_ID=$(echo "$EXISTING" | jq -r '.id // empty')
+
+            if [ -n "$REL_ID" ]; then
+              echo "Release exists (id=$REL_ID), updating..."
+              RESPONSE=$(curl -sS -X PATCH \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "$API/repos/$REPO/releases/$REL_ID" \
+                -d "$PAYLOAD")
             else
-              echo "Failed to create $TAG"
+              echo "Release missing, creating..."
+              RESPONSE=$(curl -sS -X POST \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "$API/repos/$REPO/releases" \
+                -d "$PAYLOAD")
+            fi
+
+            if echo "$RESPONSE" | jq -e '.id' >/dev/null 2>&1; then
+              echo "OK: $TAG"
+            else
+              echo "FAILED: $TAG -> $RESPONSE"
             fi
           done
