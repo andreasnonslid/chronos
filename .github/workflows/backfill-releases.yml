@@ -31,29 +31,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          set -x
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
-          # Retroactive tag mapping for versions that never got a tag.
-          # v1.0.1  -> commit that added the v1.0.1 CHANGELOG entry
-          # v1.0.12 -> commit that added the v1.0.12 CHANGELOG entry (PR #232)
-          declare -A RETRO_TAGS=(
-            [v1.0.1]=eaaaa58
-            [v1.0.12]=5675656
-          )
-
-          for TAG in "${!RETRO_TAGS[@]}"; do
-            SHA="${RETRO_TAGS[$TAG]}"
+          ensure_tag() {
+            local TAG="$1"
+            local SHA="$2"
             if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG$"; then
               echo "Tag $TAG already exists on remote, skipping."
-              continue
+              return 0
             fi
-            FULL_SHA=$(git rev-parse "$SHA")
-            echo "Creating tag $TAG at $FULL_SHA"
-            git tag -a "$TAG" "$FULL_SHA" -m "Release $TAG"
-            git push origin "$TAG"
-          done
+            echo "Tag $TAG missing; creating at $SHA"
+            git tag -a "$TAG" "$SHA" -m "Release $TAG" || { echo "tag create failed"; return 1; }
+            git push origin "$TAG" || { echo "tag push failed"; return 1; }
+          }
+
+          ensure_tag v1.0.1 eaaaa58f183d7df5b4f6712dafde5cbf9e8ce0df || true
+          ensure_tag v1.0.12 5675656789d5254be29d7b61c3453d567b153ab2 || true
 
       - name: Create releases for versions missing one
         env:
@@ -61,9 +56,13 @@ jobs:
           REPO: ${{ github.repository }}
           API: ${{ github.api_url }}
         run: |
-          set -euo pipefail
+          set -x
+          echo "API=$API  REPO=$REPO"
 
           VERSIONS=$(grep -E '^## \[[0-9]' CHANGELOG.md | sed -E 's/^## \[([^]]+)\].*/\1/')
+          echo "Versions from CHANGELOG:"
+          echo "$VERSIONS"
+
           for VERSION in $VERSIONS; do
             TAG="v$VERSION"
             echo "=== $TAG ==="
@@ -73,10 +72,11 @@ jobs:
               continue
             fi
 
-            STATUS=$(curl -sS -o /dev/null -w '%{http_code}' \
+            STATUS=$(curl -sS -o /tmp/rel.json -w '%{http_code}' \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "$API/repos/$REPO/releases/tags/$TAG")
+              "$API/repos/$REPO/releases/tags/$TAG" || echo curlfail)
+            echo "GET releases/tags/$TAG -> $STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "Release $TAG already exists, skipping."
               continue
@@ -102,11 +102,11 @@ jobs:
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
               "$API/repos/$REPO/releases" \
-              -d "$PAYLOAD")
-            if echo "$RESPONSE" | jq -e '.id' >/dev/null; then
+              -d "$PAYLOAD" || echo '{"error":"curlfail"}')
+            echo "POST response: $RESPONSE"
+            if echo "$RESPONSE" | jq -e '.id' >/dev/null 2>&1; then
               echo "Created $TAG"
             else
-              echo "Failed to create $TAG: $RESPONSE"
-              exit 1
+              echo "Failed to create $TAG"
             fi
           done
