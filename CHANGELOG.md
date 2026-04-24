@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.1] — 2026-04-24
+
+### Fixed
+- Letter-key shortcuts (L, E, C, R, T, D, P, H) and digit/symbol keys (1-3, +, −) no longer fire when Ctrl, Alt, or Win modifiers are held — prevents accidental state changes from system shortcuts like Ctrl+C (#234)
+
 ## [1.1.0] — 2026-04-23
 
 ### Added
