@@ -1,0 +1,112 @@
+name: Backfill releases
+
+# One-off workflow: iterate through every '## [x.y.z]' section of CHANGELOG.md,
+# tag the appropriate commit if no tag exists yet, and create a GitHub release
+# for the tag if one doesn't exist. Used to backfill the releases page for
+# versions whose tags were created by the old auto-tag.yml workflow but never
+# got a corresponding GitHub release (since GITHUB_TOKEN tag pushes don't
+# trigger the tag-triggered release workflow).
+#
+# Safe to re-run: skips any version that already has a tag + release.
+# Delete this workflow file once all historical releases are in place.
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/backfill-releases.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure missing tags exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          # Retroactive tag mapping for versions that never got a tag.
+          # v1.0.1  -> commit that added the v1.0.1 CHANGELOG entry
+          # v1.0.12 -> commit that added the v1.0.12 CHANGELOG entry (PR #232)
+          declare -A RETRO_TAGS=(
+            [v1.0.1]=eaaaa58
+            [v1.0.12]=5675656
+          )
+
+          for TAG in "${!RETRO_TAGS[@]}"; do
+            SHA="${RETRO_TAGS[$TAG]}"
+            if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG$"; then
+              echo "Tag $TAG already exists on remote, skipping."
+              continue
+            fi
+            FULL_SHA=$(git rev-parse "$SHA")
+            echo "Creating tag $TAG at $FULL_SHA"
+            git tag -a "$TAG" "$FULL_SHA" -m "Release $TAG"
+            git push origin "$TAG"
+          done
+
+      - name: Create releases for versions missing one
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          API: ${{ github.api_url }}
+        run: |
+          set -euo pipefail
+
+          VERSIONS=$(grep -E '^## \[[0-9]' CHANGELOG.md | sed -E 's/^## \[([^]]+)\].*/\1/')
+          for VERSION in $VERSIONS; do
+            TAG="v$VERSION"
+            echo "=== $TAG ==="
+
+            if ! git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG$"; then
+              echo "No remote tag for $TAG, skipping."
+              continue
+            fi
+
+            STATUS=$(curl -sS -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/repos/$REPO/releases/tags/$TAG")
+            if [ "$STATUS" = "200" ]; then
+              echo "Release $TAG already exists, skipping."
+              continue
+            fi
+
+            BODY=$(awk -v v="$VERSION" '
+              $0 ~ "^## \\[" v "\\]" { found=1; next }
+              found && /^## / { exit }
+              found { print }
+            ' CHANGELOG.md)
+            if [ -z "$BODY" ]; then
+              BODY="No changelog entry for this release."
+            fi
+
+            PAYLOAD=$(jq -n \
+              --arg tag "$TAG" \
+              --arg name "$TAG" \
+              --arg body "$BODY" \
+              '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false}')
+
+            echo "Creating release $TAG..."
+            RESPONSE=$(curl -sS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/repos/$REPO/releases" \
+              -d "$PAYLOAD")
+            if echo "$RESPONSE" | jq -e '.id' >/dev/null; then
+              echo "Created $TAG"
+            else
+              echo "Failed to create $TAG: $RESPONSE"
+              exit 1
+            fi
+          done
