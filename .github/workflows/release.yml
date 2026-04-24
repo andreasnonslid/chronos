@@ -1,16 +1,57 @@
 name: Release
 
+# Triggers on push to main. If the top versioned section of CHANGELOG.md is a
+# version that has no corresponding remote tag, this workflow builds the
+# artifact, creates the tag, and publishes a GitHub release in one run.
+#
+# Doing everything in a single workflow sidesteps GitHub's rule that tag pushes
+# authenticated with GITHUB_TOKEN do not trigger downstream workflows.
+
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      should_release: ${{ steps.check.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect new version from CHANGELOG
+        id: check
+        run: |
+          VERSION=$(grep -m1 '^## \[[0-9]' CHANGELOG.md | sed 's/^## \[\([^]]*\)\].*/\1/')
+          if [ -z "$VERSION" ]; then
+            echo "No versioned section found in CHANGELOG.md."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Top version in CHANGELOG: $VERSION"
+          if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "v${VERSION}$"; then
+            echo "Tag v$VERSION already exists on remote, skipping."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
     uses: ./.github/workflows/build.yml
 
   release:
-    needs: build
+    needs: [check-version, build]
+    if: needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -29,11 +70,8 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
-          # Extract the section for this version from CHANGELOG.md
+          VERSION="${{ needs.check-version.outputs.version }}"
           BODY=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## /{exit} found" CHANGELOG.md)
-          # Fall back to the Unreleased section if no versioned entry exists yet
           if [ -z "$BODY" ]; then
             BODY=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## /{exit} found' CHANGELOG.md)
           fi
@@ -48,7 +86,8 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: v${{ needs.check-version.outputs.version }}
           body: ${{ steps.changelog.outputs.body }}
+          target_commitish: ${{ github.sha }}
           files: chronos.exe
