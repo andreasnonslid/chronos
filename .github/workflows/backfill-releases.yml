@@ -25,28 +25,59 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ensure missing tags exist
+      - name: Create missing releases via API (auto-creates tag)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          API: ${{ github.api_url }}
         run: |
           set -x
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-
-          ensure_tag() {
-            local TAG="$1"
+          # For retroactive versions never tagged, POST /releases with both
+          # tag_name and target_commitish. GitHub creates the tag at that SHA
+          # as part of publishing the release.
+          create_retro() {
+            local VERSION="$1"
+            local TAG="v$VERSION"
             local SHA="$2"
-            if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG$"; then
-              echo "Tag $TAG already on remote, skipping."
+
+            STATUS=$(curl -sS -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/repos/$REPO/releases/tags/$TAG")
+            if [ "$STATUS" = "200" ]; then
+              echo "Release $TAG already exists, skipping retro-create."
               return 0
             fi
-            echo "Creating tag $TAG at $SHA"
-            git tag -a "$TAG" "$SHA" -m "Release $TAG" || return 0
-            git push origin "$TAG" || echo "WARN: push of $TAG failed"
+
+            BODY=$(awk -v v="$VERSION" '
+              $0 ~ "^## \\[" v "\\]" { found=1; next }
+              found && /^## / { exit }
+              found && /^\[[^]]+\]:/ { exit }
+              found { print }
+            ' CHANGELOG.md)
+            [ -z "$BODY" ] && BODY="No changelog entry for this release."
+
+            PAYLOAD=$(jq -n \
+              --arg tag "$TAG" \
+              --arg name "$TAG" \
+              --arg body "$BODY" \
+              --arg target "$SHA" \
+              '{tag_name: $tag, name: $name, body: $body, target_commitish: $target, draft: false, prerelease: false}')
+
+            RESPONSE=$(curl -sS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/repos/$REPO/releases" \
+              -d "$PAYLOAD")
+            if echo "$RESPONSE" | jq -e '.id' >/dev/null 2>&1; then
+              echo "OK: $TAG"
+            else
+              echo "FAILED: $TAG -> $RESPONSE"
+            fi
           }
 
-          ensure_tag v1.0.1 eaaaa58f183d7df5b4f6712dafde5cbf9e8ce0df
-          ensure_tag v1.0.12 5675656789d5254be29d7b61c3453d567b153ab2
+          create_retro 1.0.1  eaaaa58f183d7df5b4f6712dafde5cbf9e8ce0df
+          create_retro 1.0.12 5675656789d5254be29d7b61c3453d567b153ab2
 
       - name: Create or update releases from CHANGELOG
         env:
@@ -73,6 +104,7 @@ jobs:
             BODY=$(awk -v v="$VERSION" '
               $0 ~ "^## \\[" v "\\]" { found=1; next }
               found && /^## / { exit }
+              found && /^\[[^]]+\]:/ { exit }
               found { print }
             ' CHANGELOG.md)
             if [ -z "$BODY" ]; then
