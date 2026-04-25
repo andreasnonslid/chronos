@@ -24,6 +24,7 @@ enum Act {
     A_SW_COPY,
     A_THEME,
     A_CLK_CYCLE,
+    A_TMR_RST_ALL, // Reset every timer slot in one action
     A_TMR_BASE = 100,
 };
 
@@ -151,6 +152,22 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
     case A_CLK_CYCLE:
         app.clock_view = (ClockView)(((int)app.clock_view + 1) % CLOCK_VIEW_COUNT);
         r.save_config = true;
+        break;
+    case A_TMR_RST_ALL:
+        // Reset every timer slot. Mirrors per-slot A_TMR_RST exactly so
+        // pomodoro phase, work elapsed, and notification flags are all
+        // cleared the same way they would be on a single Shift+1/2/3.
+        for (auto& ts : app.timers) {
+            ts.notified = false;
+            if (ts.pomodoro) {
+                ts.pomodoro_phase = 0;
+                ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
+                ts.label = pomodoro_phase_label(0);
+                ts.pomodoro_work_elapsed = {};
+            }
+            ts.t.reset();
+            ts.t.set(ts.dur);
+        }
         break;
     default:
         if (act >= A_TMR_BASE) {
