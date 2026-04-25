@@ -337,6 +337,69 @@ TEST_CASE("A_TMR_RST resets timer and clears notified flag", "[actions]") {
     REQUIRE_FALSE(app.timers[0].notified);
 }
 
+// ─── timer reset all ─────────────────────────────────────────────────────────
+
+TEST_CASE("A_TMR_RST_ALL resets every timer slot", "[actions]") {
+    App app;
+    // Add two more timers so we have three total to verify the loop hits
+    // every slot, not just the first.
+    dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
+    dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
+    REQUIRE((int)app.timers.size() == 3);
+
+    // Touch every slot so reset has something visible to undo, and set a
+    // notified flag we expect cleared.
+    for (int i = 0; i < 3; ++i) {
+        app.timers[i].notified = true;
+        dispatch_action(app, tmr_act(i, A_TMR_START), t0(), {});
+        REQUIRE(app.timers[i].t.touched());
+    }
+
+    auto r = dispatch_action(app, A_TMR_RST_ALL, at_ms(1000), {});
+
+    for (int i = 0; i < 3; ++i) {
+        REQUIRE_FALSE(app.timers[i].t.is_running());
+        REQUIRE_FALSE(app.timers[i].t.touched());
+        REQUIRE_FALSE(app.timers[i].notified);
+    }
+    // Reset is a per-state mutation, not a structural change, so neither
+    // resize nor save_config should fire.
+    REQUIRE_FALSE(r.resize);
+    REQUIRE_FALSE(r.save_config);
+}
+
+TEST_CASE("A_TMR_RST_ALL on Pomodoro timer resets phase + work elapsed", "[actions]") {
+    App app;
+    // Toggle Pomodoro on, then advance the phase artificially so the
+    // reset-all has a non-trivial state to clear.
+    dispatch_action(app, tmr_act(0, A_TMR_POMO), t0(), {});
+    REQUIRE(app.timers[0].pomodoro);
+    app.timers[0].pomodoro_phase = 2;
+    app.timers[0].pomodoro_work_elapsed = std::chrono::seconds{45};
+    app.timers[0].notified = true;
+
+    dispatch_action(app, A_TMR_RST_ALL, at_ms(2000), {});
+
+    REQUIRE(app.timers[0].pomodoro_phase == 0);
+    REQUIRE(app.timers[0].pomodoro_work_elapsed == std::chrono::seconds{0});
+    REQUIRE_FALSE(app.timers[0].notified);
+}
+
+TEST_CASE("A_TMR_RST_ALL is a no-op when there are no timers", "[actions]") {
+    App app;
+    app.timers.clear();
+    // Must not crash and must not mark anything as needing save/resize.
+    auto r = dispatch_action(app, A_TMR_RST_ALL, t0(), {});
+    REQUIRE_FALSE(r.resize);
+    REQUIRE_FALSE(r.save_config);
+}
+
+TEST_CASE("A_TMR_RST_ALL wants_blink returns true", "[actions]") {
+    // Reset is a state-mutating action, so the UI should blink to
+    // acknowledge it -- matching the per-slot A_TMR_RST behavior.
+    REQUIRE(wants_blink(A_TMR_RST_ALL));
+}
+
 // ─── timer add / delete ──────────────────────────────────────────────────────
 
 TEST_CASE("A_TMR_ADD inserts timer after current index", "[actions]") {

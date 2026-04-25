@@ -42,14 +42,36 @@ inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, 
         case 'C':
             if (plain_key() && s.app.show_sw) handle(hwnd, A_SW_COPY, s);
             return 0;
-        case 'R':
-            if (plain_key()) {
+        case 'R': {
+            // R alone: stopwatch reset (when shown) or first-timer reset.
+            // Shift+R / Ctrl+R: reset ALL timers in one action so users
+            // with multiple slots don't have to press Shift+1/2/3
+            // separately. Ctrl+R is the always-available fallback (works
+            // even when the stopwatch view is taking R alone for
+            // stopwatch reset).
+            //
+            // Order matters: plain_key() does NOT check Shift, so we
+            // must test the modifier branches BEFORE the plain-R path,
+            // otherwise Shift+R falls into plain-R and silently resets
+            // only the first timer.
+            const bool ctrl = GetKeyState(VK_CONTROL) < 0;
+            const bool shift = GetKeyState(VK_SHIFT) < 0;
+            const bool alt = GetKeyState(VK_MENU) < 0;
+            const bool winkey =
+                GetKeyState(VK_LWIN) < 0 || GetKeyState(VK_RWIN) < 0;
+            if (!alt && !winkey && (ctrl ^ shift)) {
+                // Exactly one of Ctrl or Shift is held (no Alt/Win).
+                if (s.app.show_tmr && !s.app.timers.empty())
+                    handle(hwnd, A_TMR_RST_ALL, s);
+            } else if (plain_key() && !shift) {
+                // Truly plain R (no modifiers at all).
                 if (s.app.show_sw)
                     handle(hwnd, A_SW_RESET, s);
                 else if (s.app.show_tmr && !s.app.timers.empty())
                     handle(hwnd, tmr_act(0, A_TMR_RST), s);
             }
             return 0;
+        }
         case 'T':
             if (plain_key()) handle(hwnd, A_TOPMOST, s);
             return 0;
