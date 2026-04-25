@@ -40,6 +40,7 @@ inline void try_start_label_edit(HWND hwnd, POINT pt, WndState& s) {
     HWND edit = CreateWindowExW(0, L"EDIT", buf,
                                 WS_CHILD | WS_VISIBLE | WS_BORDER | ES_CENTER | ES_AUTOHSCROLL,
                                 ex, ey, ew, eh, hwnd, (HMENU)(INT_PTR)(EDIT_ID_BASE + idx), nullptr, nullptr);
+    if (!edit) return;
     SendMessageW(edit, EM_SETLIMITTEXT, Config::MAX_LABEL_LEN, 0);
     SendMessageW(edit, WM_SETFONT, (WPARAM)(HFONT)s.fontSm.h, TRUE);
     s.edit_cancelled = false;
