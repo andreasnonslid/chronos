@@ -38,7 +38,10 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         load_config(hwnd, *s);
         apply_theme(hwnd, *s);
         resize_window(hwnd, *s);
-        RegisterHotKey(hwnd, HOTKEY_GLOBAL, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_SPACE);
+        s->global_hotkey_ok = RegisterHotKey(hwnd, HOTKEY_GLOBAL,
+                                               MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_SPACE) != 0;
+        if (!s->global_hotkey_ok)
+            dbg(L"RegisterHotKey failed for Ctrl+Shift+Space (already claimed by another app?)");
         state.release();
         return 0;
     }

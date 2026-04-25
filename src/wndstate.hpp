@@ -30,6 +30,7 @@ struct WndState {
     GdiObj fontBig{nullptr}, fontLarge{nullptr}, fontSm{nullptr};
     int timer_ms = 100;
     bool tray_active = false;
+    bool global_hotkey_ok = false;
     std::chrono::steady_clock::time_point clipboard_copied_until{};
     IconObj tray_icon{};
 
@@ -94,7 +95,8 @@ struct WndState {
 
     PaintCtx paint_ctx() {
         CHRONOS_ASSERT(active_theme);
-        return {.app = app, .layout = layout, .theme = *active_theme, .res = res(), .btns = btns, .now = {}};
+        return {.app = app, .layout = layout, .theme = *active_theme, .res = res(), .btns = btns, .now = {},
+                .global_hotkey_ok = global_hotkey_ok};
     }
 };
 

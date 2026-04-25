@@ -131,7 +131,8 @@ inline void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
         {L"+ / =", L"Add a timer slot"},
         {L"-", L"Remove last timer slot"},
         {L"H / ?", L"Toggle this help"},
-        {L"Ctrl+Shift+Space", L"Global start/stop (any app)"},
+        {L"Ctrl+Shift+Space", ctx.global_hotkey_ok ? L"Global start/stop (any app)"
+                                                    : L"Global start/stop (unavailable)"},
         {L"", L""},
         {L"Scroll", L"Adjust timer value (H/M/S)"},
         {L"Click clock", L"Cycle clock format"},

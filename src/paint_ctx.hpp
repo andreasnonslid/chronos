@@ -16,6 +16,7 @@ struct PaintCtx {
     WndResources res;
     std::vector<std::pair<RECT, int>>& btns;
     std::chrono::steady_clock::time_point now;
+    bool global_hotkey_ok = true;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────

@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.3] — 2026-04-25
+
+### Fixed
+- `RegisterHotKey` return value is now checked — when `Ctrl+Shift+Space` is already claimed by another application, the help overlay shows "(unavailable)" instead of silently advertising a non-functional shortcut (#236)
+
 ## [1.1.2] — 2026-04-25
 
 ### Fixed
