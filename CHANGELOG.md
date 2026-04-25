@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.2] — 2026-04-25
+
+### Fixed
+- `try_start_label_edit` now guards against `CreateWindowExW` returning null, preventing undefined behavior from calling `SendMessageW`, `SetWindowLongPtrW`, and `CallWindowProcW` on a null HWND (#233)
+
 ## [1.1.1] — 2026-04-24
 
 ### Fixed
