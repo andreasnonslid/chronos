@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include "../src/actions.hpp"
 #include "../src/app.hpp"
 #include "../src/config.hpp"
@@ -171,14 +172,26 @@ TEST_CASE("A_SW_COPY works when stopwatch is paused with laps", "[actions]") {
     REQUIRE(r.copy_laps);
 }
 
-TEST_CASE("A_SW_GET opens file only when lap file is set", "[actions]") {
+TEST_CASE("A_SW_GET opens file only when lap file exists on disk", "[actions]") {
     App app;
     auto r = dispatch_action(app, A_SW_GET, t0(), {});
     REQUIRE_FALSE(r.open_file);
 
-    dispatch_action(app, A_SW_START, t0(), {});
+    auto tmp = std::filesystem::temp_directory_path() / "chronos-test-laps.txt";
+    { std::ofstream f(tmp); f << "lap data"; }
+    app.sw_lap_file = tmp;
     r = dispatch_action(app, A_SW_GET, t0(), {});
     REQUIRE(r.open_file);
+
+    std::filesystem::remove(tmp);
+}
+
+TEST_CASE("A_SW_GET clears stale path when file is missing", "[actions]") {
+    App app;
+    app.sw_lap_file = std::filesystem::temp_directory_path() / "chronos-nonexistent.txt";
+    auto r = dispatch_action(app, A_SW_GET, t0(), {});
+    REQUIRE_FALSE(r.open_file);
+    REQUIRE(app.sw_lap_file.empty());
 }
 
 // ─── timer hour adjustments ──────────────────────────────────────────────────

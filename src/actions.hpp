@@ -138,7 +138,13 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         app.sw_lap_file.clear();
         break;
     case A_SW_GET:
-        if (!app.sw_lap_file.empty()) r.open_file = true;
+        if (!app.sw_lap_file.empty()) {
+            std::error_code ec;
+            if (std::filesystem::exists(app.sw_lap_file, ec))
+                r.open_file = true;
+            else
+                app.sw_lap_file.clear();
+        }
         break;
     case A_SW_COPY:
         if (!app.sw.laps().empty()) r.copy_laps = true;

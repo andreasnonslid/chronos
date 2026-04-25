@@ -133,8 +133,14 @@ inline void load_config(HWND hwnd, WndState& s) {
         }
         actual_ms = std::max(actual_ms, 0LL);
         s.app.sw.restore(milliseconds{actual_ms}, cfg.sw_running, now_steady);
-        if (!cfg.sw_lap_file.empty())
-            s.app.sw_lap_file = std::filesystem::path{utf8_to_wide(cfg.sw_lap_file)};
+        if (!cfg.sw_lap_file.empty()) {
+            auto p = std::filesystem::path{utf8_to_wide(cfg.sw_lap_file)};
+            std::error_code ec;
+            if (std::filesystem::exists(p, ec))
+                s.app.sw_lap_file = std::move(p);
+            else
+                dbg(L"[chrono] load_config: sw_lap_file not found, clearing");
+        }
     }
     for (int i = 0; i < n; ++i) {
         auto& ts = s.app.timers[i];

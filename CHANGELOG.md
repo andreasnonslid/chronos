@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.4] — 2026-04-25
+
+### Fixed
+- `A_SW_GET` now validates that the lap file exists on disk before opening it — stale paths from a previous session no longer trigger a silent `ShellExecuteW` failure; the path is cleared and the "Get Laps" button dims instead (#235)
+
 ## [1.1.3] — 2026-04-25
 
 ### Fixed
