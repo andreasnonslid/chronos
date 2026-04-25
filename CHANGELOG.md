@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] — 2026-04-25
+
+### Added
+- Title bar and tray balloon now identify which timer expired when multiple timers are active — e.g. `Tea (2/3) 04:32 — Chronos` while running, `EXPIRED · Tea (2/3) — Chronos` on expiry; single-timer setups are unchanged (#242)
+
 ## [1.1.4] — 2026-04-25
 
 ### Fixed

@@ -59,3 +59,17 @@ inline std::wstring format_lap_row(std::size_t lap_number, std::chrono::steady_c
     return std::format(L"Lap {:<3}   split {:<14}   total {}", lap_number, format_stopwatch_short(split),
                        format_stopwatch_short(total));
 }
+
+inline std::wstring format_timer_title(const std::wstring& label, int index, int total,
+                                        const std::wstring& time_str, bool expired) {
+    if (total <= 1)
+        return expired ? L"EXPIRED " + time_str : time_str;
+    auto name = label.empty() ? std::format(L"Timer {}", index + 1) : std::wstring(label);
+    auto slot = std::format(L"{} ({}/{})", name, index + 1, total);
+    return expired ? std::format(L"EXPIRED · {}", slot) : std::format(L"{} {}", slot, time_str);
+}
+
+inline std::wstring format_tray_title(int index, int total) {
+    if (total <= 1) return L"Timer expired";
+    return std::format(L"Timer {} expired", index + 1);
+}

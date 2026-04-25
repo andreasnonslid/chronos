@@ -34,10 +34,12 @@ inline void update_title(HWND hwnd, WndState& s) {
     using namespace std::chrono;
     auto now = steady_clock::now();
     std::wstring title;
-    for (auto& ts : s.app.timers) {
+    int n = (int)s.app.timers.size();
+    for (int i = 0; i < n; ++i) {
+        auto& ts = s.app.timers[i];
         if (ts.t.is_running()) {
-            title = format_timer_display(ts.t.remaining(now));
-            if (ts.t.expired(now)) title = L"EXPIRED " + title;
+            title = format_timer_title(ts.label, i, n,
+                format_timer_display(ts.t.remaining(now)), ts.t.expired(now));
             break;
         }
     }
@@ -58,7 +60,9 @@ inline void update_title(HWND hwnd, WndState& s) {
 inline void handle_wm_timer(HWND hwnd, WndState& s) {
     using namespace std::chrono;
     auto now = steady_clock::now();
-    for (auto& ts : s.app.timers) {
+    int n = (int)s.app.timers.size();
+    for (int i = 0; i < n; ++i) {
+        auto& ts = s.app.timers[i];
         if (ts.t.touched() && ts.t.expired(now) && !ts.notified) {
             ts.notified = true;
             MessageBeep(MB_ICONASTERISK);
@@ -70,8 +74,9 @@ inline void handle_wm_timer(HWND hwnd, WndState& s) {
             fi.dwTimeout = 0;
             FlashWindowEx(&fi);
             if (s.tray_active) {
+                auto tray_t = format_tray_title(i, n);
                 auto lbl = ts.label.empty() ? L"Timer" : ts.label.c_str();
-                tray_notify(hwnd, L"Timer expired", lbl);
+                tray_notify(hwnd, tray_t.c_str(), lbl);
             }
             if (ts.pomodoro) {
                 if (ts.pomodoro_phase % 2 == 0)

@@ -131,3 +131,43 @@ TEST_CASE("format_timer_display: negative duration clamps to zero", "[formatting
 TEST_CASE("format_timer_edit: negative duration clamps to zero", "[formatting]") {
     REQUIRE(format_timer_edit(dur_s(-1)) == L"0:00:00");
 }
+
+// ── format_timer_title ────────────────────────────────────────────────────
+
+TEST_CASE("format_timer_title: single timer running unchanged", "[formatting]") {
+    REQUIRE(format_timer_title(L"", 0, 1, L"04:32", false) == L"04:32");
+}
+
+TEST_CASE("format_timer_title: single timer expired unchanged", "[formatting]") {
+    REQUIRE(format_timer_title(L"", 0, 1, L"00:00", true) == L"EXPIRED 00:00");
+}
+
+TEST_CASE("format_timer_title: multi-timer running with label", "[formatting]") {
+    REQUIRE(format_timer_title(L"Tea", 1, 3, L"04:32", false) == L"Tea (2/3) 04:32");
+}
+
+TEST_CASE("format_timer_title: multi-timer expired with label", "[formatting]") {
+    REQUIRE(format_timer_title(L"Tea", 1, 3, L"00:00", true) == L"EXPIRED · Tea (2/3)");
+}
+
+TEST_CASE("format_timer_title: multi-timer running no label", "[formatting]") {
+    REQUIRE(format_timer_title(L"", 0, 2, L"01:00:00", false) == L"Timer 1 (1/2) 01:00:00");
+}
+
+TEST_CASE("format_timer_title: multi-timer expired no label", "[formatting]") {
+    REQUIRE(format_timer_title(L"", 2, 3, L"00:00", true) == L"EXPIRED · Timer 3 (3/3)");
+}
+
+// ── format_tray_title ─────────────────────────────────────────────────────
+
+TEST_CASE("format_tray_title: single timer", "[formatting]") {
+    REQUIRE(format_tray_title(0, 1) == L"Timer expired");
+}
+
+TEST_CASE("format_tray_title: multi-timer slot 1", "[formatting]") {
+    REQUIRE(format_tray_title(0, 3) == L"Timer 1 expired");
+}
+
+TEST_CASE("format_tray_title: multi-timer slot 3", "[formatting]") {
+    REQUIRE(format_tray_title(2, 3) == L"Timer 3 expired");
+}
