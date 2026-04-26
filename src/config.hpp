@@ -16,7 +16,7 @@ struct Config {
     bool show_tmr = true;
     bool topmost = false;
     ThemeMode theme_mode = ThemeMode::Auto;
-    static constexpr int MAX_TIMERS = 3;
+    static constexpr int MAX_TIMERS = 20;
     static constexpr int MAX_LABEL_LEN = 20;
     static constexpr int TIMER_MIN_SECS = 0;
     static constexpr int TIMER_MAX_SECS = 86400;

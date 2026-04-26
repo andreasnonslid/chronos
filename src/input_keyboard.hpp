@@ -56,9 +56,8 @@ inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, 
         case 'D':
             if (plain_key()) handle(hwnd, A_THEME, s);
             return 0;
-        case '1':
-        case '2':
-        case '3': {
+        case '1': case '2': case '3': case '4': case '5':
+        case '6': case '7': case '8': case '9': {
             if (!plain_key()) return 0;
             int idx = (int)(wp - '1');
             if (s.app.show_tmr && idx < (int)s.app.timers.size()) {

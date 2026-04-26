@@ -6,7 +6,7 @@ A lightweight Windows desktop clock, stopwatch, and timer app. Built with C++26 
 
 - **Clock** — system time (HH:MM:SS)
 - **Stopwatch** — start/stop, lap recording with split and cumulative times, export laps to file or clipboard
-- **Timers** — up to 3 simultaneous countdown timers with custom labels, progress bars, color-coded warnings (orange <10 s, red on expiry), and audio/visual notification on completion
+- **Timers** — up to 20 simultaneous countdown timers with custom labels, progress bars, color-coded warnings (orange <10 s, red on expiry), and audio/visual notification on completion
 - **Pomodoro** — per-timer pomodoro mode cycling Work (25 m) / Short Break (5 m) x4, then Long Break (15 m)
 - **Themes** — auto / light / dark, follows OS preference in auto mode
 - **System tray** — minimizes to tray with balloon notifications
@@ -24,8 +24,8 @@ A lightweight Windows desktop clock, stopwatch, and timer app. Built with C++26 
 | `Ctrl+Shift+Space` | Global start/stop (works from any application) |
 | `L` | Record lap |
 | `R` | Reset stopwatch (or timer 1 if stopwatch hidden) |
-| `1` / `2` / `3` | Start/pause timer by index |
-| `+` | Add a timer (max 3) |
+| `1`–`9` | Start/pause timer by index (first 9 timers) |
+| `+` | Add a timer (max 20) |
 | `-` | Remove last timer (min 1) |
 | `E` | Open exported laps file |
 | `C` | Copy laps to clipboard |
