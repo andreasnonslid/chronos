@@ -107,7 +107,7 @@ TEST_CASE("A_TMR_RST on Pomodoro timer resets phase to 0", "[pomodoro][actions]"
 
     REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
     REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
-    REQUIRE(ts.label == pomodoro_phase_label(0));
+    REQUIRE(ts.label == pomodoro_phase_label(PomodoroPhase::Work1));
     REQUIRE_FALSE(ts.t.is_running());
 }
 
