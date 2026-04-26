@@ -84,6 +84,12 @@ Other presets for development:
 | `debug` | Debug build with tests |
 | `sanitize` | Debug + AddressSanitizer / UndefinedBehaviorSanitizer |
 
+### Platform notes
+
+The application is **Windows-only** — the UI layer uses Win32 and GDI directly. Linux builds are not supported for the executable.
+
+The logic-portable layer (timers, stopwatch, config serialization, Pomodoro state machine, formatting) has no Win32 dependencies and compiles on Linux. CI runs the unit test suite on Linux to verify this layer independently of the Windows UI.
+
 ### Debugging
 
 Run with `--debug` to write diagnostic logs to `debug.log` next to the executable.

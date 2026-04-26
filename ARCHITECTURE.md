@@ -117,3 +117,5 @@ block-beta
 **Pomodoro as a state machine** -- An 8-phase cycle (phases 0,2,4,6 = work; 1,3,5 = short break; 7 = long break). On timer expiry, `handle_wm_timer` auto-advances to the next phase, resets the timer, and starts it.
 
 **Session restore via wall clock** -- When saving, the config records both elapsed time and the current wall-clock epoch. On reload, the delta between saved and current epoch is added to elapsed time, so timers and stopwatch continue accurately across restarts.
+
+**Windows-only UI, portable logic** -- The window, rendering, and input layers depend on Win32 and GDI and only build on Windows. The data model, config serialization, Pomodoro state machine, and formatting utilities have no platform dependencies. CI compiles and runs the unit tests on Linux to keep the logic layer portable and independently verified.
