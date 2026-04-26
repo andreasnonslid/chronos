@@ -138,7 +138,7 @@ inline bool config_read(Config& c, std::istream& f) {
                 else if (field == "_pomodoro")
                     c.timer_pomodoro[i] = val != 0;
                 else if (field == "_pomodoro_phase")
-                    c.timer_pomodoro_phase[i] = clamp_int(val, 0, 7);
+                    c.timer_pomodoro_phase[i] = clamp_int(val, 0, POMODORO_PHASE_COUNT - 1);
                 else if (field == "_pomodoro_work_secs")
                     c.timer_pomodoro_work_secs[i] = std::max(val, 0LL);
             }

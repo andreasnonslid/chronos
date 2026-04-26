@@ -174,9 +174,9 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
             } else if (off == A_TMR_RST) {
                 ts.notified = false;
                 if (ts.pomodoro) {
-                    ts.pomodoro_phase = 0;
+                    ts.pomodoro_phase = PomodoroPhase::Work1;
                     ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
-                    ts.label = pomodoro_phase_label(0);
+                    ts.label = pomodoro_phase_label(PomodoroPhase::Work1);
                     ts.pomodoro_work_elapsed = {};
                 }
                 ts.t.reset();
@@ -202,10 +202,10 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                         ts.label.clear();
                     } else {
                         ts.pomodoro = true;
-                        ts.pomodoro_phase = 0;
+                        ts.pomodoro_phase = PomodoroPhase::Work1;
                         ts.pomodoro_work_elapsed = {};
                         ts.dur = seconds{app.pomodoro_work_secs};
-                        ts.label = pomodoro_phase_label(0);
+                        ts.label = pomodoro_phase_label(PomodoroPhase::Work1);
                         ts.notified = false;
                         ts.t.reset();
                         ts.t.set(ts.dur);
