@@ -42,8 +42,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nShow) {
         for (int i = 1; i < argc; ++i) {
             if (wcscmp(argv[i], L"--debug") == 0) {
                 wchar_t exe[MAX_PATH] = {};
-                GetModuleFileNameW(nullptr, exe, MAX_PATH);
-                auto log_path = std::filesystem::path{exe}.parent_path() / "debug.log";
+                std::filesystem::path log_path;
+                if (GetModuleFileNameW(nullptr, exe, MAX_PATH))
+                    log_path = std::filesystem::path{exe}.parent_path() / "debug.log";
+                else
+                    log_path = std::filesystem::path{L"debug.log"};
                 FILE* log_f = _wfopen(log_path.c_str(), L"a");
                 log_guard.f = log_f;
                 set_log_file(log_f);

@@ -20,8 +20,9 @@ inline std::filesystem::path config_path() {
         if (!ec) return dir / L"config.ini";
     }
     wchar_t exe[MAX_PATH] = {};
-    GetModuleFileNameW(nullptr, exe, MAX_PATH);
-    return std::filesystem::path{exe}.parent_path() / "config.ini";
+    if (GetModuleFileNameW(nullptr, exe, MAX_PATH))
+        return std::filesystem::path{exe}.parent_path() / "config.ini";
+    return std::filesystem::path{L"config.ini"};
 }
 
 inline void save_config(HWND hwnd, const WndState& s) {
