@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0] — 2026-04-26
+
+### Added
+- Stopwatch display now preserves millisecond precision (`HH:MM:SS.mmm`) past 1 hour — previously the display silently dropped sub-second resolution at the 1-hour mark; lap row cumulative totals also switch to the long format when they exceed 1 hour (#241)
+
 ## [1.2.0] — 2026-04-25
 
 ### Added
