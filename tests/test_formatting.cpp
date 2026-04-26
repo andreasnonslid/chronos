@@ -31,15 +31,19 @@ TEST_CASE("format_stopwatch_short: large value", "[formatting]") {
 // ── format_stopwatch_long ───────────────────────────────────────────────────
 
 TEST_CASE("format_stopwatch_long: zero", "[formatting]") {
-    REQUIRE(format_stopwatch_long(steady_duration::zero()) == L"00:00:00");
+    REQUIRE(format_stopwatch_long(steady_duration::zero()) == L"00:00:00.000");
 }
 
 TEST_CASE("format_stopwatch_long: exactly 1 hour", "[formatting]") {
-    REQUIRE(format_stopwatch_long(dur_s(3600)) == L"01:00:00");
+    REQUIRE(format_stopwatch_long(dur_s(3600)) == L"01:00:00.000");
 }
 
 TEST_CASE("format_stopwatch_long: multi-hour", "[formatting]") {
-    REQUIRE(format_stopwatch_long(dur_s(3 * 3600 + 15 * 60 + 42)) == L"03:15:42");
+    REQUIRE(format_stopwatch_long(dur_s(3 * 3600 + 15 * 60 + 42)) == L"03:15:42.000");
+}
+
+TEST_CASE("format_stopwatch_long: preserves milliseconds", "[formatting]") {
+    REQUIRE(format_stopwatch_long(dur_ms(3600 * 1000 + 1 * 1000 + 250)) == L"01:00:01.250");
 }
 
 // ── format_stopwatch_display ────────────────────────────────────────────────
@@ -49,9 +53,14 @@ TEST_CASE("format_stopwatch_display: under 1 hour uses short format", "[formatti
     REQUIRE(result == L"59:59.999");
 }
 
-TEST_CASE("format_stopwatch_display: at 1 hour switches to long format", "[formatting]") {
+TEST_CASE("format_stopwatch_display: at 1 hour switches to long format with ms", "[formatting]") {
     auto result = format_stopwatch_display(dur_s(3600));
-    REQUIRE(result == L"01:00:00");
+    REQUIRE(result == L"01:00:00.000");
+}
+
+TEST_CASE("format_stopwatch_display: past 1 hour preserves milliseconds", "[formatting]") {
+    auto result = format_stopwatch_display(dur_ms(3601 * 1000 + 250));
+    REQUIRE(result == L"01:00:01.250");
 }
 
 // ── format_timer_display ────────────────────────────────────────────────────
@@ -121,7 +130,7 @@ TEST_CASE("format_stopwatch_short: negative duration clamps to zero", "[formatti
 }
 
 TEST_CASE("format_stopwatch_long: negative duration clamps to zero", "[formatting]") {
-    REQUIRE(format_stopwatch_long(dur_s(-10)) == L"00:00:00");
+    REQUIRE(format_stopwatch_long(dur_s(-10)) == L"00:00:00.000");
 }
 
 TEST_CASE("format_timer_display: negative duration clamps to zero", "[formatting]") {

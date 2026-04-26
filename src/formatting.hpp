@@ -13,11 +13,13 @@ inline std::wstring format_stopwatch_short(std::chrono::steady_clock::duration d
 }
 
 inline std::wstring format_stopwatch_long(std::chrono::steady_clock::duration d) {
-    auto total_s = std::max(std::chrono::seconds::rep{0}, std::chrono::duration_cast<std::chrono::seconds>(d).count());
+    auto total_ms = std::max(std::chrono::milliseconds::rep{0}, std::chrono::duration_cast<std::chrono::milliseconds>(d).count());
+    auto ms = total_ms % 1000;
+    auto total_s = total_ms / 1000;
     auto s = total_s % 60;
     auto m = (total_s / 60) % 60;
     auto h = total_s / 3600;
-    return std::format(L"{:02}:{:02}:{:02}", h, m, s);
+    return std::format(L"{:02}:{:02}:{:02}.{:03}", h, m, s, ms);
 }
 
 inline std::wstring format_stopwatch_display(std::chrono::steady_clock::duration d) {
@@ -57,7 +59,7 @@ inline std::wstring format_worked_time(std::chrono::seconds s) {
 inline std::wstring format_lap_row(std::size_t lap_number, std::chrono::steady_clock::duration split,
                                     std::chrono::steady_clock::duration total) {
     return std::format(L"Lap {:<3}   split {:<14}   total {}", lap_number, format_stopwatch_short(split),
-                       format_stopwatch_short(total));
+                       format_stopwatch_display(total));
 }
 
 inline std::wstring format_timer_title(const std::wstring& label, int index, int total,
