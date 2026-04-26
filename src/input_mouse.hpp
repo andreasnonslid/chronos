@@ -14,6 +14,7 @@
 #include "input_label_edit.hpp"
 #include "layout.hpp"
 #include "pomodoro.hpp"
+#include "pomodoro_dialog.hpp"
 #include "timer_presets.hpp"
 #include "wndstate.hpp"
 
@@ -46,6 +47,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
         int idx = timer_index_at_y(s.layout, layout_state(s), pt.y);
         if (idx >= 0 && !s.app.timers[idx].t.touched()) {
             constexpr int CMD_POMODORO = 100;
+            constexpr int CMD_POMO_CFG = 101;
             HMENU menu = CreatePopupMenu();
             for (int i = 0; i < (int)std::size(TIMER_PRESETS); ++i) AppendMenuW(menu, MF_STRING, 1 + i, TIMER_PRESETS[i].label);
             AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
@@ -55,6 +57,7 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                 ? std::format(L"Pomodoro ({:02}:{:02})", pom_min, pom_sec)
                 : std::format(L"Pomodoro ({}:00)", pom_min);
             AppendMenuW(menu, MF_STRING, CMD_POMODORO, pom_label.c_str());
+            AppendMenuW(menu, MF_STRING, CMD_POMO_CFG, L"Edit Pomodoro intervals…");
             POINT scr = pt;
             ClientToScreen(hwnd, &scr);
             int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, scr.x, scr.y, 0, hwnd, nullptr);
@@ -66,16 +69,26 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                     ts.pomodoro_phase = PomodoroPhase::Work1;
                     ts.dur = std::chrono::seconds{s.app.pomodoro_work_secs};
                     ts.label = pomodoro_phase_label(PomodoroPhase::Work1);
+                    ts.notified = false;
+                    ts.t.reset();
+                    ts.t.set(ts.dur);
+                    save_config(hwnd, s);
+                    InvalidateRect(hwnd, nullptr, FALSE);
+                } else if (cmd == CMD_POMO_CFG) {
+                    if (show_pomodoro_interval_dialog(hwnd, s.app, (HFONT)s.fontSm.h)) {
+                        save_config(hwnd, s);
+                        InvalidateRect(hwnd, nullptr, FALSE);
+                    }
                 } else {
                     ts.pomodoro = false;
                     ts.label.clear();
                     ts.dur = std::chrono::seconds{TIMER_PRESETS[cmd - 1].secs};
+                    ts.notified = false;
+                    ts.t.reset();
+                    ts.t.set(ts.dur);
+                    save_config(hwnd, s);
+                    InvalidateRect(hwnd, nullptr, FALSE);
                 }
-                ts.notified = false;
-                ts.t.reset();
-                ts.t.set(ts.dur);
-                save_config(hwnd, s);
-                InvalidateRect(hwnd, nullptr, FALSE);
             }
         }
         return 0;
