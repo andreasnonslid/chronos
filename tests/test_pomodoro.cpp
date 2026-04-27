@@ -340,6 +340,151 @@ TEST_CASE("A_TMR_SKIP wraps from LongBreak back to Work1", "[pomodoro][actions]"
     REQUIRE(ts.label == pomodoro_phase_label(PomodoroPhase::Work1));
 }
 
+// ─── advance_pomodoro_phase ──────────────────────────────────────────────────
+
+TEST_CASE("advance: work expires → short break, work_elapsed increases", "[pomodoro][advance]") {
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_work_elapsed = seconds{0};
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_WORK_SECS});
+
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::ShortBreak1);
+    REQUIRE(ts.dur == seconds{POMODORO_SHORT_BREAK_SECS});
+    REQUIRE(ts.label == L"Short Break");
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{POMODORO_WORK_SECS});
+    REQUIRE(ts.t.is_running());
+    REQUIRE_FALSE(ts.notified);
+}
+
+TEST_CASE("advance: short break expires → next work phase, work_elapsed unchanged", "[pomodoro][advance]") {
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::ShortBreak1;
+    ts.pomodoro_work_elapsed = seconds{POMODORO_WORK_SECS};
+    ts.dur = seconds{POMODORO_SHORT_BREAK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_SHORT_BREAK_SECS});
+
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work2);
+    REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
+    REQUIRE(ts.label == L"Work 2/4");
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{POMODORO_WORK_SECS});
+    REQUIRE(ts.t.is_running());
+}
+
+TEST_CASE("advance: Work4 expires → long break", "[pomodoro][advance]") {
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::Work4;
+    ts.pomodoro_work_elapsed = seconds{3 * POMODORO_WORK_SECS};
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_WORK_SECS});
+
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::LongBreak);
+    REQUIRE(ts.dur == seconds{POMODORO_LONG_BREAK_SECS});
+    REQUIRE(ts.label == L"Long Break");
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{4 * POMODORO_WORK_SECS});
+}
+
+TEST_CASE("advance: long break expires → wraps to Work1, work_elapsed unchanged", "[pomodoro][advance]") {
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::LongBreak;
+    ts.pomodoro_work_elapsed = seconds{4 * POMODORO_WORK_SECS};
+    ts.dur = seconds{POMODORO_LONG_BREAK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_LONG_BREAK_SECS});
+
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
+    REQUIRE(ts.label == L"Work 1/4");
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{4 * POMODORO_WORK_SECS});
+    REQUIRE(ts.t.is_running());
+}
+
+TEST_CASE("advance: custom durations flow through correctly", "[pomodoro][advance]") {
+    constexpr int WORK = 50 * 60;
+    constexpr int SHORT = 10 * 60;
+    constexpr int LONG = 30 * 60;
+
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.dur = seconds{WORK};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, WORK, SHORT, LONG, t0() + seconds{WORK});
+
+    REQUIRE(ts.dur == seconds{SHORT});
+
+    ts.pomodoro_phase = PomodoroPhase::Work4;
+    ts.dur = seconds{WORK};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, WORK, SHORT, LONG, t0() + seconds{WORK});
+
+    REQUIRE(ts.dur == seconds{LONG});
+    REQUIRE(ts.label == L"Long Break");
+}
+
+TEST_CASE("advance: notified flag is cleared", "[pomodoro][advance]") {
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.notified = true;
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_WORK_SECS});
+
+    REQUIRE_FALSE(ts.notified);
+}
+
+TEST_CASE("advance: full cycle through all 8 phases", "[pomodoro][advance]") {
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_work_elapsed = seconds{0};
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    auto now = t0();
+    for (int i = 0; i < POMODORO_PHASE_COUNT; ++i) {
+        now += ts.dur;
+        advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, now);
+    }
+
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
+    REQUIRE(ts.label == L"Work 1/4");
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{4 * POMODORO_WORK_SECS});
+    REQUIRE(ts.t.is_running());
+}
+
 TEST_CASE("Config pomodoro durations written when any differs from default", "[pomodoro][config]") {
     Config orig;
     orig.pomodoro_work_secs = 30 * 60; // only one changed
