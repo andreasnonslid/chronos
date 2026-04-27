@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.1] — 2026-04-27
+
+### Fixed
+- Replace Unicode arrow (`→`) in four Pomodoro advance test names with ASCII `->` — the multi-byte character was mangled by Windows console encoding, causing CTest to fail when passing the name as a filter to the Catch2 executable (#261, #262)
+
 ## [1.4.0] — 2026-04-27
 
 ### Added
