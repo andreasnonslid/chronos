@@ -147,12 +147,23 @@ inline void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
 
     SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, ctx.theme.text);
-    int cw2 = layout.dpi_scale(86);
-    int cx0 = (cw - 2 * cw2 - gap) / 2;
-    btn(hdc, {cx0, y + by_off, cx0 + cw2, y + by_off + bh}, running, running ? L"Pause" : L"Start",
-        tmr_act(i, A_TMR_START), ctx);
-    btn(hdc, {cx0 + cw2 + gap, y + by_off, cx0 + 2 * cw2 + gap, y + by_off + bh}, false, L"Reset",
-        tmr_act(i, A_TMR_RST), ctx);
+    if (ts.pomodoro) {
+        int cw3 = layout.dpi_scale(58);
+        int cx0 = (cw - 3 * cw3 - 2 * gap) / 2;
+        btn(hdc, {cx0, y + by_off, cx0 + cw3, y + by_off + bh}, running, running ? L"Pause" : L"Start",
+            tmr_act(i, A_TMR_START), ctx);
+        btn(hdc, {cx0 + cw3 + gap, y + by_off, cx0 + 2 * cw3 + gap, y + by_off + bh}, false, L"Skip",
+            tmr_act(i, A_TMR_SKIP), ctx);
+        btn(hdc, {cx0 + 2 * (cw3 + gap), y + by_off, cx0 + 3 * cw3 + 2 * gap, y + by_off + bh}, false, L"Reset",
+            tmr_act(i, A_TMR_RST), ctx);
+    } else {
+        int cw2 = layout.dpi_scale(86);
+        int cx0 = (cw - 2 * cw2 - gap) / 2;
+        btn(hdc, {cx0, y + by_off, cx0 + cw2, y + by_off + bh}, running, running ? L"Pause" : L"Start",
+            tmr_act(i, A_TMR_START), ctx);
+        btn(hdc, {cx0 + cw2 + gap, y + by_off, cx0 + 2 * cw2 + gap, y + by_off + bh}, false, L"Reset",
+            tmr_act(i, A_TMR_RST), ctx);
+    }
 
     int pm_sz = layout.dpi_scale(22), pm_margin = layout.dpi_scale(6);
     int pm_top = y + layout.tmr_h - pm_sz;

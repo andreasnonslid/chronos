@@ -40,6 +40,7 @@ constexpr int A_TMR_RST = 7;
 constexpr int A_TMR_ADD = 8;
 constexpr int A_TMR_DEL = 9;
 constexpr int A_TMR_POMO = 10;
+constexpr int A_TMR_SKIP = 11;
 
 inline int tmr_act(int i, int off) {
     CHRONOS_ASSERT(i >= 0 && off >= 0 && off < TMR_STRIDE);
@@ -225,6 +226,23 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                         ts.t.reset();
                         ts.t.set(ts.dur);
                     }
+                    r.save_config = true;
+                }
+            } else if (off == A_TMR_SKIP) {
+                if (ts.pomodoro && ts.t.touched()) {
+                    if (pomodoro_is_work(ts.pomodoro_phase)) {
+                        auto elapsed = duration_cast<seconds>(ts.t.total_elapsed(now));
+                        ts.pomodoro_work_elapsed += elapsed;
+                    }
+                    ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase);
+                    auto secs = seconds{pomodoro_phase_secs(ts.pomodoro_phase,
+                        app.pomodoro_work_secs, app.pomodoro_short_secs, app.pomodoro_long_secs)};
+                    ts.dur = secs;
+                    ts.notified = false;
+                    ts.t.reset();
+                    ts.t.set(secs);
+                    ts.t.start(now);
+                    ts.label = pomodoro_phase_label(ts.pomodoro_phase);
                     r.save_config = true;
                 }
             } else if (!ts.t.touched()) {

@@ -73,6 +73,10 @@ inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, 
             if (plain_key() && s.app.show_tmr && !s.app.timers.empty())
                 handle(hwnd, tmr_act(0, A_TMR_POMO), s);
             return 0;
+        case 'N':
+            if (plain_key() && s.app.show_tmr && !s.app.timers.empty())
+                handle(hwnd, tmr_act(0, A_TMR_SKIP), s);
+            return 0;
         case 'H':
             if (plain_key()) {
                 s.app.show_help = !s.app.show_help;

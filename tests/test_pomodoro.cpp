@@ -239,6 +239,107 @@ TEST_CASE("A_TMR_RST on Pomodoro timer resets work elapsed", "[pomodoro][actions
     REQUIRE(ts.pomodoro_work_elapsed == seconds{0});
 }
 
+// ─── A_TMR_SKIP ──────────────────────────────────────────────────────────────
+
+TEST_CASE("A_TMR_SKIP advances phase and starts next timer", "[pomodoro][actions]") {
+    App app;
+    auto& ts = app.timers[0];
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    auto r = dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0() + seconds{600}, {});
+
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::ShortBreak1);
+    REQUIRE(ts.dur == seconds{POMODORO_SHORT_BREAK_SECS});
+    REQUIRE(ts.label == pomodoro_phase_label(PomodoroPhase::ShortBreak1));
+    REQUIRE(ts.t.is_running());
+    REQUIRE(r.save_config);
+}
+
+TEST_CASE("A_TMR_SKIP on work phase credits actual elapsed time", "[pomodoro][actions]") {
+    App app;
+    auto& ts = app.timers[0];
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_work_elapsed = seconds{0};
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0() + seconds{600}, {});
+
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{600});
+}
+
+TEST_CASE("A_TMR_SKIP on break phase does not credit work time", "[pomodoro][actions]") {
+    App app;
+    auto& ts = app.timers[0];
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::ShortBreak1;
+    ts.pomodoro_work_elapsed = seconds{25 * 60};
+    ts.dur = seconds{POMODORO_SHORT_BREAK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0() + seconds{60}, {});
+
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{25 * 60});
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work2);
+}
+
+TEST_CASE("A_TMR_SKIP is no-op on non-Pomodoro timer", "[pomodoro][actions]") {
+    App app;
+    auto& ts = app.timers[0];
+    ts.pomodoro = false;
+    ts.dur = seconds{300};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    auto r = dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0() + seconds{60}, {});
+
+    REQUIRE_FALSE(r.save_config);
+    REQUIRE(ts.dur == seconds{300});
+}
+
+TEST_CASE("A_TMR_SKIP is no-op when timer not touched", "[pomodoro][actions]") {
+    App app;
+    auto& ts = app.timers[0];
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+
+    auto r = dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0(), {});
+
+    REQUIRE_FALSE(r.save_config);
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+}
+
+TEST_CASE("A_TMR_SKIP wraps from LongBreak back to Work1", "[pomodoro][actions]") {
+    App app;
+    auto& ts = app.timers[0];
+    ts.pomodoro = true;
+    ts.pomodoro_phase = PomodoroPhase::LongBreak;
+    ts.dur = seconds{POMODORO_LONG_BREAK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0() + seconds{60}, {});
+
+    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
+    REQUIRE(ts.label == pomodoro_phase_label(PomodoroPhase::Work1));
+}
+
 TEST_CASE("Config pomodoro durations written when any differs from default", "[pomodoro][config]") {
     Config orig;
     orig.pomodoro_work_secs = 30 * 60; // only one changed
