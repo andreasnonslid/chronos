@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.0] — 2026-04-27
+
+### Added
+- Skip the current Pomodoro phase early with `N` key or the new **Skip** button — work phases credit actual elapsed time, breaks simply advance to the next phase without losing cycle position (#239)
+
 ## [1.3.0] — 2026-04-26
 
 ### Added
