@@ -342,7 +342,7 @@ TEST_CASE("A_TMR_SKIP wraps from LongBreak back to Work1", "[pomodoro][actions]"
 
 // ─── advance_pomodoro_phase ──────────────────────────────────────────────────
 
-TEST_CASE("advance: work expires → short break, work_elapsed increases", "[pomodoro][advance]") {
+TEST_CASE("advance: work expires -> short break, work_elapsed increases", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
     ts.pomodoro_phase = PomodoroPhase::Work1;
@@ -362,7 +362,7 @@ TEST_CASE("advance: work expires → short break, work_elapsed increases", "[pom
     REQUIRE_FALSE(ts.notified);
 }
 
-TEST_CASE("advance: short break expires → next work phase, work_elapsed unchanged", "[pomodoro][advance]") {
+TEST_CASE("advance: short break expires -> next work phase, work_elapsed unchanged", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
     ts.pomodoro_phase = PomodoroPhase::ShortBreak1;
@@ -381,7 +381,7 @@ TEST_CASE("advance: short break expires → next work phase, work_elapsed unchan
     REQUIRE(ts.t.is_running());
 }
 
-TEST_CASE("advance: Work4 expires → long break", "[pomodoro][advance]") {
+TEST_CASE("advance: Work4 expires -> long break", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
     ts.pomodoro_phase = PomodoroPhase::Work4;
@@ -399,7 +399,7 @@ TEST_CASE("advance: Work4 expires → long break", "[pomodoro][advance]") {
     REQUIRE(ts.pomodoro_work_elapsed == seconds{4 * POMODORO_WORK_SECS});
 }
 
-TEST_CASE("advance: long break expires → wraps to Work1, work_elapsed unchanged", "[pomodoro][advance]") {
+TEST_CASE("advance: long break expires -> wraps to Work1, work_elapsed unchanged", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
     ts.pomodoro_phase = PomodoroPhase::LongBreak;
