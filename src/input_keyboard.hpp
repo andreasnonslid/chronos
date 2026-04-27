@@ -44,7 +44,10 @@ inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, 
             return 0;
         case 'R':
             if (plain_key()) {
-                if (s.app.show_sw)
+                bool shift = GetKeyState(VK_SHIFT) < 0;
+                if (shift && s.app.show_tmr && !s.app.timers.empty())
+                    handle(hwnd, A_TMR_RST_ALL, s);
+                else if (s.app.show_sw)
                     handle(hwnd, A_SW_RESET, s);
                 else if (s.app.show_tmr && !s.app.timers.empty())
                     handle(hwnd, tmr_act(0, A_TMR_RST), s);

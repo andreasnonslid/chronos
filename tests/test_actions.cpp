@@ -363,8 +363,8 @@ TEST_CASE("A_TMR_ADD inserts timer after current index", "[actions]") {
 
 TEST_CASE("A_TMR_ADD respects MAX_TIMERS", "[actions]") {
     App app;
-    dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
-    dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
+    while ((int)app.timers.size() < Config::MAX_TIMERS)
+        dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
     REQUIRE((int)app.timers.size() == Config::MAX_TIMERS);
     auto r = dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
     REQUIRE((int)app.timers.size() == Config::MAX_TIMERS);
@@ -386,6 +386,45 @@ TEST_CASE("A_TMR_DEL does not remove last timer", "[actions]") {
     auto r = dispatch_action(app, tmr_act(0, A_TMR_DEL), t0(), {});
     REQUIRE(app.timers.size() == 1);
     REQUIRE_FALSE(r.resize);
+}
+
+// ─── reset all timers ───────────────────────────────────────────────────────
+
+TEST_CASE("A_TMR_RST_ALL resets all timers", "[actions]") {
+    App app;
+    dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
+    set_timer_dur(app, 0, seconds{300});
+    set_timer_dur(app, 1, seconds{600});
+    dispatch_action(app, tmr_act(0, A_TMR_START), t0(), {});
+    dispatch_action(app, tmr_act(1, A_TMR_START), t0(), {});
+    REQUIRE(app.timers[0].t.is_running());
+    REQUIRE(app.timers[1].t.is_running());
+    auto r = dispatch_action(app, A_TMR_RST_ALL, at_ms(1000), {});
+    REQUIRE_FALSE(app.timers[0].t.is_running());
+    REQUIRE_FALSE(app.timers[1].t.is_running());
+    REQUIRE_FALSE(app.timers[0].t.touched());
+    REQUIRE_FALSE(app.timers[1].t.touched());
+    REQUIRE(r.save_config);
+}
+
+TEST_CASE("A_TMR_RST_ALL clears notified flags", "[actions]") {
+    App app;
+    app.timers[0].notified = true;
+    auto r = dispatch_action(app, A_TMR_RST_ALL, t0(), {});
+    REQUIRE_FALSE(app.timers[0].notified);
+    REQUIRE(r.save_config);
+}
+
+TEST_CASE("A_TMR_RST_ALL resets Pomodoro state on all timers", "[actions]") {
+    App app;
+    dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
+    app.timers[0].pomodoro = true;
+    app.timers[0].pomodoro_phase = PomodoroPhase::ShortBreak1;
+    app.timers[0].pomodoro_work_elapsed = seconds{500};
+    auto r = dispatch_action(app, A_TMR_RST_ALL, t0(), {});
+    REQUIRE(app.timers[0].pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(app.timers[0].pomodoro_work_elapsed == seconds{0});
+    REQUIRE(r.save_config);
 }
 
 // ─── zero-duration timer guard ───────────────────────────────────────────────
