@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.2] — 2026-04-28
+
+### Changed
+- Extract H/M/S adjustment logic from `dispatch_action` into standalone `apply_timer_hms_adjust` function, shrinking the main dispatch to a switch-of-thin-handlers (#237)
+
 ## [1.4.1] — 2026-04-27
 
 ### Fixed
