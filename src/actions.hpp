@@ -42,6 +42,36 @@ constexpr int A_TMR_DEL = 9;
 constexpr int A_TMR_POMO = 10;
 constexpr int A_TMR_SKIP = 11;
 
+inline bool apply_timer_hms_adjust(TimerSlot& ts, int off) {
+    auto total = ts.dur.count();
+    int h = (int)(total / 3600);
+    int m = (int)((total / 60) % 60);
+    int sec = (int)(total % 60);
+    struct Adj { int off; int* field; int max_val; bool up; };
+    Adj adjustments[] = {
+        {A_TMR_HUP, &h, 24, true},  {A_TMR_HDN, &h, 24, false},
+        {A_TMR_MUP, &m, 59, true},  {A_TMR_MDN, &m, 59, false},
+        {A_TMR_SUP, &sec, 59, true}, {A_TMR_SDN, &sec, 59, false},
+    };
+    bool changed = false;
+    for (auto& [a_off, field, max_val, up] : adjustments) {
+        if (off == a_off) {
+            *field = up ? (*field >= max_val ? 0 : *field + 1)
+                        : (*field <= 0 ? max_val : *field - 1);
+            changed = true;
+            break;
+        }
+    }
+    if (changed) {
+        if (h == 24) { m = 0; sec = 0; }
+        auto clamped = std::clamp(h * 3600 + m * 60 + sec, 0, Config::TIMER_MAX_SECS);
+        ts.dur = std::chrono::seconds{clamped};
+        ts.t.reset();
+        ts.t.set(ts.dur);
+    }
+    return changed;
+}
+
 inline int tmr_act(int i, int off) {
     CHRONOS_ASSERT(i >= 0 && off >= 0 && off < TMR_STRIDE);
     return A_TMR_BASE + i * TMR_STRIDE + off;
@@ -245,34 +275,8 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                     ts.label = pomodoro_phase_label(ts.pomodoro_phase);
                     r.save_config = true;
                 }
-            } else if (!ts.t.touched()) {
-                auto total = ts.dur.count();
-                int h = (int)(total / 3600);
-                int m = (int)((total / 60) % 60);
-                int sec = (int)(total % 60);
-                struct Adj { int off; int* field; int max_val; bool up; };
-                Adj adjustments[] = {
-                    {A_TMR_HUP, &h, 24, true},  {A_TMR_HDN, &h, 24, false},
-                    {A_TMR_MUP, &m, 59, true},  {A_TMR_MDN, &m, 59, false},
-                    {A_TMR_SUP, &sec, 59, true}, {A_TMR_SDN, &sec, 59, false},
-                };
-                bool changed = false;
-                for (auto& [a_off, field, max_val, up] : adjustments) {
-                    if (off == a_off) {
-                        *field = up ? (*field >= max_val ? 0 : *field + 1)
-                                    : (*field <= 0 ? max_val : *field - 1);
-                        changed = true;
-                        break;
-                    }
-                }
-                if (changed) {
-                    if (h == 24) { m = 0; sec = 0; }
-                    auto clamped = std::clamp(h * 3600 + m * 60 + sec, 0, Config::TIMER_MAX_SECS);
-                    ts.dur = seconds{clamped};
-                    ts.t.reset();
-                    ts.t.set(ts.dur);
-                    r.save_config = true;
-                }
+            } else if (!ts.t.touched() && apply_timer_hms_adjust(ts, off)) {
+                r.save_config = true;
             }
         }
     }
