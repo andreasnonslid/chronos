@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.3] — 2026-04-29
+
+### Changed
+- Split `tests/test_actions.cpp` (565 lines) into four focused files: `test_actions_dispatch.cpp`, `test_actions_stopwatch.cpp`, `test_actions_timer.cpp`, `test_actions_adjust.cpp` — no tests modified, pure file split (#238)
+
 ## [1.4.2] — 2026-04-28
 
 ### Changed
