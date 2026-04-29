@@ -54,7 +54,10 @@ if(BUILD_TESTS)
         tests/test_encoding.cpp
         tests/test_formatting.cpp
         tests/test_layout.cpp
-        tests/test_actions.cpp
+        tests/test_actions_dispatch.cpp
+        tests/test_actions_stopwatch.cpp
+        tests/test_actions_timer.cpp
+        tests/test_actions_adjust.cpp
         tests/test_pomodoro.cpp
     )
     target_include_directories(chronos_tests PRIVATE src)
