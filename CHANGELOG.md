@@ -3,6 +3,15 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.1] — 2026-05-11
+
+### Fixed
+- Pomodoro dialog now opens centered on the parent window instead of the screen center (#273)
+- Eliminated white outline artifacts on owner-drawn OK/Cancel buttons by clearing the button background before drawing rounded corners (#273)
+
+### Added
+- Pomodoro dialog title area is now draggable, allowing the user to reposition the popup (#273)
+
 ## [1.5.0] — 2026-05-11
 
 ### Changed
