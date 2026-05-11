@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <windowsx.h>
 #include <format>
 #include <vector>
 #include "app.hpp"
@@ -51,8 +52,7 @@ constexpr short DLG_W = 170, DLG_H = 110;
 inline std::vector<WORD> build_template() {
     Buf b;
 
-    // Borderless popup with no caption — we paint our own title
-    b.push_dword(DS_CENTER | WS_POPUP | WS_BORDER);
+    b.push_dword(WS_POPUP | WS_BORDER);
     b.push_dword(0);
     b.push_word(DLG_ITEM_COUNT);
     b.push_word(0); b.push_word(0);
@@ -135,6 +135,17 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
         p->style.apply_dark_mode(dlg);
 
+        HWND parent = GetParent(dlg);
+        if (parent) {
+            RECT pr, dr;
+            GetWindowRect(parent, &pr);
+            GetWindowRect(dlg, &dr);
+            int dw = dr.right - dr.left, dh = dr.bottom - dr.top;
+            int x = pr.left + (pr.right - pr.left - dw) / 2;
+            int y = pr.top + (pr.bottom - pr.top - dh) / 2;
+            SetWindowPos(dlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+        }
+
         SetDlgItemTextW(dlg, IDC_POMO_WORK,  std::format(L"{}", p->work_min).c_str());
         SetDlgItemTextW(dlg, IDC_POMO_SHORT, std::format(L"{}", p->short_min).c_str());
         SetDlgItemTextW(dlg, IDC_POMO_LONG,  std::format(L"{}", p->long_min).c_str());
@@ -142,7 +153,6 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         SendDlgItemMessageW(dlg, IDC_POMO_SHORT, EM_SETLIMITTEXT, 4, 0);
         SendDlgItemMessageW(dlg, IDC_POMO_LONG,  EM_SETLIMITTEXT, 4, 0);
 
-        // Apply themed font and style to all controls
         EnumChildWindows(dlg, [](HWND child, LPARAM param) -> BOOL {
             auto* params = reinterpret_cast<Params*>(param);
             SendMessageW(child, WM_SETFONT, (WPARAM)params->style.font, FALSE);
@@ -201,6 +211,23 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         if (s_edit_bg) DeleteObject(s_edit_bg);
         s_edit_bg = CreateSolidBrush(p->style.theme->bar);
         return (INT_PTR)s_edit_bg;
+    }
+    case WM_CTLCOLORBTN: {
+        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+        if (!p) break;
+        static HBRUSH s_btn_bg = nullptr;
+        if (s_btn_bg) DeleteObject(s_btn_bg);
+        s_btn_bg = CreateSolidBrush(p->style.theme->bg);
+        return (INT_PTR)s_btn_bg;
+    }
+    case WM_NCHITTEST: {
+        RECT title_rc = {0, 0, DLG_W, 22};
+        MapDialogRect(dlg, &title_rc);
+        POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+        ScreenToClient(dlg, &pt);
+        if (pt.y >= 0 && pt.y < title_rc.bottom)
+            return HTCAPTION;
+        break;
     }
     case WM_DRAWITEM: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
