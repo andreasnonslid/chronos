@@ -3,6 +3,11 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.2] — 2026-05-11
+
+### Fixed
+- Prevent extra empty space below the bottom widget when the window is snapped or resized on portrait (vertical) monitors — lock maximum window height to content height via `WM_GETMINMAXINFO` and correct oversized frames in `WM_SIZE` (#263)
+
 ## [1.5.1] — 2026-05-11
 
 ### Fixed
