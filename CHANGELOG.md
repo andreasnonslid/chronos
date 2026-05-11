@@ -3,6 +3,14 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.0] — 2026-05-11
+
+### Changed
+- Restyle Pomodoro interval dialog to match the app's dark/light theme — custom-painted background, themed labels, owner-drawn rounded buttons, and flat dark edit fields replace the default Windows dialog chrome (#265)
+
+### Added
+- Introduce reusable `DlgStyle` struct (`dialog_style.hpp`) for consistent owner-drawn dialog styling across future config panels
+
 ## [1.4.3] — 2026-04-29
 
 ### Changed

@@ -75,7 +75,8 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                     save_config(hwnd, s);
                     InvalidateRect(hwnd, nullptr, FALSE);
                 } else if (cmd == CMD_POMO_CFG) {
-                    if (show_pomodoro_interval_dialog(hwnd, s.app, (HFONT)s.fontSm.h)) {
+                    if (show_pomodoro_interval_dialog(hwnd, s.app, (HFONT)s.fontSm.h,
+                                                       s.active_theme, s.layout.dpi)) {
                         save_config(hwnd, s);
                         InvalidateRect(hwnd, nullptr, FALSE);
                     }

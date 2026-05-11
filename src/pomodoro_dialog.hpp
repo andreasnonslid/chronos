@@ -3,28 +3,27 @@
 #include <format>
 #include <vector>
 #include "app.hpp"
+#include "dialog_style.hpp"
 
 // ─── Dialog control IDs ───────────────────────────────────────────────────────
 
 constexpr int IDC_POMO_WORK  = 101;
 constexpr int IDC_POMO_SHORT = 102;
 constexpr int IDC_POMO_LONG  = 103;
+constexpr int IDC_BTN_OK     = 104;
+constexpr int IDC_BTN_CANCEL = 105;
 
 // ─── Runtime DLGTEMPLATE builder ─────────────────────────────────────────────
 
 namespace pomo_dlg_detail {
 
-// Built-in window class atoms used in dialog item templates
 constexpr WORD CLS_BUTTON = 0x0080;
 constexpr WORD CLS_EDIT   = 0x0081;
 constexpr WORD CLS_STATIC = 0x0082;
 
 struct Buf {
     std::vector<WORD> data;
-
-    // Pad to next DWORD boundary (required between DLGITEMTEMPLATE entries)
     void align4() { while (data.size() % 2) data.push_back(0); }
-
     void push_word(WORD w)  { data.push_back(w); }
     void push_dword(DWORD d) { data.push_back(LOWORD(d)); data.push_back(HIWORD(d)); }
     void push_wstr(const wchar_t* s) { while (*s) data.push_back((WORD)*s++); data.push_back(0); }
@@ -40,72 +39,82 @@ inline void add_item(Buf& b, DWORD style, DWORD exStyle,
     b.push_word((WORD)x);  b.push_word((WORD)y);
     b.push_word((WORD)cx); b.push_word((WORD)cy);
     b.push_word(id);
-    b.push_word(0xFFFF); b.push_word(cls_atom); // built-in class by atom
+    b.push_word(0xFFFF); b.push_word(cls_atom);
     b.push_wstr(title);
-    b.push_word(0); // creation data size
+    b.push_word(0);
 }
 
-// 3 rows × (label + edit + "min" static) + OK + Cancel = 11 items
+// 3 labels + 3 edits + 3 "min" statics + 2 buttons = 11
 constexpr WORD DLG_ITEM_COUNT = 11;
-
-// Dialog dimensions in dialog units
-constexpr short DLG_W = 160, DLG_H = 82;
+constexpr short DLG_W = 170, DLG_H = 110;
 
 inline std::vector<WORD> build_template() {
     Buf b;
 
-    // DLGTEMPLATE
-    b.push_dword(DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU);
-    b.push_dword(0); // exStyle
+    // Borderless popup with no caption — we paint our own title
+    b.push_dword(DS_CENTER | WS_POPUP | WS_BORDER);
+    b.push_dword(0);
     b.push_word(DLG_ITEM_COUNT);
-    b.push_word(0); b.push_word(0);   // x, y
+    b.push_word(0); b.push_word(0);
     b.push_word(DLG_W); b.push_word(DLG_H);
     b.push_wstr_empty(); // no menu
-    b.push_wstr_empty(); // default window class
-    b.push_wstr(L"Pomodoro Intervals");
+    b.push_wstr_empty(); // default class
+    b.push_wstr_empty(); // no caption text (we draw our own)
 
-    // Layout: label col x=8 w=52, edit col x=62 w=30, "min" col x=95 w=20
-    // Rows at y = 14, 30, 46.  Row height = 12.
-    // Buttons at y = 62.
+    // Layout: centered content
+    // Title area occupies y 0-20 (painted by us)
+    // Row starts at y=24, rows spaced 18du apart
+    // label x=14 w=52, edit x=70 w=28, "min" x=102 w=18
+    short row_y0 = 28, row_sp = 18;
+    short lbl_x = 14, lbl_w = 54;
+    short ed_x = 72, ed_w = 28;
+    short min_x = 104, min_w = 18;
+    short row_h = 12;
 
     // Row 0 — Work
     add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
-             8, 14, 52, 12, 0xFFFF, CLS_STATIC, L"Work");
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, WS_EX_CLIENTEDGE,
-             62, 14, 30, 12, IDC_POMO_WORK, CLS_EDIT, L"");
+             lbl_x, row_y0, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Work");
+    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+             ed_x, row_y0, ed_w, row_h, IDC_POMO_WORK, CLS_EDIT, L"");
     add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
-             95, 14, 20, 12, 0xFFFF, CLS_STATIC, L"min");
+             min_x, row_y0, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
 
     // Row 1 — Short break
+    short r1 = row_y0 + row_sp;
     add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
-             8, 30, 52, 12, 0xFFFF, CLS_STATIC, L"Short break");
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, WS_EX_CLIENTEDGE,
-             62, 30, 30, 12, IDC_POMO_SHORT, CLS_EDIT, L"");
+             lbl_x, r1, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Short break");
+    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+             ed_x, r1, ed_w, row_h, IDC_POMO_SHORT, CLS_EDIT, L"");
     add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
-             95, 30, 20, 12, 0xFFFF, CLS_STATIC, L"min");
+             min_x, r1, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
 
     // Row 2 — Long break
+    short r2 = row_y0 + 2 * row_sp;
     add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
-             8, 46, 52, 12, 0xFFFF, CLS_STATIC, L"Long break");
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, WS_EX_CLIENTEDGE,
-             62, 46, 30, 12, IDC_POMO_LONG, CLS_EDIT, L"");
+             lbl_x, r2, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Long break");
+    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+             ed_x, r2, ed_w, row_h, IDC_POMO_LONG, CLS_EDIT, L"");
     add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
-             95, 46, 20, 12, 0xFFFF, CLS_STATIC, L"min");
+             min_x, r2, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
 
-    // Buttons
-    add_item(b, BS_DEFPUSHBUTTON | WS_TABSTOP, 0,
-             34, 64, 40, 14, IDOK,     CLS_BUTTON, L"OK");
-    add_item(b, BS_PUSHBUTTON    | WS_TABSTOP, 0,
-             80, 64, 40, 14, IDCANCEL, CLS_BUTTON, L"Cancel");
+    // Buttons — centered at bottom
+    short btn_y = row_y0 + 3 * row_sp + 4;
+    short btn_w = 44, btn_h = 16, btn_gap = 8;
+    short total_w = 2 * btn_w + btn_gap;
+    short btn_x0 = (DLG_W - total_w) / 2;
+    add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
+             btn_x0, btn_y, btn_w, btn_h, IDC_BTN_OK, CLS_BUTTON, L"OK");
+    add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
+             btn_x0 + btn_w + btn_gap, btn_y, btn_w, btn_h, IDC_BTN_CANCEL, CLS_BUTTON, L"Cancel");
 
     return b.data;
 }
 
-// ─── Dialog parameters and proc ──────────────────────────────────────────────
+// ─── Dialog parameters ──────────────────────────────────────────────────────
 
 struct Params {
     int work_min, short_min, long_min;
-    HFONT font;
+    DlgStyle style;
 };
 
 inline bool read_field(HWND dlg, int id, int& out) {
@@ -123,26 +132,89 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_INITDIALOG: {
         auto* p = reinterpret_cast<Params*>(lp);
         SetWindowLongPtrW(dlg, DWLP_USER, (LONG_PTR)p);
+
+        p->style.apply_dark_mode(dlg);
+
         SetDlgItemTextW(dlg, IDC_POMO_WORK,  std::format(L"{}", p->work_min).c_str());
         SetDlgItemTextW(dlg, IDC_POMO_SHORT, std::format(L"{}", p->short_min).c_str());
         SetDlgItemTextW(dlg, IDC_POMO_LONG,  std::format(L"{}", p->long_min).c_str());
         SendDlgItemMessageW(dlg, IDC_POMO_WORK,  EM_SETLIMITTEXT, 4, 0);
         SendDlgItemMessageW(dlg, IDC_POMO_SHORT, EM_SETLIMITTEXT, 4, 0);
         SendDlgItemMessageW(dlg, IDC_POMO_LONG,  EM_SETLIMITTEXT, 4, 0);
-        if (p->font) {
-            // Set the app font on all child controls
-            EnumChildWindows(dlg, [](HWND child, LPARAM font) -> BOOL {
-                SendMessageW(child, WM_SETFONT, (WPARAM)(HFONT)font, FALSE);
-                return TRUE;
-            }, (LPARAM)p->font);
-        }
+
+        // Apply themed font and style to all controls
+        EnumChildWindows(dlg, [](HWND child, LPARAM param) -> BOOL {
+            auto* params = reinterpret_cast<Params*>(param);
+            SendMessageW(child, WM_SETFONT, (WPARAM)params->style.font, FALSE);
+            return TRUE;
+        }, (LPARAM)p);
+
         SetFocus(GetDlgItem(dlg, IDC_POMO_WORK));
         SendDlgItemMessageW(dlg, IDC_POMO_WORK, EM_SETSEL, 0, -1);
-        return FALSE; // focus set manually
+        return FALSE;
+    }
+    case WM_ERASEBKGND: {
+        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+        if (!p) break;
+        RECT rc;
+        GetClientRect(dlg, &rc);
+        p->style.fill_background((HDC)wp, rc);
+
+        // Draw title
+        RECT title_rc = {0, 0, DLG_W, 20};
+        MapDialogRect(dlg, &title_rc);
+        title_rc.left = 0;
+        title_rc.right = rc.right;
+        p->style.draw_label((HDC)wp, title_rc, L"Pomodoro Intervals",
+                           DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+        // Draw divider under title
+        HPEN pen = CreatePen(PS_SOLID, 1, p->style.theme->divider);
+        auto* old = (HPEN)SelectObject((HDC)wp, pen);
+        RECT map_rc = {0, 0, DLG_W, 22};
+        MapDialogRect(dlg, &map_rc);
+        MoveToEx((HDC)wp, 0, map_rc.bottom, nullptr);
+        LineTo((HDC)wp, rc.right, map_rc.bottom);
+        SelectObject((HDC)wp, old);
+        DeleteObject(pen);
+
+        return 1;
+    }
+    case WM_CTLCOLORSTATIC: {
+        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+        if (!p) break;
+        HDC hdc = (HDC)wp;
+        SetTextColor(hdc, p->style.theme->text);
+        SetBkMode(hdc, TRANSPARENT);
+        static HBRUSH s_bg = nullptr;
+        if (s_bg) DeleteObject(s_bg);
+        s_bg = CreateSolidBrush(p->style.theme->bg);
+        return (INT_PTR)s_bg;
+    }
+    case WM_CTLCOLOREDIT: {
+        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+        if (!p) break;
+        HDC hdc = (HDC)wp;
+        SetTextColor(hdc, p->style.theme->text);
+        SetBkColor(hdc, p->style.theme->bar);
+        static HBRUSH s_edit_bg = nullptr;
+        if (s_edit_bg) DeleteObject(s_edit_bg);
+        s_edit_bg = CreateSolidBrush(p->style.theme->bar);
+        return (INT_PTR)s_edit_bg;
+    }
+    case WM_DRAWITEM: {
+        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+        if (!p) break;
+        auto* di = (DRAWITEMSTRUCT*)lp;
+        if (di->CtlType != ODT_BUTTON) break;
+        const wchar_t* label = (di->CtlID == IDC_BTN_OK) ? L"OK" : L"Cancel";
+        bool focused = (di->itemState & ODS_FOCUS) != 0;
+        p->style.draw_button(di->hDC, di->rcItem, label, focused);
+        return TRUE;
     }
     case WM_COMMAND:
         switch (LOWORD(wp)) {
-        case IDOK: {
+        case IDC_BTN_OK: {
             auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
             int w = 0, s = 0, l = 0;
             if (!read_field(dlg, IDC_POMO_WORK,  w)) { MessageBeep(MB_ICONASTERISK); SetFocus(GetDlgItem(dlg, IDC_POMO_WORK));  return TRUE; }
@@ -152,10 +224,14 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             EndDialog(dlg, IDOK);
             return TRUE;
         }
-        case IDCANCEL:
+        case IDC_BTN_CANCEL:
             EndDialog(dlg, IDCANCEL);
             return TRUE;
         }
+        break;
+    case WM_KEYDOWN:
+        if (wp == VK_ESCAPE) { EndDialog(dlg, IDCANCEL); return TRUE; }
+        if (wp == VK_RETURN) { SendMessageW(dlg, WM_COMMAND, IDC_BTN_OK, 0); return TRUE; }
         break;
     }
     return FALSE;
@@ -165,16 +241,18 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-// Show a modal dialog to edit Pomodoro work/short/long intervals.
-// Applies changes to app on OK and returns true; returns false on Cancel.
-inline bool show_pomodoro_interval_dialog(HWND parent, App& app, HFONT font) {
+inline bool show_pomodoro_interval_dialog(HWND parent, App& app, HFONT font,
+                                          const Theme* theme = nullptr, int dpi = 0) {
     using namespace pomo_dlg_detail;
+
+    if (!theme) theme = &dark_theme;
+    if (dpi <= 0) dpi = STANDARD_DPI;
 
     Params p{
         .work_min  = app.pomodoro_work_secs  / 60,
         .short_min = app.pomodoro_short_secs / 60,
         .long_min  = app.pomodoro_long_secs  / 60,
-        .font      = font,
+        .style = {.theme = theme, .font = font, .dpi = dpi},
     };
 
     auto tmpl = build_template();
