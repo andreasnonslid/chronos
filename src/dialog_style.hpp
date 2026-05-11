@@ -36,6 +36,9 @@ struct DlgStyle {
     }
 
     void draw_button(HDC hdc, const RECT& rc, const wchar_t* text, bool focused) const {
+        HBRUSH bg_br = CreateSolidBrush(theme->bg);
+        FillRect(hdc, &rc, bg_br);
+        DeleteObject(bg_br);
         int rr = scale(6);
         HBRUSH br = CreateSolidBrush(focused ? theme->active : theme->btn);
         HPEN pen = CreatePen(PS_NULL, 0, 0);
