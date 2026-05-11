@@ -67,6 +67,12 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             ShowWindow(hwnd, SW_HIDE);
             return 0;
         }
+        {
+            RECT cr;
+            GetClientRect(hwnd, &cr);
+            if (cr.bottom > client_height(*s))
+                resize_window(hwnd, *s);
+        }
         break;
     case WM_TRAYICON: {
         auto tray_restore = [&] {
@@ -127,6 +133,7 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         RECT adj_h{0, 0, 0, client_height(*s)};
         AdjustWindowRectEx(&adj_h, ws, FALSE, 0);
         m->ptMinTrackSize.y = adj_h.bottom - adj_h.top;
+        m->ptMaxTrackSize.y = m->ptMinTrackSize.y;
         return 0;
     }
     case WM_DPICHANGED: {
