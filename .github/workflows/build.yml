@@ -146,6 +146,61 @@ jobs:
         with:
           job-name: test-linux-debug (Debug)
 
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ./.github/actions/setup-llvm
+
+      - name: Configure
+        run: |
+          set -o pipefail
+          cmake --preset coverage -DCMAKE_CXX_COMPILER=clang++-19 2>&1 | tee configure-output.txt
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build 2>&1 | tee build-output.txt
+
+      - name: Test
+        run: |
+          set -o pipefail
+          cd build && LLVM_PROFILE_FILE="chronos-%p.profraw" ctest --output-on-failure 2>&1 | tee ../test-output.txt
+
+      - name: Generate coverage report
+        run: |
+          set -o pipefail
+          llvm-profdata-19 merge -sparse build/chronos-*.profraw -o build/merged.profdata
+          llvm-cov-19 report build/chronos_tests -instr-profile=build/merged.profdata -ignore-filename-regex='_deps|tests/' 2>&1 | tee coverage-report.txt
+          echo "--- Coverage Summary ---"
+          tail -1 coverage-report.txt
+          llvm-cov-19 export build/chronos_tests -instr-profile=build/merged.profdata -format=lcov -ignore-filename-regex='_deps|tests/' > coverage.lcov
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          retention-days: 30
+          path: |
+            coverage-report.txt
+            coverage.lcov
+          if-no-files-found: ignore
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-logs
+          retention-days: 7
+          path: |
+            configure-output.txt
+            build-output.txt
+            test-output.txt
+          if-no-files-found: ignore
+
   sanitizer-check:
     runs-on: ubuntu-latest
     steps:
