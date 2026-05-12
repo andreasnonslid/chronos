@@ -1,6 +1,9 @@
 #pragma once
 #include <windows.h>
 #include <windowsx.h>
+#ifndef WM_CTLCOLORCOMBOBOX
+#define WM_CTLCOLORCOMBOBOX 0x0109
+#endif
 #include <format>
 #include <vector>
 #include "app.hpp"
@@ -270,7 +273,7 @@ inline void update_content_scroll(HWND dlg, Params* p) {
 
 // Apply scroll delta and reposition the combobox if on the clock tab.
 inline void apply_scroll(HWND dlg, Params* p, int new_pos) {
-    SCROLLINFO si = {sizeof(SCROLLINFO), SIF_POS};
+    SCROLLINFO si = {sizeof(SCROLLINFO), SIF_POS, 0, 0, 0, 0, 0};
     si.nPos = new_pos;
     SetScrollInfo(dlg, SB_VERT, &si, TRUE);
     GetScrollInfo(dlg, SB_VERT, &si);
@@ -648,7 +651,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_VSCROLL: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        SCROLLINFO si = {sizeof(SCROLLINFO), SIF_ALL};
+        SCROLLINFO si = {sizeof(SCROLLINFO), SIF_ALL, 0, 0, 0, 0, 0};
         GetScrollInfo(dlg, SB_VERT, &si);
         int new_pos = si.nPos;
         switch (LOWORD(wp)) {
@@ -667,7 +670,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_MOUSEWHEEL: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        SCROLLINFO si = {sizeof(SCROLLINFO), SIF_ALL};
+        SCROLLINFO si = {sizeof(SCROLLINFO), SIF_ALL, 0, 0, 0, 0, 0};
         GetScrollInfo(dlg, SB_VERT, &si);
         if ((int)(si.nMax - si.nPage) <= si.nMin) break; // no scroll range
         int delta = GET_WHEEL_DELTA_WPARAM(wp);
