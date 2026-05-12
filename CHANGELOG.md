@@ -12,6 +12,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Analog options surfaced in **Clock** tab of the settings panel when Analog format is selected
 - All analog style fields persisted to `config.ini` (prefixed `analog_*`); defaults derive from the active theme for a clean look out of the box
 - Analog clock accessible via click-to-cycle on the clock area or the Clock tab format selector in settings
+- **Clock format dropdown** — replaced the 5 option buttons with a single `CBS_DROPDOWNLIST` combobox for cleaner UI (#296)
+- **Settings panel vertical scroll** — content is clipped to the viewable area with mouse-wheel and scrollbar navigation when tabs exceed the visible height (#296)
+
+### Fixed
+- Settings tabs now only enable scrollbar when content actually exceeds the viewable pane height (scroll range was comparing absolute dialog-Y to relative pane height) (#296)
+- Windows build errors from missing `WM_CTLCOLORCOMBOBOX` declaration and uninitialized `SCROLLINFO` struct fields (#296)
 
 ## [1.9.0] — 2026-05-12
 
