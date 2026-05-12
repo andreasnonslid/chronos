@@ -121,6 +121,7 @@ struct HitRects {
     RECT sidebar[TAB_COUNT];
     RECT theme[3];
     RECT clock[4];
+    RECT sound;
 };
 
 inline HitRects compute_rects(HWND dlg) {
@@ -137,6 +138,8 @@ inline HitRects compute_rects(HWND dlg) {
     h.clock[1] = map_dlu(dlg, 70, 57, 100, 13);
     h.clock[2] = map_dlu(dlg, 70, 72, 100, 13);
     h.clock[3] = map_dlu(dlg, 70, 87, 100, 13);
+
+    h.sound = map_dlu(dlg, 70, 97, 100, 13);
     return h;
 }
 
@@ -144,6 +147,7 @@ struct Params {
     int active_tab = TAB_APPEARANCE;
     ThemeMode theme_mode;
     ClockView clock_view;
+    bool sound_on_expiry;
     int work_min, short_min, long_min;
     DlgStyle style;
     HitRects rects{};
@@ -275,6 +279,12 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             for (int i = 0; i < 3; ++i)
                 paint_option_btn(hdc, p->rects.theme[i], names[i],
                                 (int)p->theme_mode == i, s);
+
+            RECT slbl = map_dlu(dlg, 70, 88, 80, 8);
+            s.draw_label(hdc, slbl, L"Notifications");
+            paint_option_btn(hdc, p->rects.sound,
+                            p->sound_on_expiry ? L"Sound: on" : L"Sound: off",
+                            p->sound_on_expiry, s);
         } else if (p->active_tab == TAB_CLOCK) {
             RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
             s.draw_label(hdc, lbl, L"Format");
@@ -366,6 +376,11 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
                     return TRUE;
                 }
             }
+            if (PtInRect(&p->rects.sound, pt)) {
+                p->sound_on_expiry = !p->sound_on_expiry;
+                InvalidateRect(dlg, nullptr, TRUE);
+                return TRUE;
+            }
         }
 
         if (p->active_tab == TAB_CLOCK) {
@@ -432,6 +447,7 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
         .active_tab = TAB_APPEARANCE,
         .theme_mode = app.theme_mode,
         .clock_view = app.clock_view,
+        .sound_on_expiry = app.sound_on_expiry,
         .work_min  = app.pomodoro_work_secs / 60,
         .short_min = app.pomodoro_short_secs / 60,
         .long_min  = app.pomodoro_long_secs / 60,
@@ -448,6 +464,7 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
     if (result != IDOK) return false;
     app.theme_mode = p.theme_mode;
     app.clock_view = p.clock_view;
+    app.sound_on_expiry = p.sound_on_expiry;
     app.pomodoro_work_secs = p.work_min * 60;
     app.pomodoro_short_secs = p.short_min * 60;
     app.pomodoro_long_secs = p.long_min * 60;

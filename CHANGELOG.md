@@ -3,6 +3,12 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.0] — 2026-05-12
+
+### Added
+- Configurable notification sound on timer expiry — toggle on/off via **Appearance → Notifications** in the settings panel (default: on) (#267)
+- Sound setting persisted to `config.ini` and respected by all timers including Pomodoro phase transitions
+
 ## [1.6.0] — 2026-05-12
 
 ### Added

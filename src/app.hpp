@@ -39,6 +39,7 @@ struct App {
     bool show_sw = true;
     bool show_tmr = true;
     bool topmost = false;
+    bool sound_on_expiry = true;
     ThemeMode theme_mode = ThemeMode::Auto;
     ClockView clock_view = ClockView::H24_HMS;
     int pomodoro_work_secs = 25 * 60;
