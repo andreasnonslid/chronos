@@ -12,6 +12,7 @@
 #include "formatting.hpp"
 #include "layout.hpp"
 #include "paint_ctx.hpp"
+#include "painting_analog.hpp"
 #include "painting_timer.hpp"
 #include "theme.hpp"
 
@@ -41,6 +42,15 @@ inline int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
     divider(hdc, y, cw, ctx);
     SYSTEMTIME st;
     GetLocalTime(&st);
+
+    if (ctx.app.clock_view == ClockView::Analog) {
+        RECT area{0, y, cw, y + layout.analog_clk_h};
+        draw_analog_clock(hdc, area, ctx.app.analog_style, ctx.theme,
+                          ctx.res.fontSm, layout.dpi, st.wHour, st.wMinute, st.wSecond);
+        ctx.btns.push_back({area, A_CLK_CYCLE});
+        return y + layout.analog_clk_h;
+    }
+
     std::wstring buf;
     switch (ctx.app.clock_view) {
     case ClockView::H24_HMS:

@@ -1,11 +1,13 @@
 #pragma once
 #include "assert.hpp"
+#include "config.hpp"
 
 constexpr int STANDARD_DPI = 96;
 
 struct Layout {
     static constexpr int BASE_BAR_H  = 36;
     static constexpr int BASE_CLK_H  = 62;
+    static constexpr int BASE_ANALOG_CLK_H = 120;
     static constexpr int BASE_SW_H   = 116;
     static constexpr int BASE_TMR_H  = 114;
     static constexpr int BASE_BTN_H  = 28;
@@ -18,6 +20,7 @@ struct Layout {
 
     int bar_h   = BASE_BAR_H;
     int clk_h   = BASE_CLK_H;
+    int analog_clk_h = BASE_ANALOG_CLK_H;
     int sw_h    = BASE_SW_H;
     int tmr_h   = BASE_TMR_H;
     int btn_h   = BASE_BTN_H;
@@ -43,6 +46,7 @@ struct Layout {
         dpi = new_dpi;
         bar_h   = dpi_scale(BASE_BAR_H);
         clk_h   = dpi_scale(BASE_CLK_H);
+        analog_clk_h = dpi_scale(BASE_ANALOG_CLK_H);
         sw_h    = dpi_scale(BASE_SW_H);
         tmr_h   = dpi_scale(BASE_TMR_H);
         btn_h   = dpi_scale(BASE_BTN_H);
@@ -60,6 +64,7 @@ struct LayoutState {
     bool show_sw = true;
     bool show_tmr = true;
     int timer_count = 1;
+    ClockView clock_view = ClockView::H24_HMS;
 };
 
 struct TimerMetrics {
@@ -86,9 +91,13 @@ struct TimerMetrics {
     }
 };
 
+inline int effective_clk_h(const Layout& layout, ClockView view) {
+    return view == ClockView::Analog ? layout.analog_clk_h : layout.clk_h;
+}
+
 inline int client_height_for(const Layout& layout, const LayoutState& state) {
     int h = layout.bar_h;
-    if (state.show_clk) h += layout.clk_h;
+    if (state.show_clk) h += effective_clk_h(layout, state.clock_view);
     if (state.show_sw) h += layout.sw_h;
     if (state.show_tmr) h += state.timer_count * layout.tmr_h;
     return h;
@@ -97,7 +106,7 @@ inline int client_height_for(const Layout& layout, const LayoutState& state) {
 inline int timer_index_at_y(const Layout& layout, const LayoutState& state, int y) {
     if (!state.show_tmr) return -1;
     int top = layout.bar_h;
-    if (state.show_clk) top += layout.clk_h;
+    if (state.show_clk) top += effective_clk_h(layout, state.clock_view);
     if (state.show_sw) top += layout.sw_h;
     if (y < top) return -1;
     int idx = (y - top) / layout.tmr_h;

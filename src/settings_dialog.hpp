@@ -157,10 +157,12 @@ inline RECT map_dlu(HWND dlg, short x, short y, short cx, short cy) {
 struct HitRects {
     RECT sidebar[TAB_COUNT];
     RECT theme[3];
-    RECT clock[4];
+    RECT clock[CLOCK_VIEW_COUNT];
     RECT sound;
     RECT auto_start;
     RECT preset_row[5];
+    RECT analog_min_ticks;
+    RECT analog_labels[3];
 };
 
 inline HitRects compute_rects(HWND dlg) {
@@ -174,10 +176,16 @@ inline HitRects compute_rects(HWND dlg) {
     h.theme[1] = map_dlu(dlg, 70, 57, 54, 13);
     h.theme[2] = map_dlu(dlg, 70, 72, 54, 13);
 
-    h.clock[0] = map_dlu(dlg, 70, 42, 100, 13);
-    h.clock[1] = map_dlu(dlg, 70, 57, 100, 13);
-    h.clock[2] = map_dlu(dlg, 70, 72, 100, 13);
-    h.clock[3] = map_dlu(dlg, 70, 87, 100, 13);
+    h.clock[0] = map_dlu(dlg, 70, 42, 100, 12);
+    h.clock[1] = map_dlu(dlg, 70, 55, 100, 12);
+    h.clock[2] = map_dlu(dlg, 70, 68, 100, 12);
+    h.clock[3] = map_dlu(dlg, 70, 81, 100, 12);
+    h.clock[4] = map_dlu(dlg, 70, 94, 100, 12);
+
+    h.analog_min_ticks = map_dlu(dlg, 70, 118, 80, 12);
+    h.analog_labels[0] = map_dlu(dlg, 70, 136, 34, 12);
+    h.analog_labels[1] = map_dlu(dlg, 106, 136, 34, 12);
+    h.analog_labels[2] = map_dlu(dlg, 142, 136, 34, 12);
 
     h.sound = map_dlu(dlg, 70, 97, 100, 13);
     h.auto_start = map_dlu(dlg, 70, 115, 100, 13);
@@ -188,6 +196,7 @@ struct Params {
     int active_tab = TAB_APPEARANCE;
     ThemeMode theme_mode;
     ClockView clock_view;
+    AnalogClockStyle analog_style;
     bool sound_on_expiry;
     int work_min, short_min, long_min;
     int cadence;
@@ -360,11 +369,25 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
             s.draw_label(hdc, lbl, L"Format");
             const wchar_t* names[] = {
-                L"24h + seconds", L"24h", L"12h + seconds", L"12h"
+                L"24h + seconds", L"24h", L"12h + seconds", L"12h", L"Analog"
             };
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < CLOCK_VIEW_COUNT; ++i)
                 paint_option_btn(hdc, p->rects.clock[i], names[i],
                                 (int)p->clock_view == i, s);
+
+            if (p->clock_view == ClockView::Analog) {
+                RECT aslbl = map_dlu(dlg, 70, 108, 90, 10);
+                s.draw_label(hdc, aslbl, L"Analog options");
+                paint_option_btn(hdc, p->rects.analog_min_ticks,
+                                p->analog_style.show_minute_ticks ? L"Min ticks: on" : L"Min ticks: off",
+                                p->analog_style.show_minute_ticks, s);
+                RECT hrlbl = map_dlu(dlg, 70, 128, 90, 8);
+                s.draw_label(hdc, hrlbl, L"Hour labels");
+                const wchar_t* lbl_names[] = {L"None", L"Sparse", L"Full"};
+                for (int i = 0; i < 3; ++i)
+                    paint_option_btn(hdc, p->rects.analog_labels[i], lbl_names[i],
+                                    (int)p->analog_style.hour_labels == i, s);
+            }
         } else if (p->active_tab == TAB_TIMERS) {
             RECT lbl = map_dlu(dlg, 70, 28, 100, 12);
             s.draw_label(hdc, lbl, L"Custom presets");
@@ -465,11 +488,25 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         }
 
         if (p->active_tab == TAB_CLOCK) {
-            for (int i = 0; i < 4; ++i) {
+            for (int i = 0; i < CLOCK_VIEW_COUNT; ++i) {
                 if (PtInRect(&p->rects.clock[i], pt)) {
                     p->clock_view = (ClockView)i;
                     InvalidateRect(dlg, nullptr, TRUE);
                     return TRUE;
+                }
+            }
+            if (p->clock_view == ClockView::Analog) {
+                if (PtInRect(&p->rects.analog_min_ticks, pt)) {
+                    p->analog_style.show_minute_ticks = !p->analog_style.show_minute_ticks;
+                    InvalidateRect(dlg, nullptr, TRUE);
+                    return TRUE;
+                }
+                for (int i = 0; i < 3; ++i) {
+                    if (PtInRect(&p->rects.analog_labels[i], pt)) {
+                        p->analog_style.hour_labels = (HourLabels)i;
+                        InvalidateRect(dlg, nullptr, TRUE);
+                        return TRUE;
+                    }
                 }
             }
         }
@@ -561,6 +598,7 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
         .active_tab = TAB_APPEARANCE,
         .theme_mode = app.theme_mode,
         .clock_view = app.clock_view,
+        .analog_style = app.analog_style,
         .sound_on_expiry = app.sound_on_expiry,
         .work_min  = app.pomodoro_work_secs / 60,
         .short_min = app.pomodoro_short_secs / 60,
@@ -583,6 +621,7 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
     if (result != IDOK) return false;
     app.theme_mode = p.theme_mode;
     app.clock_view = p.clock_view;
+    app.analog_style = p.analog_style;
     app.sound_on_expiry = p.sound_on_expiry;
     app.pomodoro_work_secs = p.work_min * 60;
     app.pomodoro_short_secs = p.short_min * 60;

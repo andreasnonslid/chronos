@@ -194,7 +194,7 @@ TEST_CASE("Config theme round-trip", "[config]") {
 }
 
 TEST_CASE("Config clock_view round-trip", "[config]") {
-    for (auto view : {ClockView::H24_HMS, ClockView::H24_HM, ClockView::H12_HMS, ClockView::H12_HM}) {
+    for (auto view : {ClockView::H24_HMS, ClockView::H24_HM, ClockView::H12_HMS, ClockView::H12_HM, ClockView::Analog}) {
         Config orig;
         orig.clock_view = view;
         std::ostringstream os;
@@ -452,4 +452,79 @@ TEST_CASE("Config custom presets defaults to zero", "[config]") {
     REQUIRE(c.num_custom_presets == 0);
     for (int i = 0; i < Config::MAX_CUSTOM_PRESETS; ++i)
         REQUIRE(c.custom_preset_secs[i] == 0);
+}
+
+TEST_CASE("Config analog style defaults", "[config]") {
+    AnalogClockStyle s;
+    REQUIRE(s.hour_color == -1);
+    REQUIRE(s.minute_color == -1);
+    REQUIRE(s.second_color == -1);
+    REQUIRE(s.face_color == -1);
+    REQUIRE(s.tick_color == -1);
+    REQUIRE(s.hour_len_pct == 60);
+    REQUIRE(s.minute_len_pct == 80);
+    REQUIRE(s.second_len_pct == 90);
+    REQUIRE(s.hour_thickness == 4);
+    REQUIRE(s.minute_thickness == 2);
+    REQUIRE(s.second_thickness == 1);
+    REQUIRE(s.show_minute_ticks);
+    REQUIRE(s.hour_labels == HourLabels::Sparse);
+}
+
+TEST_CASE("Config analog style round-trip", "[config]") {
+    Config orig;
+    orig.analog_style.hour_color = 0xFF0000;
+    orig.analog_style.minute_color = 0x00FF00;
+    orig.analog_style.second_color = 0x0000FF;
+    orig.analog_style.face_color = 0xAAAAAA;
+    orig.analog_style.tick_color = 0x555555;
+    orig.analog_style.hour_len_pct = 55;
+    orig.analog_style.minute_len_pct = 85;
+    orig.analog_style.second_len_pct = 95;
+    orig.analog_style.hour_thickness = 5;
+    orig.analog_style.minute_thickness = 3;
+    orig.analog_style.second_thickness = 2;
+    orig.analog_style.hour_tick_pct = 15;
+    orig.analog_style.minute_tick_pct = 7;
+    orig.analog_style.show_minute_ticks = false;
+    orig.analog_style.hour_labels = HourLabels::Full;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE(back.analog_style.hour_color == 0xFF0000);
+    REQUIRE(back.analog_style.minute_color == 0x00FF00);
+    REQUIRE(back.analog_style.second_color == 0x0000FF);
+    REQUIRE(back.analog_style.face_color == 0xAAAAAA);
+    REQUIRE(back.analog_style.tick_color == 0x555555);
+    REQUIRE(back.analog_style.hour_len_pct == 55);
+    REQUIRE(back.analog_style.minute_len_pct == 85);
+    REQUIRE(back.analog_style.second_len_pct == 95);
+    REQUIRE(back.analog_style.hour_thickness == 5);
+    REQUIRE(back.analog_style.minute_thickness == 3);
+    REQUIRE(back.analog_style.second_thickness == 2);
+    REQUIRE(back.analog_style.hour_tick_pct == 15);
+    REQUIRE(back.analog_style.minute_tick_pct == 7);
+    REQUIRE_FALSE(back.analog_style.show_minute_ticks);
+    REQUIRE(back.analog_style.hour_labels == HourLabels::Full);
+}
+
+TEST_CASE("Config analog style not written when defaults", "[config]") {
+    Config orig;
+    std::ostringstream os;
+    config_write(orig, os);
+    REQUIRE(os.str().find("analog_") == std::string::npos);
+}
+
+TEST_CASE("Config analog style values clamped", "[config]") {
+    std::istringstream is("analog_hour_len=100\nanalog_minute_thick=10\nanalog_hour_labels=5\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.analog_style.hour_len_pct == 80);
+    REQUIRE(c.analog_style.minute_thickness == 4);
+    REQUIRE(c.analog_style.hour_labels == HourLabels::Full);
 }

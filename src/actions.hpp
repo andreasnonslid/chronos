@@ -189,10 +189,14 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         r.apply_theme = true;
         r.save_config = true;
         break;
-    case A_CLK_CYCLE:
+    case A_CLK_CYCLE: {
+        auto old_view = app.clock_view;
         app.clock_view = (ClockView)(((int)app.clock_view + 1) % CLOCK_VIEW_COUNT);
+        if (old_view == ClockView::Analog || app.clock_view == ClockView::Analog)
+            r.resize = true;
         r.save_config = true;
         break;
+    }
     case A_SETTINGS:
         r.open_settings = true;
         break;

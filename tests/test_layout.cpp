@@ -31,6 +31,7 @@ TEST_CASE("Layout update_for_dpi: standard 96 DPI", "[layout]") {
     l.update_for_dpi(96);
     REQUIRE(l.bar_h == 36);
     REQUIRE(l.clk_h == 62);
+    REQUIRE(l.analog_clk_h == 120);
     REQUIRE(l.sw_h == 116);
     REQUIRE(l.tmr_h == 114);
     REQUIRE(l.btn_h == 28);
@@ -41,6 +42,7 @@ TEST_CASE("Layout update_for_dpi: 192 DPI doubles values", "[layout]") {
     l.update_for_dpi(192);
     REQUIRE(l.bar_h == 72);
     REQUIRE(l.clk_h == 124);
+    REQUIRE(l.analog_clk_h == 240);
     REQUIRE(l.sw_h == 232);
     REQUIRE(l.tmr_h == 228);
     REQUIRE(l.btn_h == 56);
@@ -118,4 +120,35 @@ TEST_CASE("timer_index_at_y: click below all timers", "[layout]") {
     LayoutState s{false, false, true, 1};
     int bottom = l.bar_h + l.tmr_h;
     REQUIRE(timer_index_at_y(l, s, bottom + 10) == -1);
+}
+
+TEST_CASE("client_height_for: analog clock uses taller height", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState digital{true, false, false, 1, ClockView::H24_HMS};
+    LayoutState analog{true, false, false, 1, ClockView::Analog};
+    int h_digital = client_height_for(l, digital);
+    int h_analog = client_height_for(l, analog);
+    REQUIRE(h_digital == 36 + 62);
+    REQUIRE(h_analog == 36 + 120);
+    REQUIRE(h_analog > h_digital);
+}
+
+TEST_CASE("effective_clk_h returns correct height per view", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    REQUIRE(effective_clk_h(l, ClockView::H24_HMS) == 62);
+    REQUIRE(effective_clk_h(l, ClockView::H24_HM) == 62);
+    REQUIRE(effective_clk_h(l, ClockView::H12_HMS) == 62);
+    REQUIRE(effective_clk_h(l, ClockView::H12_HM) == 62);
+    REQUIRE(effective_clk_h(l, ClockView::Analog) == 120);
+}
+
+TEST_CASE("timer_index_at_y accounts for analog clock height", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{true, false, true, 1, ClockView::Analog};
+    int top = l.bar_h + l.analog_clk_h;
+    REQUIRE(timer_index_at_y(l, s, top + 1) == 0);
+    REQUIRE(timer_index_at_y(l, s, top - 1) == -1);
 }

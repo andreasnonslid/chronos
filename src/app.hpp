@@ -43,6 +43,7 @@ struct App {
     bool sound_on_expiry = true;
     ThemeMode theme_mode = ThemeMode::Auto;
     ClockView clock_view = ClockView::H24_HMS;
+    AnalogClockStyle analog_style;
     int pomodoro_work_secs = 25 * 60;
     int pomodoro_short_secs = 5 * 60;
     int pomodoro_long_secs = 15 * 60;

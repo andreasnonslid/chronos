@@ -24,6 +24,25 @@ inline bool config_write(const Config& c, std::ostream& f) {
         f << std::format("pomodoro_cadence={}\n", c.pomodoro_cadence);
     if (c.pomodoro_auto_start != defaults.pomodoro_auto_start)
         f << std::format("pomodoro_auto_start={}\n", c.pomodoro_auto_start ? 1 : 0);
+    {
+        const auto& a = c.analog_style;
+        AnalogClockStyle def;
+        if (a.hour_color != def.hour_color) f << std::format("analog_hour_color={}\n", a.hour_color);
+        if (a.minute_color != def.minute_color) f << std::format("analog_minute_color={}\n", a.minute_color);
+        if (a.second_color != def.second_color) f << std::format("analog_second_color={}\n", a.second_color);
+        if (a.face_color != def.face_color) f << std::format("analog_face_color={}\n", a.face_color);
+        if (a.tick_color != def.tick_color) f << std::format("analog_tick_color={}\n", a.tick_color);
+        if (a.hour_len_pct != def.hour_len_pct) f << std::format("analog_hour_len={}\n", a.hour_len_pct);
+        if (a.minute_len_pct != def.minute_len_pct) f << std::format("analog_minute_len={}\n", a.minute_len_pct);
+        if (a.second_len_pct != def.second_len_pct) f << std::format("analog_second_len={}\n", a.second_len_pct);
+        if (a.hour_thickness != def.hour_thickness) f << std::format("analog_hour_thick={}\n", a.hour_thickness);
+        if (a.minute_thickness != def.minute_thickness) f << std::format("analog_minute_thick={}\n", a.minute_thickness);
+        if (a.second_thickness != def.second_thickness) f << std::format("analog_second_thick={}\n", a.second_thickness);
+        if (a.hour_tick_pct != def.hour_tick_pct) f << std::format("analog_hour_tick={}\n", a.hour_tick_pct);
+        if (a.minute_tick_pct != def.minute_tick_pct) f << std::format("analog_minute_tick={}\n", a.minute_tick_pct);
+        if (a.show_minute_ticks != def.show_minute_ticks) f << std::format("analog_show_min_ticks={}\n", a.show_minute_ticks ? 1 : 0);
+        if (a.hour_labels != def.hour_labels) f << std::format("analog_hour_labels={}\n", (int)a.hour_labels);
+    }
     if (c.num_custom_presets > 0) {
         f << std::format("num_custom_presets={}\n", c.num_custom_presets);
         for (int i = 0; i < c.num_custom_presets; ++i)
@@ -136,6 +155,21 @@ inline bool config_read(Config& c, std::istream& f) {
             c.pomodoro_cadence = clamp_int(val, POMODORO_MIN_CADENCE, POMODORO_MAX_CADENCE);
         else if (key == "pomodoro_auto_start")
             c.pomodoro_auto_start = val != 0;
+        else if (key == "analog_hour_color") c.analog_style.hour_color = (int)val;
+        else if (key == "analog_minute_color") c.analog_style.minute_color = (int)val;
+        else if (key == "analog_second_color") c.analog_style.second_color = (int)val;
+        else if (key == "analog_face_color") c.analog_style.face_color = (int)val;
+        else if (key == "analog_tick_color") c.analog_style.tick_color = (int)val;
+        else if (key == "analog_hour_len") c.analog_style.hour_len_pct = clamp_int(val, 40, 80);
+        else if (key == "analog_minute_len") c.analog_style.minute_len_pct = clamp_int(val, 60, 95);
+        else if (key == "analog_second_len") c.analog_style.second_len_pct = clamp_int(val, 70, 98);
+        else if (key == "analog_hour_thick") c.analog_style.hour_thickness = clamp_int(val, 1, 6);
+        else if (key == "analog_minute_thick") c.analog_style.minute_thickness = clamp_int(val, 1, 4);
+        else if (key == "analog_second_thick") c.analog_style.second_thickness = clamp_int(val, 1, 3);
+        else if (key == "analog_hour_tick") c.analog_style.hour_tick_pct = clamp_int(val, 5, 20);
+        else if (key == "analog_minute_tick") c.analog_style.minute_tick_pct = clamp_int(val, 2, 10);
+        else if (key == "analog_show_min_ticks") c.analog_style.show_minute_ticks = val != 0;
+        else if (key == "analog_hour_labels") c.analog_style.hour_labels = (HourLabels)clamp_int(val, 0, 2);
         else if (key == "sw_running")
             c.sw_running = val != 0;
         else if (key == "sw_elapsed_ms")
