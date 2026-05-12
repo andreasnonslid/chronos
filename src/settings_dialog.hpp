@@ -1,6 +1,9 @@
 #pragma once
 #include <windows.h>
 #include <windowsx.h>
+#ifndef WM_CTLCOLORCOMBOBOX
+#define WM_CTLCOLORCOMBOBOX 0x0109
+#endif
 #include <format>
 #include <vector>
 #include "app.hpp"
@@ -18,8 +21,8 @@ constexpr int IDC_MIN_WORK     = 307;
 constexpr int IDC_MIN_SHORT    = 308;
 constexpr int IDC_MIN_LONG     = 309;
 constexpr int IDC_POMO_CADENCE = 310;
-constexpr int IDC_LBL_CADENCE = 311;
-constexpr int IDC_MIN_CADENCE = 312;
+constexpr int IDC_LBL_CADENCE  = 311;
+constexpr int IDC_MIN_CADENCE  = 312;
 constexpr int IDC_SET_OK       = 313;
 constexpr int IDC_SET_CANCEL   = 314;
 constexpr int IDC_PRESET_ED0   = 320;
@@ -32,10 +35,12 @@ constexpr int IDC_PRESET_MIN1  = 326;
 constexpr int IDC_PRESET_MIN2  = 327;
 constexpr int IDC_PRESET_MIN3  = 328;
 constexpr int IDC_PRESET_MIN4  = 329;
+constexpr int IDC_CLOCK_COMBO  = 330;
 
-constexpr WORD CLS_BUTTON = 0x0080;
-constexpr WORD CLS_EDIT   = 0x0081;
-constexpr WORD CLS_STATIC = 0x0082;
+constexpr WORD CLS_BUTTON   = 0x0080;
+constexpr WORD CLS_EDIT     = 0x0081;
+constexpr WORD CLS_STATIC   = 0x0082;
+constexpr WORD CLS_COMBOBOX = 0x0085;
 
 constexpr short DLG_W = 240, DLG_H = 156;
 constexpr short SIDEBAR_W = 62;
@@ -50,7 +55,7 @@ constexpr int TAB_COUNT      = 4;
 struct Buf {
     std::vector<WORD> data;
     void align4() { while (data.size() % 2) data.push_back(0); }
-    void push_word(WORD w)  { data.push_back(w); }
+    void push_word(WORD w)   { data.push_back(w); }
     void push_dword(DWORD d) { data.push_back(LOWORD(d)); data.push_back(HIWORD(d)); }
     void push_wstr(const wchar_t* s) { while (*s) data.push_back((WORD)*s++); data.push_back(0); }
     void push_wstr_empty() { data.push_back(0); }
@@ -70,11 +75,11 @@ inline void add_item(Buf& b, DWORD style, DWORD exStyle,
     b.push_word(0);
 }
 
-constexpr WORD CTRL_COUNT = 24;
+constexpr WORD CTRL_COUNT = 25;
 
 inline std::vector<WORD> build_template() {
     Buf b;
-    b.push_dword(WS_POPUP | WS_BORDER);
+    b.push_dword(WS_POPUP | WS_BORDER | WS_VSCROLL);
     b.push_dword(0);
     b.push_word(CTRL_COUNT);
     b.push_word(0); b.push_word(0);
@@ -125,8 +130,8 @@ inline std::vector<WORD> build_template() {
     short pr_y0 = 40, pr_sp = 16;
     int pr_edit_ids[] = {IDC_PRESET_ED0, IDC_PRESET_ED1, IDC_PRESET_ED2,
                          IDC_PRESET_ED3, IDC_PRESET_ED4};
-    int pr_min_ids[] = {IDC_PRESET_MIN0, IDC_PRESET_MIN1, IDC_PRESET_MIN2,
-                        IDC_PRESET_MIN3, IDC_PRESET_MIN4};
+    int pr_min_ids[]  = {IDC_PRESET_MIN0, IDC_PRESET_MIN1, IDC_PRESET_MIN2,
+                         IDC_PRESET_MIN3, IDC_PRESET_MIN4};
     for (int i = 0; i < 5; ++i) {
         short py = pr_y0 + (short)(i * pr_sp);
         add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
@@ -134,6 +139,10 @@ inline std::vector<WORD> build_template() {
         add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
                  pr_min_x, py, pr_min_w, row_h, (WORD)pr_min_ids[i], CLS_STATIC, L"min");
     }
+
+    // Clock format dropdown — height includes dropdown list space for 5 items
+    add_item(b, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 0,
+             68, 40, 162, 80, IDC_CLOCK_COMBO, CLS_COMBOBOX, L"");
 
     short btn_w = 44, btn_h = 16, btn_gap = 8;
     short content_cx = DLG_W - SIDEBAR_W - 4;
@@ -157,7 +166,6 @@ inline RECT map_dlu(HWND dlg, short x, short y, short cx, short cy) {
 struct HitRects {
     RECT sidebar[TAB_COUNT];
     RECT theme[3];
-    RECT clock[CLOCK_VIEW_COUNT];
     RECT sound;
     RECT auto_start;
     RECT preset_row[5];
@@ -176,18 +184,13 @@ inline HitRects compute_rects(HWND dlg) {
     h.theme[1] = map_dlu(dlg, 70, 57, 54, 13);
     h.theme[2] = map_dlu(dlg, 70, 72, 54, 13);
 
-    h.clock[0] = map_dlu(dlg, 70, 42, 100, 12);
-    h.clock[1] = map_dlu(dlg, 70, 55, 100, 12);
-    h.clock[2] = map_dlu(dlg, 70, 68, 100, 12);
-    h.clock[3] = map_dlu(dlg, 70, 81, 100, 12);
-    h.clock[4] = map_dlu(dlg, 70, 94, 100, 12);
+    // Analog settings sit below the format dropdown (which is at y=40, h=12)
+    h.analog_min_ticks = map_dlu(dlg, 70,  72, 80, 12);
+    h.analog_labels[0] = map_dlu(dlg, 70,  96, 34, 12);
+    h.analog_labels[1] = map_dlu(dlg, 106, 96, 34, 12);
+    h.analog_labels[2] = map_dlu(dlg, 142, 96, 34, 12);
 
-    h.analog_min_ticks = map_dlu(dlg, 70, 118, 80, 12);
-    h.analog_labels[0] = map_dlu(dlg, 70, 136, 34, 12);
-    h.analog_labels[1] = map_dlu(dlg, 106, 136, 34, 12);
-    h.analog_labels[2] = map_dlu(dlg, 142, 136, 34, 12);
-
-    h.sound = map_dlu(dlg, 70, 97, 100, 13);
+    h.sound      = map_dlu(dlg, 70,  97, 100, 13);
     h.auto_start = map_dlu(dlg, 70, 115, 100, 13);
     return h;
 }
@@ -204,6 +207,8 @@ struct Params {
     int preset_min[5]{};
     DlgStyle style;
     HitRects rects{};
+    int scroll_y = 0;       // current scroll offset in pixels
+    RECT clock_combo_rc{};  // base pixel rect of the combobox (unscrolled)
 };
 
 inline void set_pomo_visible(HWND dlg, bool show) {
@@ -222,6 +227,70 @@ inline void set_presets_visible(HWND dlg, bool show) {
         HWND h = GetDlgItem(dlg, id);
         if (h) ShowWindow(h, cmd);
     }
+}
+
+inline void set_clock_combo_visible(HWND dlg, bool show) {
+    HWND h = GetDlgItem(dlg, IDC_CLOCK_COMBO);
+    if (h) ShowWindow(h, show ? SW_SHOW : SW_HIDE);
+}
+
+// Recompute scrollbar range for the active tab's content height.
+// Content heights are approximate DLU extents for each tab.
+inline void update_content_scroll(HWND dlg, Params* p) {
+    p->scroll_y = 0;
+
+    int content_end_dlu = 0;
+    switch (p->active_tab) {
+    case TAB_APPEARANCE: content_end_dlu = 115; break;
+    case TAB_CLOCK:
+        content_end_dlu = (p->clock_view == ClockView::Analog) ? 110 : 54;
+        break;
+    case TAB_POMODORO: content_end_dlu = 130; break;
+    case TAB_TIMERS:   content_end_dlu = 120; break;
+    }
+
+    RECT content_r  = {0, 0, 0, content_end_dlu};
+    RECT div_top    = {0, 0, 0, TITLE_H + 2};
+    RECT div_bot    = {0, 0, 0, 132};
+    MapDialogRect(dlg, &content_r);
+    MapDialogRect(dlg, &div_top);
+    MapDialogRect(dlg, &div_bot);
+
+    int view_h    = div_bot.bottom - div_top.bottom;
+    int content_h = content_r.bottom - div_top.bottom;
+    int max_scroll = std::max(0, content_h - view_h);
+
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(SCROLLINFO);
+    si.fMask  = SIF_RANGE | SIF_PAGE | SIF_POS;
+    si.nMin   = 0;
+    si.nMax   = content_h;
+    si.nPage  = (UINT)view_h;
+    si.nPos   = 0;
+    SetScrollInfo(dlg, SB_VERT, &si, TRUE);
+    EnableScrollBar(dlg, SB_VERT, max_scroll > 0 ? ESB_ENABLE_BOTH : ESB_DISABLE_BOTH);
+}
+
+// Apply scroll delta and reposition the combobox if on the clock tab.
+inline void apply_scroll(HWND dlg, Params* p, int new_pos) {
+    SCROLLINFO si = {sizeof(SCROLLINFO), SIF_POS, 0, 0, 0, 0, 0};
+    si.nPos = new_pos;
+    SetScrollInfo(dlg, SB_VERT, &si, TRUE);
+    GetScrollInfo(dlg, SB_VERT, &si);
+    p->scroll_y = si.nPos;
+
+    if (p->active_tab == TAB_CLOCK) {
+        HWND combo = GetDlgItem(dlg, IDC_CLOCK_COMBO);
+        if (combo && IsWindowVisible(combo)) {
+            SetWindowPos(combo, nullptr,
+                         p->clock_combo_rc.left,
+                         p->clock_combo_rc.top - p->scroll_y,
+                         p->clock_combo_rc.right  - p->clock_combo_rc.left,
+                         p->clock_combo_rc.bottom - p->clock_combo_rc.top,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+    }
+    InvalidateRect(dlg, nullptr, TRUE);
 }
 
 inline void paint_option_btn(HDC hdc, const RECT& rc, const wchar_t* text, bool selected,
@@ -273,13 +342,16 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
         p->rects = compute_rects(dlg);
 
-        SetDlgItemTextW(dlg, IDC_POMO_WORK,  std::format(L"{}", p->work_min).c_str());
-        SetDlgItemTextW(dlg, IDC_POMO_SHORT, std::format(L"{}", p->short_min).c_str());
-        SetDlgItemTextW(dlg, IDC_POMO_LONG,  std::format(L"{}", p->long_min).c_str());
+        // Store base pixel rect of the clock combobox
+        p->clock_combo_rc = map_dlu(dlg, 68, 40, 162, 80);
+
+        SetDlgItemTextW(dlg, IDC_POMO_WORK,    std::format(L"{}", p->work_min).c_str());
+        SetDlgItemTextW(dlg, IDC_POMO_SHORT,   std::format(L"{}", p->short_min).c_str());
+        SetDlgItemTextW(dlg, IDC_POMO_LONG,    std::format(L"{}", p->long_min).c_str());
         SetDlgItemTextW(dlg, IDC_POMO_CADENCE, std::format(L"{}", p->cadence).c_str());
-        SendDlgItemMessageW(dlg, IDC_POMO_WORK,  EM_SETLIMITTEXT, 4, 0);
-        SendDlgItemMessageW(dlg, IDC_POMO_SHORT, EM_SETLIMITTEXT, 4, 0);
-        SendDlgItemMessageW(dlg, IDC_POMO_LONG,  EM_SETLIMITTEXT, 4, 0);
+        SendDlgItemMessageW(dlg, IDC_POMO_WORK,    EM_SETLIMITTEXT, 4, 0);
+        SendDlgItemMessageW(dlg, IDC_POMO_SHORT,   EM_SETLIMITTEXT, 4, 0);
+        SendDlgItemMessageW(dlg, IDC_POMO_LONG,    EM_SETLIMITTEXT, 4, 0);
         SendDlgItemMessageW(dlg, IDC_POMO_CADENCE, EM_SETLIMITTEXT, 2, 0);
 
         int pr_ids[] = {IDC_PRESET_ED0, IDC_PRESET_ED1, IDC_PRESET_ED2,
@@ -290,6 +362,17 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             SendDlgItemMessageW(dlg, pr_ids[i], EM_SETLIMITTEXT, 4, 0);
         }
 
+        // Populate clock format combobox
+        HWND combo = GetDlgItem(dlg, IDC_CLOCK_COMBO);
+        if (combo) {
+            const wchar_t* clock_names[CLOCK_VIEW_COUNT] = {
+                L"24h + seconds", L"24h", L"12h + seconds", L"12h", L"Analog"
+            };
+            for (int i = 0; i < CLOCK_VIEW_COUNT; ++i)
+                SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)clock_names[i]);
+            SendMessageW(combo, CB_SETCURSEL, (WPARAM)(int)p->clock_view, 0);
+        }
+
         EnumChildWindows(dlg, [](HWND child, LPARAM param) -> BOOL {
             auto* params = reinterpret_cast<Params*>(param);
             SendMessageW(child, WM_SETFONT, (WPARAM)params->style.font, FALSE);
@@ -298,6 +381,8 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
         set_pomo_visible(dlg, false);
         set_presets_visible(dlg, false);
+        set_clock_combo_visible(dlg, false);
+        update_content_scroll(dlg, p);
         return FALSE;
     }
 
@@ -344,60 +429,91 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         const wchar_t* tab_names[] = {L"Appearance", L"Clock", L"Pomodoro", L"Timers"};
         for (int i = 0; i < TAB_COUNT; ++i)
             paint_option_btn(hdc, p->rects.sidebar[i], tab_names[i],
-                            i == p->active_tab, s);
+                             i == p->active_tab, s);
+
+        // Clip all tab content to the content area so scrolled items don't bleed
+        int save_dc = SaveDC(hdc);
+        IntersectClipRect(hdc, sb.right + 1, div_y.bottom + 1, rc.right, btn_div.bottom);
+
+        int sdy = -p->scroll_y; // vertical offset applied to all content
 
         if (p->active_tab == TAB_APPEARANCE) {
             RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
+            lbl.top += sdy; lbl.bottom += sdy;
             s.draw_label(hdc, lbl, L"Theme");
+
             const wchar_t* names[] = {L"Auto", L"Light", L"Dark"};
-            for (int i = 0; i < 3; ++i)
-                paint_option_btn(hdc, p->rects.theme[i], names[i],
-                                (int)p->theme_mode == i, s);
+            for (int i = 0; i < 3; ++i) {
+                RECT r = p->rects.theme[i];
+                r.top += sdy; r.bottom += sdy;
+                paint_option_btn(hdc, r, names[i], (int)p->theme_mode == i, s);
+            }
 
             RECT slbl = map_dlu(dlg, 70, 88, 80, 8);
+            slbl.top += sdy; slbl.bottom += sdy;
             s.draw_label(hdc, slbl, L"Notifications");
-            paint_option_btn(hdc, p->rects.sound,
-                            p->sound_on_expiry ? L"Sound: on" : L"Sound: off",
-                            p->sound_on_expiry, s);
+
+            RECT sndr = p->rects.sound;
+            sndr.top += sdy; sndr.bottom += sdy;
+            paint_option_btn(hdc, sndr,
+                             p->sound_on_expiry ? L"Sound: on" : L"Sound: off",
+                             p->sound_on_expiry, s);
+
         } else if (p->active_tab == TAB_POMODORO) {
             RECT aslbl = map_dlu(dlg, 70, 105, 80, 8);
+            aslbl.top += sdy; aslbl.bottom += sdy;
             s.draw_label(hdc, aslbl, L"Auto-start");
-            paint_option_btn(hdc, p->rects.auto_start,
-                            p->auto_start ? L"On" : L"Off",
-                            p->auto_start, s);
+
+            RECT asr = p->rects.auto_start;
+            asr.top += sdy; asr.bottom += sdy;
+            paint_option_btn(hdc, asr,
+                             p->auto_start ? L"On" : L"Off",
+                             p->auto_start, s);
+
         } else if (p->active_tab == TAB_CLOCK) {
             RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
+            lbl.top += sdy; lbl.bottom += sdy;
             s.draw_label(hdc, lbl, L"Format");
-            const wchar_t* names[] = {
-                L"24h + seconds", L"24h", L"12h + seconds", L"12h", L"Analog"
-            };
-            for (int i = 0; i < CLOCK_VIEW_COUNT; ++i)
-                paint_option_btn(hdc, p->rects.clock[i], names[i],
-                                (int)p->clock_view == i, s);
+            // Format selection handled by the IDC_CLOCK_COMBO combobox
 
             if (p->clock_view == ClockView::Analog) {
-                RECT aslbl = map_dlu(dlg, 70, 108, 90, 10);
+                RECT aslbl = map_dlu(dlg, 70, 58, 90, 10);
+                aslbl.top += sdy; aslbl.bottom += sdy;
                 s.draw_label(hdc, aslbl, L"Analog options");
-                paint_option_btn(hdc, p->rects.analog_min_ticks,
-                                p->analog_style.show_minute_ticks ? L"Min ticks: on" : L"Min ticks: off",
-                                p->analog_style.show_minute_ticks, s);
-                RECT hrlbl = map_dlu(dlg, 70, 128, 90, 8);
+
+                RECT min_r = p->rects.analog_min_ticks;
+                min_r.top += sdy; min_r.bottom += sdy;
+                paint_option_btn(hdc, min_r,
+                                 p->analog_style.show_minute_ticks ? L"Min ticks: on" : L"Min ticks: off",
+                                 p->analog_style.show_minute_ticks, s);
+
+                RECT hrlbl = map_dlu(dlg, 70, 86, 90, 8);
+                hrlbl.top += sdy; hrlbl.bottom += sdy;
                 s.draw_label(hdc, hrlbl, L"Hour labels");
+
                 const wchar_t* lbl_names[] = {L"None", L"Sparse", L"Full"};
-                for (int i = 0; i < 3; ++i)
-                    paint_option_btn(hdc, p->rects.analog_labels[i], lbl_names[i],
-                                    (int)p->analog_style.hour_labels == i, s);
+                for (int i = 0; i < 3; ++i) {
+                    RECT ar = p->rects.analog_labels[i];
+                    ar.top += sdy; ar.bottom += sdy;
+                    paint_option_btn(hdc, ar, lbl_names[i],
+                                     (int)p->analog_style.hour_labels == i, s);
+                }
             }
+
         } else if (p->active_tab == TAB_TIMERS) {
             RECT lbl = map_dlu(dlg, 70, 28, 100, 12);
+            lbl.top += sdy; lbl.bottom += sdy;
             s.draw_label(hdc, lbl, L"Custom presets");
+
             for (int i = 0; i < 5; ++i) {
                 RECT num = map_dlu(dlg, 76, (short)(40 + i * 16), 16, 12);
+                num.top += sdy; num.bottom += sdy;
                 auto txt = std::format(L"{}.", i + 1);
                 s.draw_label(hdc, num, txt.c_str());
             }
         }
 
+        RestoreDC(hdc, save_dc);
         return 1;
     }
 
@@ -434,6 +550,19 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         return (INT_PTR)s_btn_bg;
     }
 
+    case WM_CTLCOLORLISTBOX:
+    case WM_CTLCOLORCOMBOBOX: {
+        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+        if (!p) break;
+        HDC hdc = (HDC)wp;
+        SetTextColor(hdc, p->style.theme->text);
+        SetBkColor(hdc, p->style.theme->bar);
+        static HBRUSH s_combo_bg = nullptr;
+        if (s_combo_bg) DeleteObject(s_combo_bg);
+        s_combo_bg = CreateSolidBrush(p->style.theme->bar);
+        return (INT_PTR)s_combo_bg;
+    }
+
     case WM_NCHITTEST: {
         RECT title_rc = {0, 0, DLG_W, TITLE_H + 2};
         MapDialogRect(dlg, &title_rc);
@@ -464,55 +593,52 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             if (PtInRect(&p->rects.sidebar[i], pt) && i != p->active_tab) {
                 set_pomo_visible(dlg, false);
                 set_presets_visible(dlg, false);
+                set_clock_combo_visible(dlg, false);
                 p->active_tab = i;
                 set_pomo_visible(dlg, i == TAB_POMODORO);
                 set_presets_visible(dlg, i == TAB_TIMERS);
+                set_clock_combo_visible(dlg, i == TAB_CLOCK);
+                update_content_scroll(dlg, p);
                 InvalidateRect(dlg, nullptr, TRUE);
                 return TRUE;
             }
         }
 
+        // Scroll-adjusted point for hit-testing content rects
+        POINT spt = {pt.x, pt.y + p->scroll_y};
+
         if (p->active_tab == TAB_APPEARANCE) {
             for (int i = 0; i < 3; ++i) {
-                if (PtInRect(&p->rects.theme[i], pt)) {
+                if (PtInRect(&p->rects.theme[i], spt)) {
                     p->theme_mode = (ThemeMode)i;
                     InvalidateRect(dlg, nullptr, TRUE);
                     return TRUE;
                 }
             }
-            if (PtInRect(&p->rects.sound, pt)) {
+            if (PtInRect(&p->rects.sound, spt)) {
                 p->sound_on_expiry = !p->sound_on_expiry;
                 InvalidateRect(dlg, nullptr, TRUE);
                 return TRUE;
             }
         }
 
-        if (p->active_tab == TAB_CLOCK) {
-            for (int i = 0; i < CLOCK_VIEW_COUNT; ++i) {
-                if (PtInRect(&p->rects.clock[i], pt)) {
-                    p->clock_view = (ClockView)i;
-                    InvalidateRect(dlg, nullptr, TRUE);
-                    return TRUE;
-                }
+        if (p->active_tab == TAB_CLOCK && p->clock_view == ClockView::Analog) {
+            if (PtInRect(&p->rects.analog_min_ticks, spt)) {
+                p->analog_style.show_minute_ticks = !p->analog_style.show_minute_ticks;
+                InvalidateRect(dlg, nullptr, TRUE);
+                return TRUE;
             }
-            if (p->clock_view == ClockView::Analog) {
-                if (PtInRect(&p->rects.analog_min_ticks, pt)) {
-                    p->analog_style.show_minute_ticks = !p->analog_style.show_minute_ticks;
+            for (int i = 0; i < 3; ++i) {
+                if (PtInRect(&p->rects.analog_labels[i], spt)) {
+                    p->analog_style.hour_labels = (HourLabels)i;
                     InvalidateRect(dlg, nullptr, TRUE);
                     return TRUE;
-                }
-                for (int i = 0; i < 3; ++i) {
-                    if (PtInRect(&p->rects.analog_labels[i], pt)) {
-                        p->analog_style.hour_labels = (HourLabels)i;
-                        InvalidateRect(dlg, nullptr, TRUE);
-                        return TRUE;
-                    }
                 }
             }
         }
 
         if (p->active_tab == TAB_POMODORO) {
-            if (PtInRect(&p->rects.auto_start, pt)) {
+            if (PtInRect(&p->rects.auto_start, spt)) {
                 p->auto_start = !p->auto_start;
                 InvalidateRect(dlg, nullptr, TRUE);
                 return TRUE;
@@ -522,8 +648,52 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         break;
     }
 
+    case WM_VSCROLL: {
+        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+        if (!p) break;
+        SCROLLINFO si = {sizeof(SCROLLINFO), SIF_ALL, 0, 0, 0, 0, 0};
+        GetScrollInfo(dlg, SB_VERT, &si);
+        int new_pos = si.nPos;
+        switch (LOWORD(wp)) {
+        case SB_LINEUP:     new_pos -= 10; break;
+        case SB_LINEDOWN:   new_pos += 10; break;
+        case SB_PAGEUP:     new_pos -= (int)si.nPage; break;
+        case SB_PAGEDOWN:   new_pos += (int)si.nPage; break;
+        case SB_THUMBTRACK: new_pos = si.nTrackPos; break;
+        case SB_TOP:        new_pos = si.nMin; break;
+        case SB_BOTTOM:     new_pos = si.nMax; break;
+        }
+        apply_scroll(dlg, p, new_pos);
+        return TRUE;
+    }
+
+    case WM_MOUSEWHEEL: {
+        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+        if (!p) break;
+        SCROLLINFO si = {sizeof(SCROLLINFO), SIF_ALL, 0, 0, 0, 0, 0};
+        GetScrollInfo(dlg, SB_VERT, &si);
+        if ((int)(si.nMax - si.nPage) <= si.nMin) break; // no scroll range
+        int delta = GET_WHEEL_DELTA_WPARAM(wp);
+        apply_scroll(dlg, p, si.nPos + (delta > 0 ? -30 : 30));
+        return TRUE;
+    }
+
     case WM_COMMAND:
         switch (LOWORD(wp)) {
+        case IDC_CLOCK_COMBO:
+            if (HIWORD(wp) == CBN_SELCHANGE) {
+                auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
+                if (!p) break;
+                HWND combo = GetDlgItem(dlg, IDC_CLOCK_COMBO);
+                int sel = (int)SendMessageW(combo, CB_GETCURSEL, 0, 0);
+                if (sel >= 0 && sel < CLOCK_VIEW_COUNT) {
+                    p->clock_view = (ClockView)sel;
+                    update_content_scroll(dlg, p);
+                    InvalidateRect(dlg, nullptr, TRUE);
+                }
+            }
+            return TRUE;
+
         case IDC_SET_OK: {
             auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
             int w = 0, s = 0, l = 0, cad = 0;
@@ -532,6 +702,9 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
                 !read_field(dlg, IDC_POMO_LONG, l)) {
                 set_pomo_visible(dlg, true);
                 p->active_tab = TAB_POMODORO;
+                set_clock_combo_visible(dlg, false);
+                set_presets_visible(dlg, false);
+                update_content_scroll(dlg, p);
                 InvalidateRect(dlg, nullptr, TRUE);
                 MessageBeep(MB_ICONASTERISK);
                 int dummy;
@@ -547,6 +720,9 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
                 cad < POMODORO_MIN_CADENCE || cad > POMODORO_MAX_CADENCE) {
                 set_pomo_visible(dlg, true);
                 p->active_tab = TAB_POMODORO;
+                set_clock_combo_visible(dlg, false);
+                set_presets_visible(dlg, false);
+                update_content_scroll(dlg, p);
                 InvalidateRect(dlg, nullptr, TRUE);
                 MessageBeep(MB_ICONASTERISK);
                 SetFocus(GetDlgItem(dlg, IDC_POMO_CADENCE));
@@ -560,10 +736,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
                 for (int i = 0; i < 5; ++i) {
                     wchar_t buf[8] = {};
                     GetDlgItemTextW(dlg, pr_ids[i], buf, 7);
-                    if (buf[0] == L'\0') {
-                        p->preset_min[i] = 0;
-                        continue;
-                    }
+                    if (buf[0] == L'\0') { p->preset_min[i] = 0; continue; }
                     wchar_t* end = nullptr;
                     long v = std::wcstol(buf, &end, 10);
                     p->preset_min[i] = (v >= 1 && v <= 1440) ? (int)v : 0;
@@ -595,10 +768,10 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
     if (dpi <= 0) dpi = STANDARD_DPI;
 
     Params p{
-        .active_tab = TAB_APPEARANCE,
-        .theme_mode = app.theme_mode,
-        .clock_view = app.clock_view,
-        .analog_style = app.analog_style,
+        .active_tab    = TAB_APPEARANCE,
+        .theme_mode    = app.theme_mode,
+        .clock_view    = app.clock_view,
+        .analog_style  = app.analog_style,
         .sound_on_expiry = app.sound_on_expiry,
         .work_min  = app.pomodoro_work_secs / 60,
         .short_min = app.pomodoro_short_secs / 60,
@@ -619,14 +792,14 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
     );
 
     if (result != IDOK) return false;
-    app.theme_mode = p.theme_mode;
-    app.clock_view = p.clock_view;
-    app.analog_style = p.analog_style;
-    app.sound_on_expiry = p.sound_on_expiry;
-    app.pomodoro_work_secs = p.work_min * 60;
+    app.theme_mode       = p.theme_mode;
+    app.clock_view       = p.clock_view;
+    app.analog_style     = p.analog_style;
+    app.sound_on_expiry  = p.sound_on_expiry;
+    app.pomodoro_work_secs  = p.work_min * 60;
     app.pomodoro_short_secs = p.short_min * 60;
-    app.pomodoro_long_secs = p.long_min * 60;
-    app.pomodoro_cadence = p.cadence;
+    app.pomodoro_long_secs  = p.long_min * 60;
+    app.pomodoro_cadence    = p.cadence;
     app.pomodoro_auto_start = p.auto_start;
     app.custom_preset_secs.clear();
     for (int i = 0; i < 5; ++i)
