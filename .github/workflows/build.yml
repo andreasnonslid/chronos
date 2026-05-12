@@ -171,6 +171,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
+          set -o pipefail
           llvm-profdata-19 merge -sparse build/chronos-*.profraw -o build/merged.profdata
           llvm-cov-19 report build/chronos_tests -instr-profile=build/merged.profdata -ignore-filename-regex='_deps|tests/' 2>&1 | tee coverage-report.txt
           echo "--- Coverage Summary ---"
