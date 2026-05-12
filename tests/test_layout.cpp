@@ -51,8 +51,8 @@ TEST_CASE("Layout update_for_dpi: 192 DPI doubles values", "[layout]") {
 TEST_CASE("Layout bar_min_client_w: correct at 96 DPI", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    // w_pin(44) + w_clk(48) + w_sw(76) + w_tmr(54) + 3*bar_gap(6) + 2*dpi_scale(8)
-    int expected = 44 + 48 + 76 + 54 + 3 * 6 + 2 * 8;
+    // w_pin(44) + w_clk(48) + w_sw(76) + w_tmr(54) + w_set(32) + 4*bar_gap(6) + 2*dpi_scale(8)
+    int expected = 44 + 48 + 76 + 54 + 32 + 4 * 6 + 2 * 8;
     REQUIRE(l.bar_min_client_w() == expected);
 }
 

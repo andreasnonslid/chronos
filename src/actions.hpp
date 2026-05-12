@@ -25,6 +25,7 @@ enum Act {
     A_THEME,
     A_CLK_CYCLE,
     A_TMR_RST_ALL,
+    A_SETTINGS,
     A_TMR_BASE = 100,
 };
 
@@ -87,6 +88,7 @@ inline bool wants_blink(int act) {
     case A_SW_COPY:
     case A_THEME:
     case A_CLK_CYCLE:
+    case A_SETTINGS:
         return false;
     default:
         if (act >= A_TMR_BASE) {
@@ -104,6 +106,7 @@ struct HandleResult {
     bool open_file = false;
     bool copy_laps = false;
     bool apply_theme = false;
+    bool open_settings = false;
 };
 
 inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_point now,
@@ -189,6 +192,9 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
     case A_CLK_CYCLE:
         app.clock_view = (ClockView)(((int)app.clock_view + 1) % CLOCK_VIEW_COUNT);
         r.save_config = true;
+        break;
+    case A_SETTINGS:
+        r.open_settings = true;
         break;
     case A_TMR_RST_ALL:
         for (auto& ts : app.timers) {
