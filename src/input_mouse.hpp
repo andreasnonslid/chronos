@@ -48,8 +48,16 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
         if (idx >= 0 && !s.app.timers[idx].t.touched()) {
             constexpr int CMD_POMODORO = 100;
             constexpr int CMD_POMO_CFG = 101;
+            constexpr int CMD_CUSTOM_BASE = 200;
             HMENU menu = CreatePopupMenu();
             for (int i = 0; i < (int)std::size(TIMER_PRESETS); ++i) AppendMenuW(menu, MF_STRING, 1 + i, TIMER_PRESETS[i].label);
+            if (!s.app.custom_preset_secs.empty()) {
+                AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+                for (int i = 0; i < (int)s.app.custom_preset_secs.size(); ++i) {
+                    auto label = format_preset_label(s.app.custom_preset_secs[i]);
+                    AppendMenuW(menu, MF_STRING, CMD_CUSTOM_BASE + i, label.c_str());
+                }
+            }
             AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
             int pom_min = s.app.pomodoro_work_secs / 60;
             int pom_sec = s.app.pomodoro_work_secs % 60;
@@ -80,6 +88,16 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                         save_config(hwnd, s);
                         InvalidateRect(hwnd, nullptr, FALSE);
                     }
+                } else if (cmd >= CMD_CUSTOM_BASE &&
+                           cmd < CMD_CUSTOM_BASE + (int)s.app.custom_preset_secs.size()) {
+                    ts.pomodoro = false;
+                    ts.label.clear();
+                    ts.dur = std::chrono::seconds{s.app.custom_preset_secs[cmd - CMD_CUSTOM_BASE]};
+                    ts.notified = false;
+                    ts.t.reset();
+                    ts.t.set(ts.dur);
+                    save_config(hwnd, s);
+                    InvalidateRect(hwnd, nullptr, FALSE);
                 } else {
                     ts.pomodoro = false;
                     ts.label.clear();

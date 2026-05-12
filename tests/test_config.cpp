@@ -397,3 +397,59 @@ TEST_CASE("Config whitespace around equals is ignored", "[config]") {
     REQUIRE(c.timer_secs[0] == 60);  // default unchanged, line skipped
     REQUIRE(c.show_clk);             // default unchanged, line skipped
 }
+
+TEST_CASE("Config custom presets round-trip", "[config]") {
+    Config orig;
+    orig.num_custom_presets = 3;
+    orig.custom_preset_secs[0] = 420;
+    orig.custom_preset_secs[1] = 900;
+    orig.custom_preset_secs[2] = 2700;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE(back.num_custom_presets == 3);
+    REQUIRE(back.custom_preset_secs[0] == 420);
+    REQUIRE(back.custom_preset_secs[1] == 900);
+    REQUIRE(back.custom_preset_secs[2] == 2700);
+}
+
+TEST_CASE("Config custom presets not written when empty", "[config]") {
+    Config orig;
+    std::ostringstream os;
+    config_write(orig, os);
+    REQUIRE(os.str().find("custom_preset") == std::string::npos);
+    REQUIRE(os.str().find("num_custom_presets") == std::string::npos);
+}
+
+TEST_CASE("Config custom presets count clamped", "[config]") {
+    std::istringstream is("num_custom_presets=99\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.num_custom_presets <= Config::MAX_CUSTOM_PRESETS);
+}
+
+TEST_CASE("Config custom preset values clamped", "[config]") {
+    std::istringstream is("num_custom_presets=1\ncustom_preset0=100000\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.custom_preset_secs[0] == Config::TIMER_MAX_SECS);
+}
+
+TEST_CASE("Config custom preset index out of range ignored", "[config]") {
+    std::istringstream is("num_custom_presets=1\ncustom_preset9=300\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.custom_preset_secs[0] == 0);
+}
+
+TEST_CASE("Config custom presets defaults to zero", "[config]") {
+    Config c;
+    REQUIRE(c.num_custom_presets == 0);
+    for (int i = 0; i < Config::MAX_CUSTOM_PRESETS; ++i)
+        REQUIRE(c.custom_preset_secs[i] == 0);
+}

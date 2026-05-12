@@ -22,6 +22,7 @@ struct Config {
     static constexpr int TIMER_MIN_SECS = 0;
     static constexpr int TIMER_MAX_SECS = 86400;
     static constexpr int MIN_WINDOW_W = 260;
+    static constexpr int MAX_CUSTOM_PRESETS = 5;
     int num_timers = 1;
     std::array<int, MAX_TIMERS> timer_secs{};
     std::array<std::string, MAX_TIMERS> timer_labels{};
@@ -46,5 +47,7 @@ struct Config {
     int pomodoro_cadence = POMODORO_DEFAULT_CADENCE;
     bool pomodoro_auto_start = true;
     ClockView clock_view = ClockView::H24_HMS;
+    int num_custom_presets = 0;
+    std::array<int, MAX_CUSTOM_PRESETS> custom_preset_secs{};
     Config() { timer_secs.fill(60); }
 };

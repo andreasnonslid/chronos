@@ -22,6 +22,16 @@ constexpr int IDC_LBL_CADENCE = 311;
 constexpr int IDC_MIN_CADENCE = 312;
 constexpr int IDC_SET_OK       = 313;
 constexpr int IDC_SET_CANCEL   = 314;
+constexpr int IDC_PRESET_ED0   = 320;
+constexpr int IDC_PRESET_ED1   = 321;
+constexpr int IDC_PRESET_ED2   = 322;
+constexpr int IDC_PRESET_ED3   = 323;
+constexpr int IDC_PRESET_ED4   = 324;
+constexpr int IDC_PRESET_MIN0  = 325;
+constexpr int IDC_PRESET_MIN1  = 326;
+constexpr int IDC_PRESET_MIN2  = 327;
+constexpr int IDC_PRESET_MIN3  = 328;
+constexpr int IDC_PRESET_MIN4  = 329;
 
 constexpr WORD CLS_BUTTON = 0x0080;
 constexpr WORD CLS_EDIT   = 0x0081;
@@ -34,7 +44,8 @@ constexpr short TITLE_H = 18;
 constexpr int TAB_APPEARANCE = 0;
 constexpr int TAB_CLOCK      = 1;
 constexpr int TAB_POMODORO   = 2;
-constexpr int TAB_COUNT      = 3;
+constexpr int TAB_TIMERS     = 3;
+constexpr int TAB_COUNT      = 4;
 
 struct Buf {
     std::vector<WORD> data;
@@ -59,7 +70,7 @@ inline void add_item(Buf& b, DWORD style, DWORD exStyle,
     b.push_word(0);
 }
 
-constexpr WORD CTRL_COUNT = 14;
+constexpr WORD CTRL_COUNT = 24;
 
 inline std::vector<WORD> build_template() {
     Buf b;
@@ -109,6 +120,21 @@ inline std::vector<WORD> build_template() {
     add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
              min_x, r3, min_w + 20, row_h, IDC_MIN_CADENCE, CLS_STATIC, L"sessions");
 
+    short pr_ed_x = 96, pr_ed_w = 28;
+    short pr_min_x = 128, pr_min_w = 18;
+    short pr_y0 = 40, pr_sp = 16;
+    int pr_edit_ids[] = {IDC_PRESET_ED0, IDC_PRESET_ED1, IDC_PRESET_ED2,
+                         IDC_PRESET_ED3, IDC_PRESET_ED4};
+    int pr_min_ids[] = {IDC_PRESET_MIN0, IDC_PRESET_MIN1, IDC_PRESET_MIN2,
+                        IDC_PRESET_MIN3, IDC_PRESET_MIN4};
+    for (int i = 0; i < 5; ++i) {
+        short py = pr_y0 + (short)(i * pr_sp);
+        add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+                 pr_ed_x, py, pr_ed_w, row_h, (WORD)pr_edit_ids[i], CLS_EDIT, L"");
+        add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
+                 pr_min_x, py, pr_min_w, row_h, (WORD)pr_min_ids[i], CLS_STATIC, L"min");
+    }
+
     short btn_w = 44, btn_h = 16, btn_gap = 8;
     short content_cx = DLG_W - SIDEBAR_W - 4;
     short total_bw = 2 * btn_w + btn_gap;
@@ -134,6 +160,7 @@ struct HitRects {
     RECT clock[4];
     RECT sound;
     RECT auto_start;
+    RECT preset_row[5];
 };
 
 inline HitRects compute_rects(HWND dlg) {
@@ -141,6 +168,7 @@ inline HitRects compute_rects(HWND dlg) {
     h.sidebar[0] = map_dlu(dlg, 3, 24, 56, 14);
     h.sidebar[1] = map_dlu(dlg, 3, 40, 56, 14);
     h.sidebar[2] = map_dlu(dlg, 3, 56, 56, 14);
+    h.sidebar[3] = map_dlu(dlg, 3, 72, 56, 14);
 
     h.theme[0] = map_dlu(dlg, 70, 42, 54, 13);
     h.theme[1] = map_dlu(dlg, 70, 57, 54, 13);
@@ -164,6 +192,7 @@ struct Params {
     int work_min, short_min, long_min;
     int cadence;
     bool auto_start;
+    int preset_min[5]{};
     DlgStyle style;
     HitRects rects{};
 };
@@ -171,6 +200,16 @@ struct Params {
 inline void set_pomo_visible(HWND dlg, bool show) {
     int cmd = show ? SW_SHOW : SW_HIDE;
     for (int id = IDC_POMO_WORK; id <= IDC_MIN_CADENCE; ++id) {
+        HWND h = GetDlgItem(dlg, id);
+        if (h) ShowWindow(h, cmd);
+    }
+}
+
+inline void set_presets_visible(HWND dlg, bool show) {
+    int cmd = show ? SW_SHOW : SW_HIDE;
+    int ids[] = {IDC_PRESET_ED0, IDC_PRESET_ED1, IDC_PRESET_ED2, IDC_PRESET_ED3, IDC_PRESET_ED4,
+                 IDC_PRESET_MIN0, IDC_PRESET_MIN1, IDC_PRESET_MIN2, IDC_PRESET_MIN3, IDC_PRESET_MIN4};
+    for (int id : ids) {
         HWND h = GetDlgItem(dlg, id);
         if (h) ShowWindow(h, cmd);
     }
@@ -234,6 +273,14 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         SendDlgItemMessageW(dlg, IDC_POMO_LONG,  EM_SETLIMITTEXT, 4, 0);
         SendDlgItemMessageW(dlg, IDC_POMO_CADENCE, EM_SETLIMITTEXT, 2, 0);
 
+        int pr_ids[] = {IDC_PRESET_ED0, IDC_PRESET_ED1, IDC_PRESET_ED2,
+                        IDC_PRESET_ED3, IDC_PRESET_ED4};
+        for (int i = 0; i < 5; ++i) {
+            if (p->preset_min[i] > 0)
+                SetDlgItemTextW(dlg, pr_ids[i], std::format(L"{}", p->preset_min[i]).c_str());
+            SendDlgItemMessageW(dlg, pr_ids[i], EM_SETLIMITTEXT, 4, 0);
+        }
+
         EnumChildWindows(dlg, [](HWND child, LPARAM param) -> BOOL {
             auto* params = reinterpret_cast<Params*>(param);
             SendMessageW(child, WM_SETFONT, (WPARAM)params->style.font, FALSE);
@@ -241,6 +288,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         }, (LPARAM)p);
 
         set_pomo_visible(dlg, false);
+        set_presets_visible(dlg, false);
         return FALSE;
     }
 
@@ -284,7 +332,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         SelectObject(hdc, old_pen);
         DeleteObject(div_pen);
 
-        const wchar_t* tab_names[] = {L"Appearance", L"Clock", L"Pomodoro"};
+        const wchar_t* tab_names[] = {L"Appearance", L"Clock", L"Pomodoro", L"Timers"};
         for (int i = 0; i < TAB_COUNT; ++i)
             paint_option_btn(hdc, p->rects.sidebar[i], tab_names[i],
                             i == p->active_tab, s);
@@ -317,6 +365,14 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             for (int i = 0; i < 4; ++i)
                 paint_option_btn(hdc, p->rects.clock[i], names[i],
                                 (int)p->clock_view == i, s);
+        } else if (p->active_tab == TAB_TIMERS) {
+            RECT lbl = map_dlu(dlg, 70, 28, 100, 12);
+            s.draw_label(hdc, lbl, L"Custom presets");
+            for (int i = 0; i < 5; ++i) {
+                RECT num = map_dlu(dlg, 76, (short)(40 + i * 16), 16, 12);
+                auto txt = std::format(L"{}.", i + 1);
+                s.draw_label(hdc, num, txt.c_str());
+            }
         }
 
         return 1;
@@ -384,8 +440,10 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         for (int i = 0; i < TAB_COUNT; ++i) {
             if (PtInRect(&p->rects.sidebar[i], pt) && i != p->active_tab) {
                 set_pomo_visible(dlg, false);
+                set_presets_visible(dlg, false);
                 p->active_tab = i;
                 set_pomo_visible(dlg, i == TAB_POMODORO);
+                set_presets_visible(dlg, i == TAB_TIMERS);
                 InvalidateRect(dlg, nullptr, TRUE);
                 return TRUE;
             }
@@ -459,6 +517,21 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             }
             p->work_min = w; p->short_min = s; p->long_min = l;
             p->cadence = cad;
+            {
+                int pr_ids[] = {IDC_PRESET_ED0, IDC_PRESET_ED1, IDC_PRESET_ED2,
+                                IDC_PRESET_ED3, IDC_PRESET_ED4};
+                for (int i = 0; i < 5; ++i) {
+                    wchar_t buf[8] = {};
+                    GetDlgItemTextW(dlg, pr_ids[i], buf, 7);
+                    if (buf[0] == L'\0') {
+                        p->preset_min[i] = 0;
+                        continue;
+                    }
+                    wchar_t* end = nullptr;
+                    long v = std::wcstol(buf, &end, 10);
+                    p->preset_min[i] = (v >= 1 && v <= 1440) ? (int)v : 0;
+                }
+            }
             EndDialog(dlg, IDOK);
             return TRUE;
         }
@@ -494,8 +567,11 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
         .long_min  = app.pomodoro_long_secs / 60,
         .cadence   = app.pomodoro_cadence,
         .auto_start = app.pomodoro_auto_start,
+        .preset_min = {},
         .style = {.theme = theme, .font = font, .dpi = dpi},
     };
+    for (int i = 0; i < (int)app.custom_preset_secs.size() && i < 5; ++i)
+        p.preset_min[i] = app.custom_preset_secs[i] / 60;
 
     auto tmpl = build_template();
     HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrW(parent, GWLP_HINSTANCE);
@@ -513,5 +589,9 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
     app.pomodoro_long_secs = p.long_min * 60;
     app.pomodoro_cadence = p.cadence;
     app.pomodoro_auto_start = p.auto_start;
+    app.custom_preset_secs.clear();
+    for (int i = 0; i < 5; ++i)
+        if (p.preset_min[i] > 0)
+            app.custom_preset_secs.push_back(p.preset_min[i] * 60);
     return true;
 }

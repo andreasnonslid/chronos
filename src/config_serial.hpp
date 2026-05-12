@@ -24,6 +24,11 @@ inline bool config_write(const Config& c, std::ostream& f) {
         f << std::format("pomodoro_cadence={}\n", c.pomodoro_cadence);
     if (c.pomodoro_auto_start != defaults.pomodoro_auto_start)
         f << std::format("pomodoro_auto_start={}\n", c.pomodoro_auto_start ? 1 : 0);
+    if (c.num_custom_presets > 0) {
+        f << std::format("num_custom_presets={}\n", c.num_custom_presets);
+        for (int i = 0; i < c.num_custom_presets; ++i)
+            f << std::format("custom_preset{}={}\n", i, c.custom_preset_secs[i]);
+    }
     for (int i = 0; i < c.num_timers; ++i) {
         f << std::format("timer{}={}\n", i, c.timer_secs[i]);
         if (!c.timer_labels[i].empty()) f << std::format("timer{}_label={}\n", i, c.timer_labels[i]);
@@ -91,6 +96,15 @@ inline bool config_read(Config& c, std::istream& f) {
         };
         if (key == "clock_view") {
             c.clock_view = (ClockView)clamp_int(val, 0, CLOCK_VIEW_COUNT - 1);
+        } else if (key == "num_custom_presets") {
+            c.num_custom_presets = clamp_int(val, 0, Config::MAX_CUSTOM_PRESETS);
+        } else if (key.starts_with("custom_preset") && key.size() > 13) {
+            auto idx_str = key.substr(13);
+            int i;
+            auto [ptr, ec2] = std::from_chars(idx_str.data(), idx_str.data() + idx_str.size(), i);
+            if (ec2 == std::errc{} && ptr == idx_str.data() + idx_str.size() &&
+                i >= 0 && i < Config::MAX_CUSTOM_PRESETS)
+                c.custom_preset_secs[i] = clamp_int(val, 1, Config::TIMER_MAX_SECS);
         } else if (key == "show_clk")
             c.show_clk = val != 0;
         else if (key == "show_sw")
