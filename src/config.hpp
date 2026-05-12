@@ -4,7 +4,7 @@
 
 #include "pomodoro.hpp"
 
-enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
+enum class ThemeMode { Auto = 0, Light = 1, Dark = 2 };
 enum class ClockView { H24_HMS = 0, H24_HM = 1, H12_HMS = 2, H12_HM = 3, Analog = 4 };
 inline constexpr int CLOCK_VIEW_COUNT = 5;
 static_assert((int)ClockView::Analog == CLOCK_VIEW_COUNT - 1,
