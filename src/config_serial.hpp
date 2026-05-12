@@ -20,6 +20,10 @@ inline bool config_write(const Config& c, std::ostream& f) {
         c.pomodoro_long_secs != defaults.pomodoro_long_secs)
         f << std::format("pomodoro_work={}\npomodoro_short={}\npomodoro_long={}\n",
                          c.pomodoro_work_secs, c.pomodoro_short_secs, c.pomodoro_long_secs);
+    if (c.pomodoro_cadence != defaults.pomodoro_cadence)
+        f << std::format("pomodoro_cadence={}\n", c.pomodoro_cadence);
+    if (c.pomodoro_auto_start != defaults.pomodoro_auto_start)
+        f << std::format("pomodoro_auto_start={}\n", c.pomodoro_auto_start ? 1 : 0);
     for (int i = 0; i < c.num_timers; ++i) {
         f << std::format("timer{}={}\n", i, c.timer_secs[i]);
         if (!c.timer_labels[i].empty()) f << std::format("timer{}_label={}\n", i, c.timer_labels[i]);
@@ -114,6 +118,10 @@ inline bool config_read(Config& c, std::istream& f) {
             c.pomodoro_short_secs = clamp_int(val, 60, Config::TIMER_MAX_SECS);
         else if (key == "pomodoro_long")
             c.pomodoro_long_secs = clamp_int(val, 60, Config::TIMER_MAX_SECS);
+        else if (key == "pomodoro_cadence")
+            c.pomodoro_cadence = clamp_int(val, POMODORO_MIN_CADENCE, POMODORO_MAX_CADENCE);
+        else if (key == "pomodoro_auto_start")
+            c.pomodoro_auto_start = val != 0;
         else if (key == "sw_running")
             c.sw_running = val != 0;
         else if (key == "sw_elapsed_ms")
@@ -140,7 +148,7 @@ inline bool config_read(Config& c, std::istream& f) {
                 else if (field == "_pomodoro")
                     c.timer_pomodoro[i] = val != 0;
                 else if (field == "_pomodoro_phase")
-                    c.timer_pomodoro_phase[i] = clamp_int(val, 0, POMODORO_PHASE_COUNT - 1);
+                    c.timer_pomodoro_phase[i] = clamp_int(val, 0, pomodoro_phase_count(POMODORO_MAX_CADENCE) - 1);
                 else if (field == "_pomodoro_work_secs")
                     c.timer_pomodoro_work_secs[i] = std::max(val, 0LL);
             }

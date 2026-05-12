@@ -80,7 +80,8 @@ inline void handle_wm_timer(HWND hwnd, WndState& s) {
             }
             if (ts.pomodoro) {
                 advance_pomodoro_phase(ts, s.app.pomodoro_work_secs,
-                    s.app.pomodoro_short_secs, s.app.pomodoro_long_secs, now);
+                    s.app.pomodoro_short_secs, s.app.pomodoro_long_secs,
+                    s.app.pomodoro_cadence, s.app.pomodoro_auto_start, now);
                 save_config(hwnd, s);
             }
         }

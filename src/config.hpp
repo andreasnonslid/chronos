@@ -43,6 +43,8 @@ struct Config {
     int pomodoro_work_secs = POMODORO_WORK_SECS;
     int pomodoro_short_secs = POMODORO_SHORT_BREAK_SECS;
     int pomodoro_long_secs = POMODORO_LONG_BREAK_SECS;
+    int pomodoro_cadence = POMODORO_DEFAULT_CADENCE;
+    bool pomodoro_auto_start = true;
     ClockView clock_view = ClockView::H24_HMS;
     Config() { timer_secs.fill(60); }
 };

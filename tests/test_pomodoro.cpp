@@ -13,49 +13,49 @@ static sc::time_point t0() { return sc::time_point{}; }
 // ─── pomodoro_phase_secs ──────────────────────────────────────────────────────
 
 TEST_CASE("pomodoro_phase_secs: work phases are 25 minutes", "[pomodoro]") {
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::Work1) == POMODORO_WORK_SECS);
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::Work2) == POMODORO_WORK_SECS);
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::Work3) == POMODORO_WORK_SECS);
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::Work4) == POMODORO_WORK_SECS);
+    REQUIRE(pomodoro_phase_secs(0) == POMODORO_WORK_SECS);
+    REQUIRE(pomodoro_phase_secs(2) == POMODORO_WORK_SECS);
+    REQUIRE(pomodoro_phase_secs(4) == POMODORO_WORK_SECS);
+    REQUIRE(pomodoro_phase_secs(6) == POMODORO_WORK_SECS);
 }
 
 TEST_CASE("pomodoro_phase_secs: short break phases are 5 minutes", "[pomodoro]") {
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::ShortBreak1) == POMODORO_SHORT_BREAK_SECS);
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::ShortBreak2) == POMODORO_SHORT_BREAK_SECS);
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::ShortBreak3) == POMODORO_SHORT_BREAK_SECS);
+    REQUIRE(pomodoro_phase_secs(1) == POMODORO_SHORT_BREAK_SECS);
+    REQUIRE(pomodoro_phase_secs(3) == POMODORO_SHORT_BREAK_SECS);
+    REQUIRE(pomodoro_phase_secs(5) == POMODORO_SHORT_BREAK_SECS);
 }
 
-TEST_CASE("pomodoro_phase_secs: phase LongBreak is a long break", "[pomodoro]") {
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::LongBreak) == POMODORO_LONG_BREAK_SECS);
+TEST_CASE("pomodoro_phase_secs: last phase is a long break", "[pomodoro]") {
+    REQUIRE(pomodoro_phase_secs(7) == POMODORO_LONG_BREAK_SECS);
 }
 
 TEST_CASE("pomodoro_phase_secs: all valid phases produce expected values", "[pomodoro]") {
-    for (int p = 0; p < POMODORO_PHASE_COUNT; ++p)
-        REQUIRE_NOTHROW(pomodoro_phase_secs(static_cast<PomodoroPhase>(p)));
+    for (int p = 0; p < pomodoro_phase_count(POMODORO_DEFAULT_CADENCE); ++p)
+        REQUIRE_NOTHROW(pomodoro_phase_secs(p));
 }
 
 // ─── pomodoro_phase_label ─────────────────────────────────────────────────────
 
 TEST_CASE("pomodoro_phase_label: work phase labels", "[pomodoro]") {
-    REQUIRE(pomodoro_phase_label(PomodoroPhase::Work1) == L"Work 1/4");
-    REQUIRE(pomodoro_phase_label(PomodoroPhase::Work2) == L"Work 2/4");
-    REQUIRE(pomodoro_phase_label(PomodoroPhase::Work3) == L"Work 3/4");
-    REQUIRE(pomodoro_phase_label(PomodoroPhase::Work4) == L"Work 4/4");
+    REQUIRE(pomodoro_phase_label(0) == L"Work 1/4");
+    REQUIRE(pomodoro_phase_label(2) == L"Work 2/4");
+    REQUIRE(pomodoro_phase_label(4) == L"Work 3/4");
+    REQUIRE(pomodoro_phase_label(6) == L"Work 4/4");
 }
 
 TEST_CASE("pomodoro_phase_label: short break phases", "[pomodoro]") {
-    REQUIRE(pomodoro_phase_label(PomodoroPhase::ShortBreak1) == L"Short Break");
-    REQUIRE(pomodoro_phase_label(PomodoroPhase::ShortBreak2) == L"Short Break");
-    REQUIRE(pomodoro_phase_label(PomodoroPhase::ShortBreak3) == L"Short Break");
+    REQUIRE(pomodoro_phase_label(1) == L"Short Break");
+    REQUIRE(pomodoro_phase_label(3) == L"Short Break");
+    REQUIRE(pomodoro_phase_label(5) == L"Short Break");
 }
 
-TEST_CASE("pomodoro_phase_label: LongBreak is Long Break", "[pomodoro]") {
-    REQUIRE(pomodoro_phase_label(PomodoroPhase::LongBreak) == L"Long Break");
+TEST_CASE("pomodoro_phase_label: last phase is Long Break", "[pomodoro]") {
+    REQUIRE(pomodoro_phase_label(7) == L"Long Break");
 }
 
 TEST_CASE("pomodoro_phase_label: all valid phases produce expected labels", "[pomodoro]") {
-    for (int p = 0; p < POMODORO_PHASE_COUNT; ++p)
-        REQUIRE_FALSE(pomodoro_phase_label(static_cast<PomodoroPhase>(p)).empty());
+    for (int p = 0; p < pomodoro_phase_count(POMODORO_DEFAULT_CADENCE); ++p)
+        REQUIRE_FALSE(pomodoro_phase_label(p).empty());
 }
 
 // ─── Config Pomodoro round-trip ───────────────────────────────────────────────
@@ -97,7 +97,7 @@ TEST_CASE("A_TMR_RST on Pomodoro timer resets phase to 0", "[pomodoro][actions]"
     App app;
     auto& ts = app.timers[0];
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::ShortBreak3;
+    ts.pomodoro_phase = 5;
     ts.dur = seconds{POMODORO_SHORT_BREAK_SECS};
     ts.t.reset();
     ts.t.set(ts.dur);
@@ -105,9 +105,9 @@ TEST_CASE("A_TMR_RST on Pomodoro timer resets phase to 0", "[pomodoro][actions]"
 
     dispatch_action(app, A_TMR_BASE + A_TMR_RST, t0(), {});
 
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(ts.pomodoro_phase == 0);
     REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
-    REQUIRE(ts.label == pomodoro_phase_label(PomodoroPhase::Work1));
+    REQUIRE(ts.label == pomodoro_phase_label(0));
     REQUIRE_FALSE(ts.t.is_running());
 }
 
@@ -133,16 +133,15 @@ TEST_CASE("pomodoro_phase_secs: custom durations used when provided", "[pomodoro
     constexpr int WORK = 50 * 60;
     constexpr int SHORT = 10 * 60;
     constexpr int LONG = 20 * 60;
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::Work1,       WORK, SHORT, LONG) == WORK);
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::ShortBreak1, WORK, SHORT, LONG) == SHORT);
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::ShortBreak2, WORK, SHORT, LONG) == SHORT);
-    REQUIRE(pomodoro_phase_secs(PomodoroPhase::LongBreak,   WORK, SHORT, LONG) == LONG);
+    REQUIRE(pomodoro_phase_secs(0, WORK, SHORT, LONG) == WORK);
+    REQUIRE(pomodoro_phase_secs(1, WORK, SHORT, LONG) == SHORT);
+    REQUIRE(pomodoro_phase_secs(3, WORK, SHORT, LONG) == SHORT);
+    REQUIRE(pomodoro_phase_secs(7, WORK, SHORT, LONG) == LONG);
 }
 
 TEST_CASE("pomodoro_phase_secs: default args match constants", "[pomodoro]") {
-    for (int p = 0; p < POMODORO_PHASE_COUNT; ++p) {
-        auto phase = static_cast<PomodoroPhase>(p);
-        REQUIRE(pomodoro_phase_secs(phase) == pomodoro_phase_secs(phase, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS));
+    for (int p = 0; p < pomodoro_phase_count(POMODORO_DEFAULT_CADENCE); ++p) {
+        REQUIRE(pomodoro_phase_secs(p) == pomodoro_phase_secs(p, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS));
     }
 }
 
@@ -227,7 +226,7 @@ TEST_CASE("A_TMR_RST on Pomodoro timer resets work elapsed", "[pomodoro][actions
     App app;
     auto& ts = app.timers[0];
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::ShortBreak2;
+    ts.pomodoro_phase = 3;
     ts.pomodoro_work_elapsed = seconds{75 * 60};
     ts.dur = seconds{POMODORO_SHORT_BREAK_SECS};
     ts.t.reset();
@@ -245,7 +244,7 @@ TEST_CASE("A_TMR_SKIP advances phase and starts next timer", "[pomodoro][actions
     App app;
     auto& ts = app.timers[0];
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_phase = 0;
     ts.dur = seconds{POMODORO_WORK_SECS};
     ts.t.reset();
     ts.t.set(ts.dur);
@@ -253,9 +252,9 @@ TEST_CASE("A_TMR_SKIP advances phase and starts next timer", "[pomodoro][actions
 
     auto r = dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0() + seconds{600}, {});
 
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::ShortBreak1);
+    REQUIRE(ts.pomodoro_phase == 1);
     REQUIRE(ts.dur == seconds{POMODORO_SHORT_BREAK_SECS});
-    REQUIRE(ts.label == pomodoro_phase_label(PomodoroPhase::ShortBreak1));
+    REQUIRE(ts.label == pomodoro_phase_label(1));
     REQUIRE(ts.t.is_running());
     REQUIRE(r.save_config);
 }
@@ -264,7 +263,7 @@ TEST_CASE("A_TMR_SKIP on work phase credits actual elapsed time", "[pomodoro][ac
     App app;
     auto& ts = app.timers[0];
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_phase = 0;
     ts.pomodoro_work_elapsed = seconds{0};
     ts.dur = seconds{POMODORO_WORK_SECS};
     ts.t.reset();
@@ -280,7 +279,7 @@ TEST_CASE("A_TMR_SKIP on break phase does not credit work time", "[pomodoro][act
     App app;
     auto& ts = app.timers[0];
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::ShortBreak1;
+    ts.pomodoro_phase = 1;
     ts.pomodoro_work_elapsed = seconds{25 * 60};
     ts.dur = seconds{POMODORO_SHORT_BREAK_SECS};
     ts.t.reset();
@@ -290,7 +289,7 @@ TEST_CASE("A_TMR_SKIP on break phase does not credit work time", "[pomodoro][act
     dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0() + seconds{60}, {});
 
     REQUIRE(ts.pomodoro_work_elapsed == seconds{25 * 60});
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work2);
+    REQUIRE(ts.pomodoro_phase == 2);
 }
 
 TEST_CASE("A_TMR_SKIP is no-op on non-Pomodoro timer", "[pomodoro][actions]") {
@@ -312,7 +311,7 @@ TEST_CASE("A_TMR_SKIP is no-op when timer not touched", "[pomodoro][actions]") {
     App app;
     auto& ts = app.timers[0];
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_phase = 0;
     ts.dur = seconds{POMODORO_WORK_SECS};
     ts.t.reset();
     ts.t.set(ts.dur);
@@ -320,14 +319,14 @@ TEST_CASE("A_TMR_SKIP is no-op when timer not touched", "[pomodoro][actions]") {
     auto r = dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0(), {});
 
     REQUIRE_FALSE(r.save_config);
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(ts.pomodoro_phase == 0);
 }
 
 TEST_CASE("A_TMR_SKIP wraps from LongBreak back to Work1", "[pomodoro][actions]") {
     App app;
     auto& ts = app.timers[0];
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::LongBreak;
+    ts.pomodoro_phase = 7;
     ts.dur = seconds{POMODORO_LONG_BREAK_SECS};
     ts.t.reset();
     ts.t.set(ts.dur);
@@ -335,9 +334,9 @@ TEST_CASE("A_TMR_SKIP wraps from LongBreak back to Work1", "[pomodoro][actions]"
 
     dispatch_action(app, tmr_act(0, A_TMR_SKIP), t0() + seconds{60}, {});
 
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(ts.pomodoro_phase == 0);
     REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
-    REQUIRE(ts.label == pomodoro_phase_label(PomodoroPhase::Work1));
+    REQUIRE(ts.label == pomodoro_phase_label(0));
 }
 
 // ─── advance_pomodoro_phase ──────────────────────────────────────────────────
@@ -345,16 +344,17 @@ TEST_CASE("A_TMR_SKIP wraps from LongBreak back to Work1", "[pomodoro][actions]"
 TEST_CASE("advance: work expires -> short break, work_elapsed increases", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_phase = 0;
     ts.pomodoro_work_elapsed = seconds{0};
     ts.dur = seconds{POMODORO_WORK_SECS};
     ts.t.reset();
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_WORK_SECS});
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
+                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_WORK_SECS});
 
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::ShortBreak1);
+    REQUIRE(ts.pomodoro_phase == 1);
     REQUIRE(ts.dur == seconds{POMODORO_SHORT_BREAK_SECS});
     REQUIRE(ts.label == L"Short Break");
     REQUIRE(ts.pomodoro_work_elapsed == seconds{POMODORO_WORK_SECS});
@@ -365,16 +365,17 @@ TEST_CASE("advance: work expires -> short break, work_elapsed increases", "[pomo
 TEST_CASE("advance: short break expires -> next work phase, work_elapsed unchanged", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::ShortBreak1;
+    ts.pomodoro_phase = 1;
     ts.pomodoro_work_elapsed = seconds{POMODORO_WORK_SECS};
     ts.dur = seconds{POMODORO_SHORT_BREAK_SECS};
     ts.t.reset();
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_SHORT_BREAK_SECS});
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
+                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_SHORT_BREAK_SECS});
 
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work2);
+    REQUIRE(ts.pomodoro_phase == 2);
     REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
     REQUIRE(ts.label == L"Work 2/4");
     REQUIRE(ts.pomodoro_work_elapsed == seconds{POMODORO_WORK_SECS});
@@ -384,16 +385,17 @@ TEST_CASE("advance: short break expires -> next work phase, work_elapsed unchang
 TEST_CASE("advance: Work4 expires -> long break", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::Work4;
+    ts.pomodoro_phase = 6;
     ts.pomodoro_work_elapsed = seconds{3 * POMODORO_WORK_SECS};
     ts.dur = seconds{POMODORO_WORK_SECS};
     ts.t.reset();
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_WORK_SECS});
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
+                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_WORK_SECS});
 
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::LongBreak);
+    REQUIRE(ts.pomodoro_phase == 7);
     REQUIRE(ts.dur == seconds{POMODORO_LONG_BREAK_SECS});
     REQUIRE(ts.label == L"Long Break");
     REQUIRE(ts.pomodoro_work_elapsed == seconds{4 * POMODORO_WORK_SECS});
@@ -402,16 +404,17 @@ TEST_CASE("advance: Work4 expires -> long break", "[pomodoro][advance]") {
 TEST_CASE("advance: long break expires -> wraps to Work1, work_elapsed unchanged", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::LongBreak;
+    ts.pomodoro_phase = 7;
     ts.pomodoro_work_elapsed = seconds{4 * POMODORO_WORK_SECS};
     ts.dur = seconds{POMODORO_LONG_BREAK_SECS};
     ts.t.reset();
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_LONG_BREAK_SECS});
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
+                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_LONG_BREAK_SECS});
 
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(ts.pomodoro_phase == 0);
     REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
     REQUIRE(ts.label == L"Work 1/4");
     REQUIRE(ts.pomodoro_work_elapsed == seconds{4 * POMODORO_WORK_SECS});
@@ -425,23 +428,23 @@ TEST_CASE("advance: custom durations flow through correctly", "[pomodoro][advanc
 
     TimerSlot ts;
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_phase = 0;
     ts.dur = seconds{WORK};
     ts.t.reset();
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, WORK, SHORT, LONG, t0() + seconds{WORK});
+    advance_pomodoro_phase(ts, WORK, SHORT, LONG, POMODORO_DEFAULT_CADENCE, true, t0() + seconds{WORK});
 
     REQUIRE(ts.dur == seconds{SHORT});
 
-    ts.pomodoro_phase = PomodoroPhase::Work4;
+    ts.pomodoro_phase = 6;
     ts.dur = seconds{WORK};
     ts.t.reset();
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, WORK, SHORT, LONG, t0() + seconds{WORK});
+    advance_pomodoro_phase(ts, WORK, SHORT, LONG, POMODORO_DEFAULT_CADENCE, true, t0() + seconds{WORK});
 
     REQUIRE(ts.dur == seconds{LONG});
     REQUIRE(ts.label == L"Long Break");
@@ -450,14 +453,15 @@ TEST_CASE("advance: custom durations flow through correctly", "[pomodoro][advanc
 TEST_CASE("advance: notified flag is cleared", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_phase = 0;
     ts.dur = seconds{POMODORO_WORK_SECS};
     ts.notified = true;
     ts.t.reset();
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, t0() + seconds{POMODORO_WORK_SECS});
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
+                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_WORK_SECS});
 
     REQUIRE_FALSE(ts.notified);
 }
@@ -465,7 +469,7 @@ TEST_CASE("advance: notified flag is cleared", "[pomodoro][advance]") {
 TEST_CASE("advance: full cycle through all 8 phases", "[pomodoro][advance]") {
     TimerSlot ts;
     ts.pomodoro = true;
-    ts.pomodoro_phase = PomodoroPhase::Work1;
+    ts.pomodoro_phase = 0;
     ts.pomodoro_work_elapsed = seconds{0};
     ts.dur = seconds{POMODORO_WORK_SECS};
     ts.t.reset();
@@ -473,12 +477,14 @@ TEST_CASE("advance: full cycle through all 8 phases", "[pomodoro][advance]") {
     ts.t.start(t0());
 
     auto now = t0();
-    for (int i = 0; i < POMODORO_PHASE_COUNT; ++i) {
+    int count = pomodoro_phase_count(POMODORO_DEFAULT_CADENCE);
+    for (int i = 0; i < count; ++i) {
         now += ts.dur;
-        advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS, now);
+        advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
+                               POMODORO_DEFAULT_CADENCE, true, now);
     }
 
-    REQUIRE(ts.pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(ts.pomodoro_phase == 0);
     REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
     REQUIRE(ts.label == L"Work 1/4");
     REQUIRE(ts.pomodoro_work_elapsed == seconds{4 * POMODORO_WORK_SECS});
@@ -495,4 +501,166 @@ TEST_CASE("Config pomodoro durations written when any differs from default", "[p
     REQUIRE(os.str().find("pomodoro_work=1800") != std::string::npos);
     REQUIRE(os.str().find("pomodoro_short=300") != std::string::npos);
     REQUIRE(os.str().find("pomodoro_long=900") != std::string::npos);
+}
+
+// ─── Configurable cadence ────────────────────────────────────────────────────
+
+TEST_CASE("pomodoro_phase_count reflects cadence", "[pomodoro][cadence]") {
+    REQUIRE(pomodoro_phase_count(1) == 2);
+    REQUIRE(pomodoro_phase_count(4) == 8);
+    REQUIRE(pomodoro_phase_count(6) == 12);
+    REQUIRE(pomodoro_phase_count(10) == 20);
+}
+
+TEST_CASE("cadence 2: two work sessions then long break", "[pomodoro][cadence]") {
+    constexpr int CAD = 2;
+    REQUIRE(pomodoro_phase_label(0, CAD) == L"Work 1/2");
+    REQUIRE(pomodoro_phase_label(1, CAD) == L"Short Break");
+    REQUIRE(pomodoro_phase_label(2, CAD) == L"Work 2/2");
+    REQUIRE(pomodoro_phase_label(3, CAD) == L"Long Break");
+}
+
+TEST_CASE("cadence 1: single work session then long break", "[pomodoro][cadence]") {
+    constexpr int CAD = 1;
+    REQUIRE(pomodoro_phase_count(CAD) == 2);
+    REQUIRE(pomodoro_phase_label(0, CAD) == L"Work 1/1");
+    REQUIRE(pomodoro_phase_label(1, CAD) == L"Long Break");
+    REQUIRE(pomodoro_is_long_break(1, CAD));
+}
+
+TEST_CASE("cadence 6: six work sessions then long break", "[pomodoro][cadence]") {
+    constexpr int CAD = 6;
+    REQUIRE(pomodoro_phase_count(CAD) == 12);
+    REQUIRE(pomodoro_phase_label(10, CAD) == L"Work 6/6");
+    REQUIRE(pomodoro_phase_label(11, CAD) == L"Long Break");
+    REQUIRE(pomodoro_is_long_break(11, CAD));
+    REQUIRE_FALSE(pomodoro_is_long_break(9, CAD));
+}
+
+TEST_CASE("advance with custom cadence cycles correctly", "[pomodoro][cadence][advance]") {
+    constexpr int CAD = 2;
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = 0;
+    ts.pomodoro_work_elapsed = seconds{0};
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    auto now = t0();
+    int count = pomodoro_phase_count(CAD);
+    for (int i = 0; i < count; ++i) {
+        now += ts.dur;
+        advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS,
+                               POMODORO_LONG_BREAK_SECS, CAD, true, now);
+    }
+
+    REQUIRE(ts.pomodoro_phase == 0);
+    REQUIRE(ts.label == L"Work 1/2");
+    REQUIRE(ts.pomodoro_work_elapsed == seconds{2 * POMODORO_WORK_SECS});
+}
+
+TEST_CASE("Config cadence round-trip", "[pomodoro][cadence][config]") {
+    Config orig;
+    orig.pomodoro_cadence = 6;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE(back.pomodoro_cadence == 6);
+}
+
+TEST_CASE("Config cadence not written at default", "[pomodoro][cadence][config]") {
+    Config orig;
+    REQUIRE(orig.pomodoro_cadence == POMODORO_DEFAULT_CADENCE);
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    REQUIRE(os.str().find("pomodoro_cadence") == std::string::npos);
+}
+
+TEST_CASE("Config cadence clamped to valid range", "[pomodoro][cadence][config]") {
+    std::istringstream is("pomodoro_cadence=99\n");
+    Config c;
+    config_read(c, is);
+    REQUIRE(c.pomodoro_cadence == POMODORO_MAX_CADENCE);
+
+    std::istringstream is2("pomodoro_cadence=0\n");
+    Config c2;
+    config_read(c2, is2);
+    REQUIRE(c2.pomodoro_cadence == POMODORO_MIN_CADENCE);
+}
+
+// ─── Auto-start toggle ──────────────────────────────────────────────────────
+
+TEST_CASE("advance with auto_start=false does not start timer", "[pomodoro][auto_start][advance]") {
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = 0;
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS,
+                           POMODORO_LONG_BREAK_SECS, POMODORO_DEFAULT_CADENCE, false,
+                           t0() + seconds{POMODORO_WORK_SECS});
+
+    REQUIRE(ts.pomodoro_phase == 1);
+    REQUIRE(ts.dur == seconds{POMODORO_SHORT_BREAK_SECS});
+    REQUIRE_FALSE(ts.t.is_running());
+    REQUIRE_FALSE(ts.t.touched());
+}
+
+TEST_CASE("advance with auto_start=true starts timer", "[pomodoro][auto_start][advance]") {
+    TimerSlot ts;
+    ts.pomodoro = true;
+    ts.pomodoro_phase = 0;
+    ts.dur = seconds{POMODORO_WORK_SECS};
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    ts.t.start(t0());
+
+    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS,
+                           POMODORO_LONG_BREAK_SECS, POMODORO_DEFAULT_CADENCE, true,
+                           t0() + seconds{POMODORO_WORK_SECS});
+
+    REQUIRE(ts.pomodoro_phase == 1);
+    REQUIRE(ts.t.is_running());
+}
+
+TEST_CASE("Config auto_start round-trip", "[pomodoro][auto_start][config]") {
+    Config orig;
+    orig.pomodoro_auto_start = false;
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+
+    REQUIRE_FALSE(back.pomodoro_auto_start);
+}
+
+TEST_CASE("Config auto_start not written at default", "[pomodoro][auto_start][config]") {
+    Config orig;
+    REQUIRE(orig.pomodoro_auto_start == true);
+
+    std::ostringstream os;
+    config_write(orig, os);
+
+    REQUIRE(os.str().find("pomodoro_auto_start") == std::string::npos);
+}
+
+TEST_CASE("Config auto_start defaults", "[pomodoro][auto_start][config]") {
+    Config c;
+    REQUIRE(c.pomodoro_auto_start == true);
+    REQUIRE(c.pomodoro_cadence == POMODORO_DEFAULT_CADENCE);
 }

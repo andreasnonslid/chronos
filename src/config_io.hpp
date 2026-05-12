@@ -47,6 +47,8 @@ inline void save_config(HWND hwnd, const WndState& s) {
     cfg.pomodoro_work_secs = s.app.pomodoro_work_secs;
     cfg.pomodoro_short_secs = s.app.pomodoro_short_secs;
     cfg.pomodoro_long_secs = s.app.pomodoro_long_secs;
+    cfg.pomodoro_cadence = s.app.pomodoro_cadence;
+    cfg.pomodoro_auto_start = s.app.pomodoro_auto_start;
     cfg.num_timers = (int)s.app.timers.size();
     auto now_steady = steady_clock::now();
     auto now_wall_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
@@ -118,6 +120,8 @@ inline void load_config(HWND hwnd, WndState& s) {
     s.app.pomodoro_work_secs = cfg.pomodoro_work_secs;
     s.app.pomodoro_short_secs = cfg.pomodoro_short_secs;
     s.app.pomodoro_long_secs = cfg.pomodoro_long_secs;
+    s.app.pomodoro_cadence = cfg.pomodoro_cadence;
+    s.app.pomodoro_auto_start = cfg.pomodoro_auto_start;
     int n = std::min(cfg.num_timers, Config::MAX_TIMERS);
     s.app.timers.resize(n);
     for (int i = 0; i < n; ++i) {
@@ -148,7 +152,7 @@ inline void load_config(HWND hwnd, WndState& s) {
     for (int i = 0; i < n; ++i) {
         auto& ts = s.app.timers[i];
         ts.pomodoro = cfg.timer_pomodoro[i];
-        ts.pomodoro_phase = static_cast<PomodoroPhase>(cfg.timer_pomodoro_phase[i]);
+        ts.pomodoro_phase = cfg.timer_pomodoro_phase[i];
         ts.pomodoro_work_elapsed = std::chrono::seconds{cfg.timer_pomodoro_work_secs[i]};
         if (cfg.timer_elapsed_ms[i] <= 0 && !cfg.timer_running[i] && !cfg.timer_notified[i]) continue;
         long long elapsed_ms = cfg.timer_elapsed_ms[i];

@@ -200,9 +200,9 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         for (auto& ts : app.timers) {
             ts.notified = false;
             if (ts.pomodoro) {
-                ts.pomodoro_phase = PomodoroPhase::Work1;
-                ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
-                ts.label = pomodoro_phase_label(PomodoroPhase::Work1);
+                ts.pomodoro_phase = 0;
+                ts.dur = std::chrono::seconds{app.pomodoro_work_secs};
+                ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
                 ts.pomodoro_work_elapsed = {};
             }
             ts.t.reset();
@@ -226,9 +226,9 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
             } else if (off == A_TMR_RST) {
                 ts.notified = false;
                 if (ts.pomodoro) {
-                    ts.pomodoro_phase = PomodoroPhase::Work1;
-                    ts.dur = std::chrono::seconds{POMODORO_WORK_SECS};
-                    ts.label = pomodoro_phase_label(PomodoroPhase::Work1);
+                    ts.pomodoro_phase = 0;
+                    ts.dur = std::chrono::seconds{app.pomodoro_work_secs};
+                    ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
                     ts.pomodoro_work_elapsed = {};
                 }
                 ts.t.reset();
@@ -254,10 +254,10 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                         ts.label.clear();
                     } else {
                         ts.pomodoro = true;
-                        ts.pomodoro_phase = PomodoroPhase::Work1;
+                        ts.pomodoro_phase = 0;
                         ts.pomodoro_work_elapsed = {};
                         ts.dur = seconds{app.pomodoro_work_secs};
-                        ts.label = pomodoro_phase_label(PomodoroPhase::Work1);
+                        ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
                         ts.notified = false;
                         ts.t.reset();
                         ts.t.set(ts.dur);
@@ -270,15 +270,16 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                         auto elapsed = duration_cast<seconds>(ts.t.total_elapsed(now));
                         ts.pomodoro_work_elapsed += elapsed;
                     }
-                    ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase);
+                    ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase, app.pomodoro_cadence);
                     auto secs = seconds{pomodoro_phase_secs(ts.pomodoro_phase,
-                        app.pomodoro_work_secs, app.pomodoro_short_secs, app.pomodoro_long_secs)};
+                        app.pomodoro_work_secs, app.pomodoro_short_secs, app.pomodoro_long_secs,
+                        app.pomodoro_cadence)};
                     ts.dur = secs;
                     ts.notified = false;
                     ts.t.reset();
                     ts.t.set(secs);
                     ts.t.start(now);
-                    ts.label = pomodoro_phase_label(ts.pomodoro_phase);
+                    ts.label = pomodoro_phase_label(ts.pomodoro_phase, app.pomodoro_cadence);
                     r.save_config = true;
                 }
             } else if (!ts.t.touched() && apply_timer_hms_adjust(ts, off)) {
