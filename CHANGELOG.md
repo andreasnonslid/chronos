@@ -3,6 +3,12 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.9.0] — 2026-05-12
+
+### Added
+- **Custom timer presets** — define up to 5 personal presets (in minutes) via the new **Timers** tab in the settings panel; presets appear in the right-click timer menu below the built-in durations (#270)
+- Custom presets persisted to `config.ini` (`num_custom_presets`, `custom_preset0`–`custom_preset4`)
+
 ## [1.8.0] — 2026-05-12
 
 ### Added

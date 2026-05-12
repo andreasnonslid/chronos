@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include "../src/formatting.hpp"
+#include "../src/timer_presets.hpp"
 
 using namespace std::chrono;
 using steady_duration = steady_clock::duration;
@@ -179,4 +180,26 @@ TEST_CASE("format_tray_title: multi-timer slot 1", "[formatting]") {
 
 TEST_CASE("format_tray_title: multi-timer slot 3", "[formatting]") {
     REQUIRE(format_tray_title(2, 3) == L"Timer 3 expired");
+}
+
+// ── format_preset_label ──────────────────────────────────────────────────
+
+TEST_CASE("format_preset_label: exact minutes", "[formatting]") {
+    REQUIRE(format_preset_label(60) == L"1:00");
+    REQUIRE(format_preset_label(300) == L"5:00");
+    REQUIRE(format_preset_label(2700) == L"45:00");
+}
+
+TEST_CASE("format_preset_label: minutes and seconds", "[formatting]") {
+    REQUIRE(format_preset_label(90) == L"1:30");
+    REQUIRE(format_preset_label(450) == L"7:30");
+}
+
+TEST_CASE("format_preset_label: hours", "[formatting]") {
+    REQUIRE(format_preset_label(3600) == L"1:00:00");
+    REQUIRE(format_preset_label(5400) == L"1:30:00");
+}
+
+TEST_CASE("format_preset_label: hours with seconds", "[formatting]") {
+    REQUIRE(format_preset_label(3661) == L"1:01:01");
 }

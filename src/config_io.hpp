@@ -49,6 +49,9 @@ inline void save_config(HWND hwnd, const WndState& s) {
     cfg.pomodoro_long_secs = s.app.pomodoro_long_secs;
     cfg.pomodoro_cadence = s.app.pomodoro_cadence;
     cfg.pomodoro_auto_start = s.app.pomodoro_auto_start;
+    cfg.num_custom_presets = (int)s.app.custom_preset_secs.size();
+    for (int i = 0; i < cfg.num_custom_presets; ++i)
+        cfg.custom_preset_secs[i] = s.app.custom_preset_secs[i];
     cfg.num_timers = (int)s.app.timers.size();
     auto now_steady = steady_clock::now();
     auto now_wall_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
@@ -122,6 +125,9 @@ inline void load_config(HWND hwnd, WndState& s) {
     s.app.pomodoro_long_secs = cfg.pomodoro_long_secs;
     s.app.pomodoro_cadence = cfg.pomodoro_cadence;
     s.app.pomodoro_auto_start = cfg.pomodoro_auto_start;
+    s.app.custom_preset_secs.clear();
+    for (int i = 0; i < cfg.num_custom_presets; ++i)
+        s.app.custom_preset_secs.push_back(cfg.custom_preset_secs[i]);
     int n = std::min(cfg.num_timers, Config::MAX_TIMERS);
     s.app.timers.resize(n);
     for (int i = 0; i < n; ++i) {

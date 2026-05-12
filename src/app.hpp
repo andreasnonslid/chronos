@@ -48,6 +48,7 @@ struct App {
     int pomodoro_long_secs = 15 * 60;
     int pomodoro_cadence = POMODORO_DEFAULT_CADENCE;
     bool pomodoro_auto_start = true;
+    std::vector<int> custom_preset_secs;
     bool show_help = false;
     bool lap_write_failed = false;
     int blink_act = 0;
