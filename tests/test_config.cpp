@@ -372,6 +372,24 @@ TEST_CASE("Config empty label value produces empty string", "[config]") {
     REQUIRE(c.timer_labels[0].empty());
 }
 
+TEST_CASE("Config sound_on_expiry defaults to true", "[config]") {
+    Config c;
+    REQUIRE(c.sound_on_expiry);
+}
+
+TEST_CASE("Config sound_on_expiry round-trip", "[config]") {
+    for (bool val : {true, false}) {
+        Config orig;
+        orig.sound_on_expiry = val;
+        std::ostringstream os;
+        config_write(orig, os);
+        Config back;
+        std::istringstream is(os.str());
+        config_read(back, is);
+        REQUIRE(back.sound_on_expiry == val);
+    }
+}
+
 TEST_CASE("Config whitespace around equals is ignored", "[config]") {
     std::istringstream is("timer0 = 60\nshow_clk = 0\n");
     Config c;

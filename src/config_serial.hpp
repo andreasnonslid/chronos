@@ -12,8 +12,8 @@
 
 inline bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
-    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\ntheme={}\nclock_view={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
-                     c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, theme_str, (int)c.clock_view, c.num_timers);
+    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\nsound_on_expiry={}\ntheme={}\nclock_view={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
+                     c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, c.sound_on_expiry ? 1 : 0, theme_str, (int)c.clock_view, c.num_timers);
     Config defaults;
     if (c.pomodoro_work_secs != defaults.pomodoro_work_secs ||
         c.pomodoro_short_secs != defaults.pomodoro_short_secs ||
@@ -95,6 +95,8 @@ inline bool config_read(Config& c, std::istream& f) {
             c.show_tmr = val != 0;
         else if (key == "topmost")
             c.topmost = val != 0;
+        else if (key == "sound_on_expiry")
+            c.sound_on_expiry = val != 0;
         else if (key == "num_timers")
             c.num_timers = clamp_int(val, 1, Config::MAX_TIMERS);
         else if (key == "win_x") {

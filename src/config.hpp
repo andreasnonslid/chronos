@@ -15,6 +15,7 @@ struct Config {
     bool show_sw = true;
     bool show_tmr = true;
     bool topmost = false;
+    bool sound_on_expiry = true;
     ThemeMode theme_mode = ThemeMode::Auto;
     static constexpr int MAX_TIMERS = 20;
     static constexpr int MAX_LABEL_LEN = 20;

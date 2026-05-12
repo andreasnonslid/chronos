@@ -65,7 +65,7 @@ inline void handle_wm_timer(HWND hwnd, WndState& s) {
         auto& ts = s.app.timers[i];
         if (ts.t.touched() && ts.t.expired(now) && !ts.notified) {
             ts.notified = true;
-            MessageBeep(MB_ICONASTERISK);
+            if (s.app.sound_on_expiry) MessageBeep(MB_ICONASTERISK);
             FLASHWINFO fi{};
             fi.cbSize = sizeof(fi);
             fi.hwnd = hwnd;
