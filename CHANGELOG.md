@@ -3,6 +3,15 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.0] — 2026-05-12
+
+### Added
+- Settings button (⚙) in the top bar opens a categorised config panel with left sidebar navigation and right content pane (#266)
+- **Appearance** tab: theme selector (Auto / Light / Dark) replaces the hidden `D` key shortcut for discoverability
+- **Clock** tab: format selector (24h + seconds / 24h / 12h + seconds / 12h) replaces the hidden click-to-cycle interaction
+- **Pomodoro** tab: work / short break / long break duration fields (same as the right-click dialog, now also accessible from the panel)
+- Panel is extensible — new categories can be added without restructuring the dialog
+
 ## [1.5.2] — 2026-05-11
 
 ### Fixed
