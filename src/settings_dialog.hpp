@@ -257,7 +257,7 @@ inline void update_content_scroll(HWND dlg, Params* p) {
     MapDialogRect(dlg, &div_bot);
 
     int view_h    = div_bot.bottom - div_top.bottom;
-    int content_h = content_r.bottom;
+    int content_h = content_r.bottom - div_top.bottom;
     int max_scroll = std::max(0, content_h - view_h);
 
     SCROLLINFO si = {};
@@ -365,7 +365,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         // Populate clock format combobox
         HWND combo = GetDlgItem(dlg, IDC_CLOCK_COMBO);
         if (combo) {
-            const wchar_t* clock_names[] = {
+            const wchar_t* clock_names[CLOCK_VIEW_COUNT] = {
                 L"24h + seconds", L"24h", L"12h + seconds", L"12h", L"Analog"
             };
             for (int i = 0; i < CLOCK_VIEW_COUNT; ++i)
