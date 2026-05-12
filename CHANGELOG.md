@@ -3,6 +3,17 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [1.11.0] — 2026-05-12
+
+### Added
+- Settings panel **Clock** tab now uses a scrollable dropdown instead of standalone format buttons (#294)
+
+### Fixed
+- Light and dark mode buttons in the settings panel now select the correct theme (#292)
+- Corrected scroll range calculation and `clock_names` array size in the settings panel
+
 ## [1.10.0] — 2026-05-12
 
 ### Added
@@ -88,6 +99,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Skip the current Pomodoro phase early with `N` key or the new **Skip** button — work phases credit actual elapsed time, breaks simply advance to the next phase without losing cycle position (#239)
+- **Shift+R** keyboard shortcut to reset all active timers at once (#240)
+- Raised `MAX_TIMERS` from 3 to 20; keyboard shortcuts now reach individual timers 1–9
+- Pomodoro interval configuration dialog for adjusting work / short-break / long-break durations
+
+### Changed
+- Replaced bare-int Pomodoro phase tracking with a typed `PomodoroPhase` enum class, eliminating implicit-conversion bugs
+
+### Fixed
+- Corrected bare-int `PomodoroPhase` assignments in `input_mouse.hpp` left over from the enum migration
+- Check `GetModuleFileNameW` return value in `main.cpp` and `config_io.hpp`
 
 ## [1.3.0] — 2026-04-26
 
@@ -123,6 +144,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - **P** keyboard shortcut to toggle Pomodoro mode on the first idle timer (#219)
+- **Shift+1** / **Shift+2** / **Shift+3** keyboard shortcuts to reset individual timers
 
 ## [1.0.12] — 2026-04-22
 
@@ -133,34 +155,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Split `config.hpp` into struct definition (`config.hpp`) and serialization (`config_serial.hpp`) so headers that only need the `Config` type no longer pull in `<istream>`, `<ostream>`, `<format>`, and `<charconv>` (#225)
-
-## [Unreleased]
-
-### Added
-- Pomodoro mode for timer slots — right-click any untouched timer and choose Pomodoro to run an auto-cycling 25/5 × 4 + 15-minute sequence
-- Configurable Pomodoro phase durations via `config.ini` keys
-- Global hotkey `Ctrl+Shift+Space` to start/stop from any application
-- Clipboard copy for stopwatch laps (`C` key) — same format as file export
-- Title briefly shows "Copied — Chronos" for 1 s after clipboard copy
-- `E` key shortcut to open the exported laps file
-- Offensive programming assertions across internal modules — `Timer`, `Stopwatch`, `Pomodoro`, layout, painting, and action dispatch now enforce preconditions via `CHRONOS_ASSERT` / `CHRONOS_UNREACHABLE` in debug builds (#215)
-- `static_assert` tying `CLOCK_VIEW_COUNT` to `ClockView` enum to catch desync at compile time
-- `POMODORO_PHASE_COUNT` constant replacing magic number `8` in phase arithmetic
-
-### Fixed
-- Stopwatch lap count capped at 999 to prevent unbounded memory growth (#175)
-- Negative durations clamped to zero in all formatting functions (#180)
-- Timer progress bar fill width clamped to prevent negative `RECT` (#191)
-- `RegisterClassExW` / `CreateWindowExW` return values now guarded (#192)
-- Orphaned `.tmp` config file cleaned up when write fails
-- Unhandled `WM_KEYDOWN` / `WM_CHAR` messages now propagate to `DefWindowProcW`
-- Invalid UTF-8 lead bytes `0xF5`–`0xFF` rejected in `utf8_to_wide`
-- `NOMINMAX` macro redefinition warnings fixed via CMake compile definitions
-- Pomodoro: phase clamped to valid range on config load
-- Pomodoro: scroll wheel disabled on Pomodoro timers to prevent value changes
-- Pomodoro: arrow buttons hidden in idle mode to prevent title overlap
-- Pomodoro: label cleared when switching back to a normal preset
-- Pomodoro: idle time display expanded to fill space left by hidden buttons
 
 ## [1.0.10] — 2026-04-21
 
@@ -242,7 +236,26 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/andreasnonslid/chronos/compare/v1.10.0...v1.11.0
+[1.10.0]: https://github.com/andreasnonslid/chronos/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/andreasnonslid/chronos/compare/v1.8.0...v1.9.0
+[1.8.0]: https://github.com/andreasnonslid/chronos/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/andreasnonslid/chronos/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/andreasnonslid/chronos/compare/v1.5.2...v1.6.0
+[1.5.2]: https://github.com/andreasnonslid/chronos/compare/v1.5.1...v1.5.2
+[1.5.1]: https://github.com/andreasnonslid/chronos/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/andreasnonslid/chronos/compare/v1.4.3...v1.5.0
+[1.4.3]: https://github.com/andreasnonslid/chronos/compare/v1.4.2...v1.4.3
+[1.4.2]: https://github.com/andreasnonslid/chronos/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/andreasnonslid/chronos/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/andreasnonslid/chronos/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/andreasnonslid/chronos/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/andreasnonslid/chronos/compare/v1.1.4...v1.2.0
+[1.1.4]: https://github.com/andreasnonslid/chronos/compare/v1.1.3...v1.1.4
+[1.1.3]: https://github.com/andreasnonslid/chronos/compare/v1.1.2...v1.1.3
+[1.1.2]: https://github.com/andreasnonslid/chronos/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/andreasnonslid/chronos/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/andreasnonslid/chronos/compare/v1.0.12...v1.1.0
 [1.0.12]: https://github.com/andreasnonslid/chronos/compare/v1.0.11...v1.0.12
 [1.0.11]: https://github.com/andreasnonslid/chronos/compare/v1.0.10...v1.0.11
