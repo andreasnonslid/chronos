@@ -64,7 +64,7 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
         // fontLarge size because field_half > col_gap/2.)
         SelectObject(hdc, ctx.res.fontSm);
         SetTextColor(hdc, th.dim);
-        std::wstring phase_lbl = pomodoro_phase_label(ts.pomodoro_phase);
+        std::wstring phase_lbl = pomodoro_phase_label(ts.pomodoro_phase, ctx.app.pomodoro_cadence);
         if (ts.pomodoro_work_elapsed.count() > 0)
             phase_lbl += L" \u00B7 " + format_worked_time(ts.pomodoro_work_elapsed);
         RECT lr{0, y + m.up_off, cw, y + m.up_off + layout.dpi_scale(20)};

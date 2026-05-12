@@ -13,22 +13,23 @@ struct TimerSlot {
     bool notified = false;
     std::wstring label;
     bool pomodoro = false;
-    PomodoroPhase pomodoro_phase = PomodoroPhase::Work1;
+    int pomodoro_phase = 0;
     std::chrono::seconds pomodoro_work_elapsed{};
 };
 
 inline void advance_pomodoro_phase(TimerSlot& ts, int work_secs, int short_secs, int long_secs,
+                                    int cadence, bool auto_start,
                                     std::chrono::steady_clock::time_point now) {
     if (pomodoro_is_work(ts.pomodoro_phase))
         ts.pomodoro_work_elapsed += ts.dur;
-    ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase);
-    auto secs = std::chrono::seconds{pomodoro_phase_secs(ts.pomodoro_phase, work_secs, short_secs, long_secs)};
+    ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase, cadence);
+    auto secs = std::chrono::seconds{pomodoro_phase_secs(ts.pomodoro_phase, work_secs, short_secs, long_secs, cadence)};
     ts.dur = secs;
     ts.t.reset();
     ts.t.set(secs);
-    ts.t.start(now);
+    if (auto_start) ts.t.start(now);
     ts.notified = false;
-    ts.label = pomodoro_phase_label(ts.pomodoro_phase);
+    ts.label = pomodoro_phase_label(ts.pomodoro_phase, cadence);
 }
 
 struct App {
@@ -45,6 +46,8 @@ struct App {
     int pomodoro_work_secs = 25 * 60;
     int pomodoro_short_secs = 5 * 60;
     int pomodoro_long_secs = 15 * 60;
+    int pomodoro_cadence = POMODORO_DEFAULT_CADENCE;
+    bool pomodoro_auto_start = true;
     bool show_help = false;
     bool lap_write_failed = false;
     int blink_act = 0;

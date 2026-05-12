@@ -17,14 +17,17 @@ constexpr int IDC_LBL_LONG     = 306;
 constexpr int IDC_MIN_WORK     = 307;
 constexpr int IDC_MIN_SHORT    = 308;
 constexpr int IDC_MIN_LONG     = 309;
-constexpr int IDC_SET_OK       = 310;
-constexpr int IDC_SET_CANCEL   = 311;
+constexpr int IDC_POMO_CADENCE = 310;
+constexpr int IDC_LBL_CADENCE = 311;
+constexpr int IDC_MIN_CADENCE = 312;
+constexpr int IDC_SET_OK       = 313;
+constexpr int IDC_SET_CANCEL   = 314;
 
 constexpr WORD CLS_BUTTON = 0x0080;
 constexpr WORD CLS_EDIT   = 0x0081;
 constexpr WORD CLS_STATIC = 0x0082;
 
-constexpr short DLG_W = 240, DLG_H = 138;
+constexpr short DLG_W = 240, DLG_H = 156;
 constexpr short SIDEBAR_W = 62;
 constexpr short TITLE_H = 18;
 
@@ -56,7 +59,7 @@ inline void add_item(Buf& b, DWORD style, DWORD exStyle,
     b.push_word(0);
 }
 
-constexpr WORD CTRL_COUNT = 11;
+constexpr WORD CTRL_COUNT = 14;
 
 inline std::vector<WORD> build_template() {
     Buf b;
@@ -98,11 +101,19 @@ inline std::vector<WORD> build_template() {
     add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
              min_x, r2, min_w, row_h, IDC_MIN_LONG, CLS_STATIC, L"min");
 
+    short r3 = y0 + 3 * sp;
+    add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
+             lbl_x, r3, lbl_w, row_h, IDC_LBL_CADENCE, CLS_STATIC, L"Long every");
+    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+             ed_x, r3, ed_w, row_h, IDC_POMO_CADENCE, CLS_EDIT, L"");
+    add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
+             min_x, r3, min_w + 20, row_h, IDC_MIN_CADENCE, CLS_STATIC, L"sessions");
+
     short btn_w = 44, btn_h = 16, btn_gap = 8;
     short content_cx = DLG_W - SIDEBAR_W - 4;
     short total_bw = 2 * btn_w + btn_gap;
     short btn_x0 = SIDEBAR_W + 2 + (content_cx - total_bw) / 2;
-    short btn_y = 120;
+    short btn_y = 138;
     add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
              btn_x0, btn_y, btn_w, btn_h, IDC_SET_OK, CLS_BUTTON, L"OK");
     add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
@@ -122,6 +133,7 @@ struct HitRects {
     RECT theme[3];
     RECT clock[4];
     RECT sound;
+    RECT auto_start;
 };
 
 inline HitRects compute_rects(HWND dlg) {
@@ -140,6 +152,7 @@ inline HitRects compute_rects(HWND dlg) {
     h.clock[3] = map_dlu(dlg, 70, 87, 100, 13);
 
     h.sound = map_dlu(dlg, 70, 97, 100, 13);
+    h.auto_start = map_dlu(dlg, 70, 115, 100, 13);
     return h;
 }
 
@@ -149,13 +162,15 @@ struct Params {
     ClockView clock_view;
     bool sound_on_expiry;
     int work_min, short_min, long_min;
+    int cadence;
+    bool auto_start;
     DlgStyle style;
     HitRects rects{};
 };
 
 inline void set_pomo_visible(HWND dlg, bool show) {
     int cmd = show ? SW_SHOW : SW_HIDE;
-    for (int id = IDC_POMO_WORK; id <= IDC_MIN_LONG; ++id) {
+    for (int id = IDC_POMO_WORK; id <= IDC_MIN_CADENCE; ++id) {
         HWND h = GetDlgItem(dlg, id);
         if (h) ShowWindow(h, cmd);
     }
@@ -213,9 +228,11 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         SetDlgItemTextW(dlg, IDC_POMO_WORK,  std::format(L"{}", p->work_min).c_str());
         SetDlgItemTextW(dlg, IDC_POMO_SHORT, std::format(L"{}", p->short_min).c_str());
         SetDlgItemTextW(dlg, IDC_POMO_LONG,  std::format(L"{}", p->long_min).c_str());
+        SetDlgItemTextW(dlg, IDC_POMO_CADENCE, std::format(L"{}", p->cadence).c_str());
         SendDlgItemMessageW(dlg, IDC_POMO_WORK,  EM_SETLIMITTEXT, 4, 0);
         SendDlgItemMessageW(dlg, IDC_POMO_SHORT, EM_SETLIMITTEXT, 4, 0);
         SendDlgItemMessageW(dlg, IDC_POMO_LONG,  EM_SETLIMITTEXT, 4, 0);
+        SendDlgItemMessageW(dlg, IDC_POMO_CADENCE, EM_SETLIMITTEXT, 2, 0);
 
         EnumChildWindows(dlg, [](HWND child, LPARAM param) -> BOOL {
             auto* params = reinterpret_cast<Params*>(param);
@@ -259,7 +276,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         MoveToEx(hdc, sb.right, div_y.bottom, nullptr);
         LineTo(hdc, sb.right, rc.bottom);
 
-        RECT btn_div = {0, 0, 0, 114};
+        RECT btn_div = {0, 0, 0, 132};
         MapDialogRect(dlg, &btn_div);
         MoveToEx(hdc, sb.right, btn_div.bottom, nullptr);
         LineTo(hdc, rc.right, btn_div.bottom);
@@ -285,6 +302,12 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             paint_option_btn(hdc, p->rects.sound,
                             p->sound_on_expiry ? L"Sound: on" : L"Sound: off",
                             p->sound_on_expiry, s);
+        } else if (p->active_tab == TAB_POMODORO) {
+            RECT aslbl = map_dlu(dlg, 70, 105, 80, 8);
+            s.draw_label(hdc, aslbl, L"Auto-start");
+            paint_option_btn(hdc, p->rects.auto_start,
+                            p->auto_start ? L"On" : L"Off",
+                            p->auto_start, s);
         } else if (p->active_tab == TAB_CLOCK) {
             RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
             s.draw_label(hdc, lbl, L"Format");
@@ -393,6 +416,14 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             }
         }
 
+        if (p->active_tab == TAB_POMODORO) {
+            if (PtInRect(&p->rects.auto_start, pt)) {
+                p->auto_start = !p->auto_start;
+                InvalidateRect(dlg, nullptr, TRUE);
+                return TRUE;
+            }
+        }
+
         break;
     }
 
@@ -400,7 +431,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         switch (LOWORD(wp)) {
         case IDC_SET_OK: {
             auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
-            int w = 0, s = 0, l = 0;
+            int w = 0, s = 0, l = 0, cad = 0;
             if (!read_field(dlg, IDC_POMO_WORK, w) ||
                 !read_field(dlg, IDC_POMO_SHORT, s) ||
                 !read_field(dlg, IDC_POMO_LONG, l)) {
@@ -417,7 +448,17 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
                     SetFocus(GetDlgItem(dlg, IDC_POMO_LONG));
                 return TRUE;
             }
+            if (!read_field(dlg, IDC_POMO_CADENCE, cad) ||
+                cad < POMODORO_MIN_CADENCE || cad > POMODORO_MAX_CADENCE) {
+                set_pomo_visible(dlg, true);
+                p->active_tab = TAB_POMODORO;
+                InvalidateRect(dlg, nullptr, TRUE);
+                MessageBeep(MB_ICONASTERISK);
+                SetFocus(GetDlgItem(dlg, IDC_POMO_CADENCE));
+                return TRUE;
+            }
             p->work_min = w; p->short_min = s; p->long_min = l;
+            p->cadence = cad;
             EndDialog(dlg, IDOK);
             return TRUE;
         }
@@ -451,6 +492,8 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
         .work_min  = app.pomodoro_work_secs / 60,
         .short_min = app.pomodoro_short_secs / 60,
         .long_min  = app.pomodoro_long_secs / 60,
+        .cadence   = app.pomodoro_cadence,
+        .auto_start = app.pomodoro_auto_start,
         .style = {.theme = theme, .font = font, .dpi = dpi},
     };
 
@@ -468,5 +511,7 @@ inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
     app.pomodoro_work_secs = p.work_min * 60;
     app.pomodoro_short_secs = p.short_min * 60;
     app.pomodoro_long_secs = p.long_min * 60;
+    app.pomodoro_cadence = p.cadence;
+    app.pomodoro_auto_start = p.auto_start;
     return true;
 }

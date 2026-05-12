@@ -123,10 +123,10 @@ TEST_CASE("A_TMR_RST_ALL resets Pomodoro state on all timers", "[actions]") {
     App app;
     dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
     app.timers[0].pomodoro = true;
-    app.timers[0].pomodoro_phase = PomodoroPhase::ShortBreak1;
+    app.timers[0].pomodoro_phase = 1;
     app.timers[0].pomodoro_work_elapsed = seconds{500};
     auto r = dispatch_action(app, A_TMR_RST_ALL, t0(), {});
-    REQUIRE(app.timers[0].pomodoro_phase == PomodoroPhase::Work1);
+    REQUIRE(app.timers[0].pomodoro_phase == 0);
     REQUIRE(app.timers[0].pomodoro_work_elapsed == seconds{0});
     REQUIRE(r.save_config);
 }
