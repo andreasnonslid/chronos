@@ -30,7 +30,7 @@ inline AnalogResolvedColors resolve_analog_colors(const AnalogClockStyle& style,
 }
 
 inline void draw_analog_clock(HDC hdc, RECT area, const AnalogClockStyle& style,
-                               const Theme& theme, HFONT font, int dpi,
+                               const Theme& theme, int dpi,
                                int hour, int minute, int second) {
     auto colors = resolve_analog_colors(style, theme);
 
