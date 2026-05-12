@@ -13,6 +13,7 @@ struct Layout {
     static constexpr int BASE_W_CLK  = 48;
     static constexpr int BASE_W_SW   = 76;
     static constexpr int BASE_W_TMR  = 54;
+    static constexpr int BASE_W_SET  = 32;
     static constexpr int BASE_BAR_GAP = 6;
 
     int bar_h   = BASE_BAR_H;
@@ -25,11 +26,12 @@ struct Layout {
     int w_clk   = BASE_W_CLK;
     int w_sw    = BASE_W_SW;
     int w_tmr   = BASE_W_TMR;
+    int w_set   = BASE_W_SET;
     int bar_gap = BASE_BAR_GAP;
 
     int dpi = STANDARD_DPI;
 
-    int bar_min_client_w() const { return w_pin + w_clk + w_sw + w_tmr + 3 * bar_gap + 2 * dpi_scale(8); }
+    int bar_min_client_w() const { return w_pin + w_clk + w_sw + w_tmr + w_set + 4 * bar_gap + 2 * dpi_scale(8); }
 
     int dpi_scale(int value) const {
         CHRONOS_ASSERT(dpi > 0);
@@ -48,6 +50,7 @@ struct Layout {
         w_clk   = dpi_scale(BASE_W_CLK);
         w_sw    = dpi_scale(BASE_W_SW);
         w_tmr   = dpi_scale(BASE_W_TMR);
+        w_set   = dpi_scale(BASE_W_SET);
         bar_gap = dpi_scale(BASE_BAR_GAP);
     }
 };

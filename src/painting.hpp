@@ -23,7 +23,7 @@ inline int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
 
     SelectObject(hdc, ctx.res.fontSm);
     int by = (layout.bar_h - layout.btn_h) / 2;
-    int bx = (cw - (layout.w_pin + layout.w_clk + layout.w_sw + layout.w_tmr + 3 * layout.bar_gap)) / 2;
+    int bx = (cw - (layout.w_pin + layout.w_clk + layout.w_sw + layout.w_tmr + layout.w_set + 4 * layout.bar_gap)) / 2;
     btn(hdc, {bx, by, bx + layout.w_pin, by + layout.btn_h}, ctx.app.topmost, L"Pin", A_TOPMOST, ctx);
     bx += layout.w_pin + layout.bar_gap;
     btn(hdc, {bx, by, bx + layout.w_clk, by + layout.btn_h}, ctx.app.show_clk, L"Clock", A_SHOW_CLK, ctx);
@@ -31,6 +31,8 @@ inline int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
     btn(hdc, {bx, by, bx + layout.w_sw, by + layout.btn_h}, ctx.app.show_sw, L"Stopwatch", A_SHOW_SW, ctx);
     bx += layout.w_sw + layout.bar_gap;
     btn(hdc, {bx, by, bx + layout.w_tmr, by + layout.btn_h}, ctx.app.show_tmr, L"Timers", A_SHOW_TMR, ctx);
+    bx += layout.w_tmr + layout.bar_gap;
+    btn(hdc, {bx, by, bx + layout.w_set, by + layout.btn_h}, false, L"\u2699", A_SETTINGS, ctx);
     return layout.bar_h;
 }
 
