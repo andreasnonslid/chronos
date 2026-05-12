@@ -13,6 +13,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Replaced the hardcoded 8-phase `PomodoroPhase` enum with a dynamic integer-based cycle driven by the cadence setting — phase labels adapt automatically (e.g. cadence 2 shows "Work 1/2", cadence 6 shows "Work 1/6")
 
+### Fixed
+- Fix Windows build failure caused by leftover reference to removed `PomodoroPhase` enum in right-click Pomodoro menu (#283)
+
 ## [1.7.0] — 2026-05-12
 
 ### Added
