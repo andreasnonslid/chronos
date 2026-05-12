@@ -46,7 +46,7 @@ inline int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
     if (ctx.app.clock_view == ClockView::Analog) {
         RECT area{0, y, cw, y + layout.analog_clk_h};
         draw_analog_clock(hdc, area, ctx.app.analog_style, ctx.theme,
-                          ctx.res.fontSm, layout.dpi, st.wHour, st.wMinute, st.wSecond);
+                          layout.dpi, st.wHour, st.wMinute, st.wSecond);
         ctx.btns.push_back({area, A_CLK_CYCLE});
         return y + layout.analog_clk_h;
     }
