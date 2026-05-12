@@ -66,9 +66,9 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                 auto& ts = s.app.timers[idx];
                 if (cmd == CMD_POMODORO) {
                     ts.pomodoro = true;
-                    ts.pomodoro_phase = PomodoroPhase::Work1;
+                    ts.pomodoro_phase = 0;
                     ts.dur = std::chrono::seconds{s.app.pomodoro_work_secs};
-                    ts.label = pomodoro_phase_label(PomodoroPhase::Work1);
+                    ts.label = pomodoro_phase_label(0, s.app.pomodoro_cadence);
                     ts.notified = false;
                     ts.t.reset();
                     ts.t.set(ts.dur);
