@@ -137,11 +137,17 @@ TEST_CASE("A_CLK_CYCLE cycles through all clock views", "[actions]") {
     REQUIRE(r3.save_config);
 
     auto r4 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
-    REQUIRE(app.clock_view == ClockView::H24_HMS);
+    REQUIRE(app.clock_view == ClockView::Analog);
     REQUIRE(r4.save_config);
+    REQUIRE(r4.resize);
+
+    auto r5 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H24_HMS);
+    REQUIRE(r5.save_config);
+    REQUIRE(r5.resize);
 }
 
-TEST_CASE("A_CLK_CYCLE does not set resize or apply_theme", "[actions]") {
+TEST_CASE("A_CLK_CYCLE does not set resize between digital views", "[actions]") {
     App app;
     auto r = dispatch_action(app, A_CLK_CYCLE, t0(), {});
     REQUIRE_FALSE(r.resize);

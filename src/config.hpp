@@ -5,10 +5,30 @@
 #include "pomodoro.hpp"
 
 enum class ThemeMode { Auto = 0, Dark = 1, Light = 2 };
-enum class ClockView { H24_HMS = 0, H24_HM = 1, H12_HMS = 2, H12_HM = 3 };
-inline constexpr int CLOCK_VIEW_COUNT = 4;
-static_assert((int)ClockView::H12_HM == CLOCK_VIEW_COUNT - 1,
+enum class ClockView { H24_HMS = 0, H24_HM = 1, H12_HMS = 2, H12_HM = 3, Analog = 4 };
+inline constexpr int CLOCK_VIEW_COUNT = 5;
+static_assert((int)ClockView::Analog == CLOCK_VIEW_COUNT - 1,
               "CLOCK_VIEW_COUNT out of sync with ClockView enum");
+
+enum class HourLabels { None = 0, Sparse = 1, Full = 2 };
+
+struct AnalogClockStyle {
+    int hour_color = -1;
+    int minute_color = -1;
+    int second_color = -1;
+    int face_color = -1;
+    int tick_color = -1;
+    int hour_len_pct = 60;
+    int minute_len_pct = 80;
+    int second_len_pct = 90;
+    int hour_thickness = 4;
+    int minute_thickness = 2;
+    int second_thickness = 1;
+    int hour_tick_pct = 12;
+    int minute_tick_pct = 5;
+    bool show_minute_ticks = true;
+    HourLabels hour_labels = HourLabels::Sparse;
+};
 
 struct Config {
     bool show_clk = true;
@@ -47,6 +67,7 @@ struct Config {
     int pomodoro_cadence = POMODORO_DEFAULT_CADENCE;
     bool pomodoro_auto_start = true;
     ClockView clock_view = ClockView::H24_HMS;
+    AnalogClockStyle analog_style;
     int num_custom_presets = 0;
     std::array<int, MAX_CUSTOM_PRESETS> custom_preset_secs{};
     Config() { timer_secs.fill(60); }

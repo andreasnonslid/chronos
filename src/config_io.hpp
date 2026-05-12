@@ -44,6 +44,7 @@ inline void save_config(HWND hwnd, const WndState& s) {
     cfg.topmost = s.app.topmost;
     cfg.sound_on_expiry = s.app.sound_on_expiry;
     cfg.theme_mode = s.app.theme_mode;
+    cfg.analog_style = s.app.analog_style;
     cfg.pomodoro_work_secs = s.app.pomodoro_work_secs;
     cfg.pomodoro_short_secs = s.app.pomodoro_short_secs;
     cfg.pomodoro_long_secs = s.app.pomodoro_long_secs;
@@ -120,6 +121,7 @@ inline void load_config(HWND hwnd, WndState& s) {
     s.app.topmost = cfg.topmost;
     s.app.sound_on_expiry = cfg.sound_on_expiry;
     s.app.theme_mode = cfg.theme_mode;
+    s.app.analog_style = cfg.analog_style;
     s.app.pomodoro_work_secs = cfg.pomodoro_work_secs;
     s.app.pomodoro_short_secs = cfg.pomodoro_short_secs;
     s.app.pomodoro_long_secs = cfg.pomodoro_long_secs;

@@ -3,6 +3,16 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.10.0] — 2026-05-12
+
+### Added
+- **Analog clock view** — fifth `ClockView` option drawn entirely with GDI: outer circle, hour/minute tick marks, hour/minute/second hands, and centre dot (#271)
+- Analog clock uses a taller layout (`BASE_ANALOG_CLK_H = 120`); window height adjusts automatically when cycling to/from Analog
+- Configurable analog appearance: hand colors, hand lengths (% of radius), hand thickness, tick lengths, show/hide minute ticks, hour labels (None / Sparse / Full)
+- Analog options surfaced in **Clock** tab of the settings panel when Analog format is selected
+- All analog style fields persisted to `config.ini` (prefixed `analog_*`); defaults derive from the active theme for a clean look out of the box
+- Analog clock accessible via click-to-cycle on the clock area or the Clock tab format selector in settings
+
 ## [1.9.0] — 2026-05-12
 
 ### Added
