@@ -3,6 +3,16 @@
 All notable changes to Chronos are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.8.0] — 2026-05-12
+
+### Added
+- Configurable **long-break cadence** — set how many work sessions (1–10) before a long break via **Pomodoro** tab in the settings panel (default: 4) (#268)
+- **Auto-start toggle** — when disabled, the timer pauses at 0 after each Pomodoro phase and waits for the user to manually start the next phase (#268)
+- Both settings persisted to `config.ini` (`pomodoro_cadence`, `pomodoro_auto_start`)
+
+### Changed
+- Replaced the hardcoded 8-phase `PomodoroPhase` enum with a dynamic integer-based cycle driven by the cadence setting — phase labels adapt automatically (e.g. cadence 2 shows "Work 1/2", cadence 6 shows "Work 1/6")
+
 ## [1.7.0] — 2026-05-12
 
 ### Added
