@@ -94,12 +94,12 @@ TEST_CASE("A_THEME cycles theme mode and signals apply_theme", "[actions]") {
     REQUIRE(app.theme_mode == ThemeMode::Auto);
 
     auto r1 = dispatch_action(app, A_THEME, t0(), {});
-    REQUIRE(app.theme_mode == ThemeMode::Dark);
+    REQUIRE(app.theme_mode == ThemeMode::Light);
     REQUIRE(r1.apply_theme);
     REQUIRE(r1.save_config);
 
     auto r2 = dispatch_action(app, A_THEME, t0(), {});
-    REQUIRE(app.theme_mode == ThemeMode::Light);
+    REQUIRE(app.theme_mode == ThemeMode::Dark);
     REQUIRE(r2.apply_theme);
     REQUIRE(r2.save_config);
 

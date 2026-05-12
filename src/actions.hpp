@@ -185,7 +185,7 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         if (!app.sw.laps().empty()) r.copy_laps = true;
         break;
     case A_THEME:
-        app.theme_mode = (ThemeMode)(((int)app.theme_mode + 1) % 3);
+        app.theme_mode = (ThemeMode)(((int)app.theme_mode + 1) % THEME_MODE_COUNT);
         r.apply_theme = true;
         r.save_config = true;
         break;
