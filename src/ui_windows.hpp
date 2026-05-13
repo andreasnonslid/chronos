@@ -13,6 +13,7 @@
 
 #include "app.hpp"
 #include "dialog_style.hpp"
+#include "painting_analog.hpp"
 
 namespace ui {
 using WindowHandle = HWND;

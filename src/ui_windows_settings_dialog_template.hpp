@@ -98,7 +98,7 @@ static std::vector<WORD> build_template() {
     short btn_x0 = SIDEBAR_W + 2 + (content_cx - total_bw) / 2;
     short btn_y = 138;
     add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
-             btn_x0, btn_y, btn_w, btn_h, IDC_SET_OK, CLS_BUTTON, L"OK");
+             btn_x0, btn_y, btn_w, btn_h, IDC_SET_OK, CLS_BUTTON, L"Apply");
     add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
              btn_x0 + btn_w + btn_gap, btn_y, btn_w, btn_h, IDC_SET_CANCEL, CLS_BUTTON, L"Cancel");
 

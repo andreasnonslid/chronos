@@ -55,12 +55,18 @@ static int tab_painted_content_bottom(HWND dlg, const Params& p) {
         if (p.clock_view != ClockView::Analog) {
             return map_dlu(dlg, 70, 28, 80, 12).bottom;
         }
-        return std::max({
+        int bottom = std::max({
+            rect_bottom_after_scroll(p.rects.analog_preview, p),
             rect_bottom_after_scroll(p.rects.analog_min_ticks, p),
             rect_bottom_after_scroll(p.rects.analog_labels[0], p),
             rect_bottom_after_scroll(p.rects.analog_labels[1], p),
             rect_bottom_after_scroll(p.rects.analog_labels[2], p),
         });
+        for (int i = 0; i < ANALOG_COLOR_COUNT; ++i)
+            bottom = std::max(bottom, rect_bottom_after_scroll(p.rects.analog_colors[i], p));
+        for (int i = 0; i < ANALOG_VALUE_COUNT; ++i)
+            bottom = std::max(bottom, rect_bottom_after_scroll(p.rects.analog_values[i], p));
+        return bottom;
     case TAB_POMODORO:
         return rect_bottom_after_scroll(p.rects.auto_start, p);
     case TAB_TIMERS:
