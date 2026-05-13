@@ -140,7 +140,6 @@ inline void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     CHRONOS_ASSERT(i >= 0 && i < (int)ctx.app.timers.size());
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
-    auto m = TimerMetrics::from(layout);
     int gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
     int by_off = layout.tmr_h - bh;
     bool running = ts.t.is_running();
