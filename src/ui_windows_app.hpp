@@ -82,9 +82,14 @@ inline int run_app(InstanceHandle hInst, int nShow) {
     UpdateWindow(hwnd);
 
     MSG msg{};
-    while (GetMessageW(&msg, nullptr, 0, 0)) {
+    int msg_ret = 0;
+    while ((msg_ret = GetMessageW(&msg, nullptr, 0, 0)) > 0) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
+    }
+    if (msg_ret < 0) {
+        dbg(L"GetMessageW failed in main message loop");
+        return 1;
     }
     return (int)msg.wParam;
 }

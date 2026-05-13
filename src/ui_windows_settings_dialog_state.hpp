@@ -35,6 +35,8 @@ static HitRects compute_rects(HWND dlg) {
 
     h.sound      = map_dlu(dlg, 70,  97, 100, 13);
     h.auto_start = map_dlu(dlg, 70, 115, 100, 13);
+    for (int i = 0; i < 5; ++i)
+        h.preset_row[i] = map_dlu(dlg, 96, (short)(40 + i * 16), 50, 12);
     return h;
 }
 

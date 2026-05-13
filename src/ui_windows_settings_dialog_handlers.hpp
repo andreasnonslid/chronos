@@ -1,5 +1,6 @@
 // Included by ui_windows.hpp inside namespace settings_dlg.
 
+static Params* dialog_params(HWND dlg) {
     return reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
 }
 

@@ -1,5 +1,6 @@
 // Included by ui_windows.hpp inside namespace settings_dlg.
 
+static void paint_option_btn(HDC hdc, const RECT& rc, const wchar_t* text, bool selected,
                               const DlgStyle& s) {
     int rr = s.scale(4);
     HBRUSH br = CreateSolidBrush(selected ? s.theme->active : s.theme->btn);
