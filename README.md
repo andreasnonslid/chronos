@@ -86,9 +86,9 @@ Other presets for development:
 
 ### Platform notes
 
-The application is **Windows-only** — the UI layer uses Win32 and GDI directly. Linux builds are not supported for the executable.
+The primary application is the **Windows** desktop UI, implemented with Win32 and GDI.
 
-The logic-portable layer (timers, stopwatch, config serialization, Pomodoro state machine, formatting) has no Win32 dependencies and compiles on Linux. CI runs the unit test suite on Linux to verify this layer independently of the Windows UI.
+Linux builds use an experimental X11/Xlib backend that opens a minimal Chronos window and renders the current clock. It is intentionally smaller than the Windows UI while the platform layer is being split out. The logic-portable layer (timers, stopwatch, config serialization, Pomodoro state machine, formatting) has no Win32 dependencies and compiles on Linux. CI runs the unit test suite on Linux to verify this layer independently of the Windows UI.
 
 ### Debugging
 
