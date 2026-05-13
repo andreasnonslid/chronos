@@ -51,7 +51,7 @@ static int tab_painted_content_bottom(HWND dlg, const Params& p) {
             rect_bottom_after_scroll(p.rects.theme[2], p),
             rect_bottom_after_scroll(p.rects.sound, p),
         });
-    case TAB_CLOCK:
+    case TAB_CLOCK: {
         if (p.clock_view != ClockView::Analog) {
             return map_dlu(dlg, 70, 28, 80, 12).bottom;
         }
@@ -67,6 +67,7 @@ static int tab_painted_content_bottom(HWND dlg, const Params& p) {
         for (int i = 0; i < ANALOG_VALUE_COUNT; ++i)
             bottom = std::max(bottom, rect_bottom_after_scroll(p.rects.analog_values[i], p));
         return bottom;
+    }
     case TAB_POMODORO:
         return rect_bottom_after_scroll(p.rects.auto_start, p);
     case TAB_TIMERS:
