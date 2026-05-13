@@ -85,7 +85,7 @@ static int visible_child_content_bottom(HWND dlg) {
         GetWindowRect(child, &r);
         MapWindowPoints(HWND_DESKTOP, GetParent(child), reinterpret_cast<POINT*>(&r), 2);
         auto* end = reinterpret_cast<int*>(lp);
-        *end = std::max(*end, r.bottom);
+        *end = std::max(*end, (int)r.bottom);
         return TRUE;
     }, reinterpret_cast<LPARAM>(&content_end));
     return content_end;
@@ -103,7 +103,7 @@ static void update_content_scroll(HWND dlg, Params* p) {
 
     int view_h = div_bot.bottom - div_top.bottom;
     int content_bottom = std::max(visible_child_content_bottom(dlg), tab_painted_content_bottom(dlg, *p));
-    int content_h = std::max(0, content_bottom - div_top.bottom);
+    int content_h = std::max(0, content_bottom - (int)div_top.bottom);
     int max_scroll = std::max(0, content_h - view_h);
 
     SCROLLINFO si = {};
