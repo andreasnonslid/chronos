@@ -34,15 +34,16 @@ static HitRects compute_rects(HWND dlg) {
     h.theme[2] = map_dlu(dlg, 70, 72, 54, 13);
 
     // Analog settings sit below the format dropdown (which is at y=40, h=12).
-    h.analog_preview = map_dlu(dlg, 72, 58, 72, 72);
-    h.analog_min_ticks = map_dlu(dlg, 154,  64, 68, 12);
-    h.analog_labels[0] = map_dlu(dlg, 154,  94, 24, 12);
-    h.analog_labels[1] = map_dlu(dlg, 180, 94, 26, 12);
-    h.analog_labels[2] = map_dlu(dlg, 208, 94, 24, 12);
+    // Preview is fixed (sticky) at y=58; right column starts at x=158.
+    h.analog_preview = map_dlu(dlg, 68, 58, 80, 80);
+    h.analog_min_ticks = map_dlu(dlg, 158,  64, 122, 12);
+    h.analog_labels[0] = map_dlu(dlg, 158,  92,  40, 12);
+    h.analog_labels[1] = map_dlu(dlg, 202,  92,  40, 12);
+    h.analog_labels[2] = map_dlu(dlg, 246,  92,  40, 12);
     for (int i = 0; i < ANALOG_COLOR_COUNT; ++i)
-        h.analog_colors[i] = map_dlu(dlg, 154, (short)(124 + i * 14), 70, 12);
+        h.analog_colors[i] = map_dlu(dlg, 158, (short)(122 + i * 14), 122, 12);
     for (int i = 0; i < ANALOG_VALUE_COUNT; ++i)
-        h.analog_values[i] = map_dlu(dlg, 72, (short)(256 + i * 14), 152, 12);
+        h.analog_values[i] = map_dlu(dlg, 68, (short)(258 + i * 14), 214, 12);
 
     h.sound      = map_dlu(dlg, 70,  97, 100, 13);
     h.auto_start = map_dlu(dlg, 70, 115, 100, 13);
