@@ -70,7 +70,7 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         {
             RECT cr;
             GetClientRect(hwnd, &cr);
-            if (cr.bottom > client_height(*s))
+            if (cr.bottom != client_height(*s))
                 resize_window(hwnd, *s);
         }
         break;

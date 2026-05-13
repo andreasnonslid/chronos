@@ -113,7 +113,8 @@ inline int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::s
     int gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
     auto lap_label = ctx.app.lap_write_failed ? L"Get Laps (!)" : L"Get Laps";
     auto lap_col = ctx.app.lap_write_failed ? th.expire : has_file ? th.btn : th.dim;
-    btn(hdc, {(cw - gbw) / 2, by0 + bh + layout.dpi_scale(24), (cw + gbw) / 2, by0 + bh + layout.dpi_scale(24) + gbh},
+    int laps_top = y + layout.sw_h - gbh;
+    btn(hdc, {(cw - gbw) / 2, laps_top, (cw + gbw) / 2, y + layout.sw_h},
         false, lap_label, has_file ? A_SW_GET : 0, ctx, lap_col);
     return y + layout.sw_h;
 }

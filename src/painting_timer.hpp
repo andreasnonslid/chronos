@@ -142,7 +142,7 @@ inline void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto& ts = ctx.app.timers[i];
     auto m = TimerMetrics::from(layout);
     int gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
-    int by_off = m.dn_off + m.abh + gap;
+    int by_off = layout.tmr_h - bh;
     bool running = ts.t.is_running();
 
     SelectObject(hdc, ctx.res.fontSm);
