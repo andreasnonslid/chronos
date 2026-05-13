@@ -142,13 +142,16 @@ inline void draw_analog_clock_native(HDC hdc, RECT area, const AnalogClockStyle&
     }
 
     double hour_angle = angle_rad(hour % 12 + minute / 60.0 + second / 3600.0, 12.0);
-    line_from_center(hour_angle, radius * style.hour_len_pct / 100, colors.hour, style.hour_thickness);
+    if (style.hour_len_pct > 0)
+        line_from_center(hour_angle, radius * style.hour_len_pct / 100, colors.hour, style.hour_thickness);
 
     double min_angle = angle_rad(minute + second / 60.0, 60.0);
-    line_from_center(min_angle, radius * style.minute_len_pct / 100, colors.minute, style.minute_thickness);
+    if (style.minute_len_pct > 0)
+        line_from_center(min_angle, radius * style.minute_len_pct / 100, colors.minute, style.minute_thickness);
 
     double sec_angle = angle_rad(second, 60.0);
-    line_from_center(sec_angle, radius * style.second_len_pct / 100, colors.second, style.second_thickness);
+    if (style.second_len_pct > 0)
+        line_from_center(sec_angle, radius * style.second_len_pct / 100, colors.second, style.second_thickness);
 
     if (style.center_dot_size > 0) {
         int dot_r = dpi_px(style.center_dot_size);
