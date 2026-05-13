@@ -6,7 +6,7 @@
 #include "config_io.hpp"
 #include "geometry.hpp"
 #include "polling.hpp"
-#include "settings_dialog.hpp"
+#include "ui.hpp"
 #include "wndstate.hpp"
 
 inline void copy_laps_to_clipboard(HWND hwnd, const Stopwatch& sw) {
@@ -58,7 +58,7 @@ inline void handle(HWND hwnd, int act, WndState& s) {
     if (r.open_settings) {
         auto old_theme = s.app.theme_mode;
         auto old_clock = s.app.clock_view;
-        if (show_settings_dialog(hwnd, s.app, (HFONT)s.fontSm.h, s.active_theme, s.layout.dpi)) {
+        if (ui::show_settings_dialog(hwnd, s.app, (ui::FontHandle)s.fontSm.h, s.active_theme, s.layout.dpi)) {
             if (s.app.theme_mode != old_theme) apply_theme(hwnd, s);
             if (s.app.clock_view != old_clock) resize_window(hwnd, s);
             save_config(hwnd, s);

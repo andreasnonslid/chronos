@@ -11,6 +11,7 @@ if(WIN32)
     add_executable(chronos WIN32 src/main.cpp)
 
     target_include_directories(chronos PRIVATE src)
+    set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 
     target_compile_definitions(chronos PRIVATE
         WIN32_LEAN_AND_MEAN
@@ -35,6 +36,15 @@ if(WIN32)
         -Wl,-Bstatic winpthread -Wl,-Bdynamic
         gdi32 user32 dwmapi shell32 advapi32
     )
+elseif(UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED)
+    add_executable(chronos src/main.cpp)
+    target_include_directories(chronos PRIVATE src)
+    set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+    target_compile_options(chronos PRIVATE
+        -Wall -Wextra -Werror -Wno-unused-command-line-argument
+    )
+    target_link_libraries(chronos PRIVATE X11::X11)
 endif()
 
 option(BUILD_TESTS "Build unit tests" OFF)
@@ -61,6 +71,7 @@ if(BUILD_TESTS)
         tests/test_pomodoro.cpp
     )
     target_include_directories(chronos_tests PRIVATE src)
+    set_target_properties(chronos_tests PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     target_link_libraries(chronos_tests PRIVATE Catch2::Catch2WithMain)
     target_compile_options(chronos_tests PRIVATE
         -Wall -Wextra -Werror -Wno-unused-command-line-argument
