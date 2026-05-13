@@ -19,8 +19,13 @@ struct AnalogClockStyle {
     int hour_color = -1;
     int minute_color = -1;
     int second_color = -1;
-    int face_color = -1;
+    int face_color = -1; // legacy outline color, kept for existing configs
     int tick_color = -1;
+    int background_color = -1;
+    int face_fill_color = -1;
+    int face_outline_color = -1;
+    int hour_label_color = -1;
+    int center_dot_color = -1;
     int hour_len_pct = 60;
     int minute_len_pct = 80;
     int second_len_pct = 90;
@@ -29,6 +34,13 @@ struct AnalogClockStyle {
     int second_thickness = 1;
     int hour_tick_pct = 12;
     int minute_tick_pct = 5;
+    int center_dot_size = 3;
+    int hour_opacity_pct = 100;
+    int minute_opacity_pct = 100;
+    int second_opacity_pct = 100;
+    int tick_opacity_pct = 100;
+    int face_opacity_pct = 100;
+    int radius_pct = 100;
     bool show_minute_ticks = true;
     HourLabels hour_labels = HourLabels::Sparse;
 };

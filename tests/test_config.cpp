@@ -461,12 +461,24 @@ TEST_CASE("Config analog style defaults", "[config]") {
     REQUIRE(s.second_color == -1);
     REQUIRE(s.face_color == -1);
     REQUIRE(s.tick_color == -1);
+    REQUIRE(s.background_color == -1);
+    REQUIRE(s.face_fill_color == -1);
+    REQUIRE(s.face_outline_color == -1);
+    REQUIRE(s.hour_label_color == -1);
+    REQUIRE(s.center_dot_color == -1);
     REQUIRE(s.hour_len_pct == 60);
     REQUIRE(s.minute_len_pct == 80);
     REQUIRE(s.second_len_pct == 90);
     REQUIRE(s.hour_thickness == 4);
     REQUIRE(s.minute_thickness == 2);
     REQUIRE(s.second_thickness == 1);
+    REQUIRE(s.center_dot_size == 3);
+    REQUIRE(s.hour_opacity_pct == 100);
+    REQUIRE(s.minute_opacity_pct == 100);
+    REQUIRE(s.second_opacity_pct == 100);
+    REQUIRE(s.tick_opacity_pct == 100);
+    REQUIRE(s.face_opacity_pct == 100);
+    REQUIRE(s.radius_pct == 100);
     REQUIRE(s.show_minute_ticks);
     REQUIRE(s.hour_labels == HourLabels::Sparse);
 }
@@ -478,6 +490,11 @@ TEST_CASE("Config analog style round-trip", "[config]") {
     orig.analog_style.second_color = 0x0000FF;
     orig.analog_style.face_color = 0xAAAAAA;
     orig.analog_style.tick_color = 0x555555;
+    orig.analog_style.background_color = 0x101010;
+    orig.analog_style.face_fill_color = 0x202020;
+    orig.analog_style.face_outline_color = 0x303030;
+    orig.analog_style.hour_label_color = 0x404040;
+    orig.analog_style.center_dot_color = 0x505050;
     orig.analog_style.hour_len_pct = 55;
     orig.analog_style.minute_len_pct = 85;
     orig.analog_style.second_len_pct = 95;
@@ -486,6 +503,13 @@ TEST_CASE("Config analog style round-trip", "[config]") {
     orig.analog_style.second_thickness = 2;
     orig.analog_style.hour_tick_pct = 15;
     orig.analog_style.minute_tick_pct = 7;
+    orig.analog_style.center_dot_size = 6;
+    orig.analog_style.hour_opacity_pct = 90;
+    orig.analog_style.minute_opacity_pct = 80;
+    orig.analog_style.second_opacity_pct = 70;
+    orig.analog_style.tick_opacity_pct = 60;
+    orig.analog_style.face_opacity_pct = 50;
+    orig.analog_style.radius_pct = 75;
     orig.analog_style.show_minute_ticks = false;
     orig.analog_style.hour_labels = HourLabels::Full;
 
@@ -501,6 +525,11 @@ TEST_CASE("Config analog style round-trip", "[config]") {
     REQUIRE(back.analog_style.second_color == 0x0000FF);
     REQUIRE(back.analog_style.face_color == 0xAAAAAA);
     REQUIRE(back.analog_style.tick_color == 0x555555);
+    REQUIRE(back.analog_style.background_color == 0x101010);
+    REQUIRE(back.analog_style.face_fill_color == 0x202020);
+    REQUIRE(back.analog_style.face_outline_color == 0x303030);
+    REQUIRE(back.analog_style.hour_label_color == 0x404040);
+    REQUIRE(back.analog_style.center_dot_color == 0x505050);
     REQUIRE(back.analog_style.hour_len_pct == 55);
     REQUIRE(back.analog_style.minute_len_pct == 85);
     REQUIRE(back.analog_style.second_len_pct == 95);
@@ -509,6 +538,13 @@ TEST_CASE("Config analog style round-trip", "[config]") {
     REQUIRE(back.analog_style.second_thickness == 2);
     REQUIRE(back.analog_style.hour_tick_pct == 15);
     REQUIRE(back.analog_style.minute_tick_pct == 7);
+    REQUIRE(back.analog_style.center_dot_size == 6);
+    REQUIRE(back.analog_style.hour_opacity_pct == 90);
+    REQUIRE(back.analog_style.minute_opacity_pct == 80);
+    REQUIRE(back.analog_style.second_opacity_pct == 70);
+    REQUIRE(back.analog_style.tick_opacity_pct == 60);
+    REQUIRE(back.analog_style.face_opacity_pct == 50);
+    REQUIRE(back.analog_style.radius_pct == 75);
     REQUIRE_FALSE(back.analog_style.show_minute_ticks);
     REQUIRE(back.analog_style.hour_labels == HourLabels::Full);
 }
@@ -521,10 +557,13 @@ TEST_CASE("Config analog style not written when defaults", "[config]") {
 }
 
 TEST_CASE("Config analog style values clamped", "[config]") {
-    std::istringstream is("analog_hour_len=100\nanalog_minute_thick=10\nanalog_hour_labels=5\n");
+    std::istringstream is("analog_hour_len=100\nanalog_minute_thick=10\nanalog_hour_labels=5\nanalog_radius=20\nanalog_face_opacity=-5\nanalog_center_dot_size=99\n");
     Config c;
     config_read(c, is);
     REQUIRE(c.analog_style.hour_len_pct == 80);
     REQUIRE(c.analog_style.minute_thickness == 4);
     REQUIRE(c.analog_style.hour_labels == HourLabels::Full);
+    REQUIRE(c.analog_style.radius_pct == 50);
+    REQUIRE(c.analog_style.face_opacity_pct == 0);
+    REQUIRE(c.analog_style.center_dot_size == 10);
 }

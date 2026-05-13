@@ -6,14 +6,20 @@ static RECT map_dlu(HWND dlg, short x, short y, short cx, short cy) {
     return r;
 }
 
+constexpr int ANALOG_COLOR_COUNT = 9;
+constexpr int ANALOG_VALUE_COUNT = 15;
+
 struct HitRects {
     RECT sidebar[TAB_COUNT];
     RECT theme[3];
     RECT sound;
     RECT auto_start;
     RECT preset_row[5];
+    RECT analog_preview;
     RECT analog_min_ticks;
     RECT analog_labels[3];
+    RECT analog_colors[ANALOG_COLOR_COUNT];
+    RECT analog_values[ANALOG_VALUE_COUNT];
 };
 
 static HitRects compute_rects(HWND dlg) {
@@ -27,11 +33,16 @@ static HitRects compute_rects(HWND dlg) {
     h.theme[1] = map_dlu(dlg, 70, 57, 54, 13);
     h.theme[2] = map_dlu(dlg, 70, 72, 54, 13);
 
-    // Analog settings sit below the format dropdown (which is at y=40, h=12)
-    h.analog_min_ticks = map_dlu(dlg, 70,  72, 80, 12);
-    h.analog_labels[0] = map_dlu(dlg, 70,  96, 34, 12);
-    h.analog_labels[1] = map_dlu(dlg, 106, 96, 34, 12);
-    h.analog_labels[2] = map_dlu(dlg, 142, 96, 34, 12);
+    // Analog settings sit below the format dropdown (which is at y=40, h=12).
+    h.analog_preview = map_dlu(dlg, 72, 58, 72, 72);
+    h.analog_min_ticks = map_dlu(dlg, 154,  64, 68, 12);
+    h.analog_labels[0] = map_dlu(dlg, 154,  94, 24, 12);
+    h.analog_labels[1] = map_dlu(dlg, 180, 94, 26, 12);
+    h.analog_labels[2] = map_dlu(dlg, 208, 94, 24, 12);
+    for (int i = 0; i < ANALOG_COLOR_COUNT; ++i)
+        h.analog_colors[i] = map_dlu(dlg, 154, (short)(124 + i * 14), 70, 12);
+    for (int i = 0; i < ANALOG_VALUE_COUNT; ++i)
+        h.analog_values[i] = map_dlu(dlg, 72, (short)(256 + i * 14), 152, 12);
 
     h.sound      = map_dlu(dlg, 70,  97, 100, 13);
     h.auto_start = map_dlu(dlg, 70, 115, 100, 13);

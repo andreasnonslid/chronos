@@ -32,6 +32,11 @@ inline bool config_write(const Config& c, std::ostream& f) {
         if (a.second_color != def.second_color) f << std::format("analog_second_color={}\n", a.second_color);
         if (a.face_color != def.face_color) f << std::format("analog_face_color={}\n", a.face_color);
         if (a.tick_color != def.tick_color) f << std::format("analog_tick_color={}\n", a.tick_color);
+        if (a.background_color != def.background_color) f << std::format("analog_background_color={}\n", a.background_color);
+        if (a.face_fill_color != def.face_fill_color) f << std::format("analog_face_fill_color={}\n", a.face_fill_color);
+        if (a.face_outline_color != def.face_outline_color) f << std::format("analog_face_outline_color={}\n", a.face_outline_color);
+        if (a.hour_label_color != def.hour_label_color) f << std::format("analog_hour_label_color={}\n", a.hour_label_color);
+        if (a.center_dot_color != def.center_dot_color) f << std::format("analog_center_dot_color={}\n", a.center_dot_color);
         if (a.hour_len_pct != def.hour_len_pct) f << std::format("analog_hour_len={}\n", a.hour_len_pct);
         if (a.minute_len_pct != def.minute_len_pct) f << std::format("analog_minute_len={}\n", a.minute_len_pct);
         if (a.second_len_pct != def.second_len_pct) f << std::format("analog_second_len={}\n", a.second_len_pct);
@@ -40,6 +45,13 @@ inline bool config_write(const Config& c, std::ostream& f) {
         if (a.second_thickness != def.second_thickness) f << std::format("analog_second_thick={}\n", a.second_thickness);
         if (a.hour_tick_pct != def.hour_tick_pct) f << std::format("analog_hour_tick={}\n", a.hour_tick_pct);
         if (a.minute_tick_pct != def.minute_tick_pct) f << std::format("analog_minute_tick={}\n", a.minute_tick_pct);
+        if (a.center_dot_size != def.center_dot_size) f << std::format("analog_center_dot_size={}\n", a.center_dot_size);
+        if (a.hour_opacity_pct != def.hour_opacity_pct) f << std::format("analog_hour_opacity={}\n", a.hour_opacity_pct);
+        if (a.minute_opacity_pct != def.minute_opacity_pct) f << std::format("analog_minute_opacity={}\n", a.minute_opacity_pct);
+        if (a.second_opacity_pct != def.second_opacity_pct) f << std::format("analog_second_opacity={}\n", a.second_opacity_pct);
+        if (a.tick_opacity_pct != def.tick_opacity_pct) f << std::format("analog_tick_opacity={}\n", a.tick_opacity_pct);
+        if (a.face_opacity_pct != def.face_opacity_pct) f << std::format("analog_face_opacity={}\n", a.face_opacity_pct);
+        if (a.radius_pct != def.radius_pct) f << std::format("analog_radius={}\n", a.radius_pct);
         if (a.show_minute_ticks != def.show_minute_ticks) f << std::format("analog_show_min_ticks={}\n", a.show_minute_ticks ? 1 : 0);
         if (a.hour_labels != def.hour_labels) f << std::format("analog_hour_labels={}\n", (int)a.hour_labels);
     }
@@ -160,6 +172,11 @@ inline bool config_read(Config& c, std::istream& f) {
         else if (key == "analog_second_color") c.analog_style.second_color = (int)val;
         else if (key == "analog_face_color") c.analog_style.face_color = (int)val;
         else if (key == "analog_tick_color") c.analog_style.tick_color = (int)val;
+        else if (key == "analog_background_color") c.analog_style.background_color = (int)val;
+        else if (key == "analog_face_fill_color") c.analog_style.face_fill_color = (int)val;
+        else if (key == "analog_face_outline_color") c.analog_style.face_outline_color = (int)val;
+        else if (key == "analog_hour_label_color") c.analog_style.hour_label_color = (int)val;
+        else if (key == "analog_center_dot_color") c.analog_style.center_dot_color = (int)val;
         else if (key == "analog_hour_len") c.analog_style.hour_len_pct = clamp_int(val, 40, 80);
         else if (key == "analog_minute_len") c.analog_style.minute_len_pct = clamp_int(val, 60, 95);
         else if (key == "analog_second_len") c.analog_style.second_len_pct = clamp_int(val, 70, 98);
@@ -168,6 +185,13 @@ inline bool config_read(Config& c, std::istream& f) {
         else if (key == "analog_second_thick") c.analog_style.second_thickness = clamp_int(val, 1, 3);
         else if (key == "analog_hour_tick") c.analog_style.hour_tick_pct = clamp_int(val, 5, 20);
         else if (key == "analog_minute_tick") c.analog_style.minute_tick_pct = clamp_int(val, 2, 10);
+        else if (key == "analog_center_dot_size") c.analog_style.center_dot_size = clamp_int(val, 0, 10);
+        else if (key == "analog_hour_opacity") c.analog_style.hour_opacity_pct = clamp_int(val, 10, 100);
+        else if (key == "analog_minute_opacity") c.analog_style.minute_opacity_pct = clamp_int(val, 10, 100);
+        else if (key == "analog_second_opacity") c.analog_style.second_opacity_pct = clamp_int(val, 10, 100);
+        else if (key == "analog_tick_opacity") c.analog_style.tick_opacity_pct = clamp_int(val, 10, 100);
+        else if (key == "analog_face_opacity") c.analog_style.face_opacity_pct = clamp_int(val, 0, 100);
+        else if (key == "analog_radius") c.analog_style.radius_pct = clamp_int(val, 50, 100);
         else if (key == "analog_show_min_ticks") c.analog_style.show_minute_ticks = val != 0;
         else if (key == "analog_hour_labels") c.analog_style.hour_labels = (HourLabels)clamp_int(val, 0, 2);
         else if (key == "sw_running")
