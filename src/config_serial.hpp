@@ -177,9 +177,9 @@ inline bool config_read(Config& c, std::istream& f) {
         else if (key == "analog_face_outline_color") c.analog_style.face_outline_color = (int)val;
         else if (key == "analog_hour_label_color") c.analog_style.hour_label_color = (int)val;
         else if (key == "analog_center_dot_color") c.analog_style.center_dot_color = (int)val;
-        else if (key == "analog_hour_len") c.analog_style.hour_len_pct = clamp_int(val, 40, 80);
-        else if (key == "analog_minute_len") c.analog_style.minute_len_pct = clamp_int(val, 60, 95);
-        else if (key == "analog_second_len") c.analog_style.second_len_pct = clamp_int(val, 70, 98);
+        else if (key == "analog_hour_len") c.analog_style.hour_len_pct = clamp_int(val, 0, 100);
+        else if (key == "analog_minute_len") c.analog_style.minute_len_pct = clamp_int(val, 0, 100);
+        else if (key == "analog_second_len") c.analog_style.second_len_pct = clamp_int(val, 0, 100);
         else if (key == "analog_hour_thick") c.analog_style.hour_thickness = clamp_int(val, 1, 6);
         else if (key == "analog_minute_thick") c.analog_style.minute_thickness = clamp_int(val, 1, 4);
         else if (key == "analog_second_thick") c.analog_style.second_thickness = clamp_int(val, 1, 3);

@@ -120,7 +120,7 @@ static int* analog_value_field(AnalogClockStyle& a, int i) {
 static void analog_value_range(int i, int& min_v, int& max_v, int& step) {
     struct Range { int min_v, max_v, step; };
     static constexpr Range ranges[ANALOG_VALUE_COUNT] = {
-        {40, 80, 5}, {60, 95, 5}, {70, 98, 4},
+        {0, 100, 5}, {0, 100, 5}, {0, 100, 5},
         {1, 6, 1}, {1, 4, 1}, {1, 3, 1},
         {5, 20, 1}, {2, 10, 1}, {0, 10, 1},
         {10, 100, 10}, {10, 100, 10}, {10, 100, 10},
