@@ -557,10 +557,10 @@ TEST_CASE("Config analog style not written when defaults", "[config]") {
 }
 
 TEST_CASE("Config analog style values clamped", "[config]") {
-    std::istringstream is("analog_hour_len=100\nanalog_minute_thick=10\nanalog_hour_labels=5\nanalog_radius=20\nanalog_face_opacity=-5\nanalog_center_dot_size=99\n");
+    std::istringstream is("analog_hour_len=150\nanalog_minute_thick=10\nanalog_hour_labels=5\nanalog_radius=20\nanalog_face_opacity=-5\nanalog_center_dot_size=99\n");
     Config c;
     config_read(c, is);
-    REQUIRE(c.analog_style.hour_len_pct == 80);
+    REQUIRE(c.analog_style.hour_len_pct == 100);
     REQUIRE(c.analog_style.minute_thickness == 4);
     REQUIRE(c.analog_style.hour_labels == HourLabels::Full);
     REQUIRE(c.analog_style.radius_pct == 50);
