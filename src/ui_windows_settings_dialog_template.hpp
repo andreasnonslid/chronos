@@ -39,7 +39,7 @@ static std::vector<WORD> build_template() {
     short lbl_x = 72, lbl_w = 50;
     short ed_x = 126, ed_w = 28;
     short min_x = 158, min_w = 18;
-    short row_h = 12;
+    short row_h = 10;
     short y0 = 40, sp = 18;
 
     add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
