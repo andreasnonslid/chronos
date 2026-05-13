@@ -186,9 +186,23 @@ inline void draw_analog_clock(HDC hdc, RECT area, const AnalogClockStyle& style,
     AnalogClockStyle hi_style = style;
     draw_analog_clock_native(mem_dc.h, hi, hi_style, theme, dpi * AA_SCALE, hour, minute, second);
 
-    int old_mode = SetStretchBltMode(hdc, HALFTONE);
-    SetBrushOrgEx(hdc, 0, 0, nullptr);
-    StretchBlt(hdc, area.left, area.top, w, h, mem_dc.h, 0, 0, w * AA_SCALE, h * AA_SCALE, SRCCOPY);
-    SetStretchBltMode(hdc, old_mode);
+    BOOL blit_ok = FALSE;
+    int saved_dc = SaveDC(hdc);
+    if (saved_dc != 0) {
+        SetStretchBltMode(hdc, HALFTONE);
+        SetBrushOrgEx(hdc, 0, 0, nullptr);
+        blit_ok = StretchBlt(hdc, area.left, area.top, w, h,
+                             mem_dc.h, 0, 0, w * AA_SCALE, h * AA_SCALE, SRCCOPY);
+        RestoreDC(hdc, saved_dc);
+    } else {
+        int old_mode = SetStretchBltMode(hdc, HALFTONE);
+        SetBrushOrgEx(hdc, 0, 0, nullptr);
+        blit_ok = StretchBlt(hdc, area.left, area.top, w, h,
+                             mem_dc.h, 0, 0, w * AA_SCALE, h * AA_SCALE, SRCCOPY);
+        SetStretchBltMode(hdc, old_mode);
+    }
+
     SelectObject(mem_dc.h, old_bmp);
+    if (!blit_ok)
+        draw_analog_clock_native(hdc, area, style, theme, dpi, hour, minute, second);
 }

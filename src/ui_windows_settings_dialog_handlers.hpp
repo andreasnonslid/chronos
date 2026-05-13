@@ -150,19 +150,23 @@ static const wchar_t* analog_value_label(int i) {
     return labels[i];
 }
 
+static constexpr COLORREF ANALOG_PALETTE_COLORS[] = {
+    RGB(220, 70, 70), RGB(236, 145, 42), RGB(240, 200, 60),
+    RGB(86, 180, 100), RGB(65, 160, 220), RGB(160, 110, 230),
+    RGB(235, 235, 235), RGB(35, 35, 35),
+};
+static constexpr int ANALOG_CUSTOM_PALETTE_COUNT =
+    (int)(sizeof(ANALOG_PALETTE_COLORS) / sizeof(ANALOG_PALETTE_COLORS[0]));
+static constexpr int ANALOG_PALETTE_COUNT = ANALOG_CUSTOM_PALETTE_COUNT + 1; // auto + custom colors
+
 static COLORREF analog_palette_color(int palette_i) {
-    static constexpr COLORREF custom[] = {
-        RGB(220, 70, 70), RGB(236, 145, 42), RGB(240, 200, 60),
-        RGB(86, 180, 100), RGB(65, 160, 220), RGB(160, 110, 230),
-        RGB(235, 235, 235), RGB(35, 35, 35)
-    };
     if (palette_i == 0) return (COLORREF)-1;
-    return custom[(palette_i - 1) % (int)(sizeof(custom) / sizeof(custom[0]))];
+    return ANALOG_PALETTE_COLORS[(palette_i - 1) % ANALOG_CUSTOM_PALETTE_COUNT];
 }
 
 static int analog_palette_index(int color) {
     if (color < 0) return 0;
-    for (int i = 1; i <= 8; ++i)
+    for (int i = 1; i < ANALOG_PALETTE_COUNT; ++i)
         if ((COLORREF)color == analog_palette_color(i)) return i;
     return 0;
 }
@@ -451,7 +455,7 @@ static INT_PTR on_left_button_down(HWND dlg, LPARAM lp) {
             if (PtInRect(&p->rects.analog_colors[i], spt)) {
                 int* field = analog_color_field(p->analog_style, i);
                 if (field) {
-                    int next = (analog_palette_index(*field) + 1) % 9;
+                    int next = (analog_palette_index(*field) + 1) % ANALOG_PALETTE_COUNT;
                     *field = (int)analog_palette_color(next);
                     InvalidateRect(dlg, nullptr, TRUE);
                     return TRUE;
