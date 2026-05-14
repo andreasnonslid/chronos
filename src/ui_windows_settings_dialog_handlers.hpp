@@ -470,7 +470,7 @@ static INT_PTR on_draw_item(HWND dlg, LPARAM lp) {
     }
 
     bool is_radio = (di->CtlID == IDC_THEME_AUTO || di->CtlID == IDC_THEME_LIGHT || di->CtlID == IDC_THEME_DARK);
-    bool checked = (di->itemState & ODS_CHECKED) != 0;
+    bool checked = SendMessage(di->hwndItem, BM_GETCHECK, 0, 0) == BST_CHECKED;
     wchar_t ctrl_label[64] = {};
     GetWindowTextW(di->hwndItem, ctrl_label, 63);
     p->style.draw_check_radio(di->hDC, di->rcItem, ctrl_label, checked, is_radio);
