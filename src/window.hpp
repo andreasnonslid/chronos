@@ -129,10 +129,10 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         s->layout.update_for_dpi(HIWORD(wp));
         recreate_fonts(*s);
         auto* suggested = (RECT*)lp;
-        // Move to the suggested position; WM_WINDOWPOSCHANGING will set the correct height.
-        SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, 0, 0,
-                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
-        resize_window(hwnd, *s);
+        // Apply suggested position and DPI-scaled width; WM_WINDOWPOSCHANGING enforces the correct height.
+        SetWindowPos(hwnd, nullptr, suggested->left, suggested->top,
+                     suggested->right - suggested->left, suggested->bottom - suggested->top,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
         InvalidateRect(hwnd, nullptr, TRUE);
         return 0;
     }
