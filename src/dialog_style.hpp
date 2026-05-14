@@ -1,9 +1,34 @@
 #pragma once
+#include <vector>
 #include <windows.h>
 #include "dwm_fwd.hpp"
 #include "gdi.hpp"
 #include "layout.hpp"
 #include "theme.hpp"
+
+// ─── Runtime DLGTEMPLATE builder ─────────────────────────────────────────────
+
+struct DlgBuf {
+    std::vector<WORD> data;
+    void align4() { while (data.size() % 2) data.push_back(0); }
+    void push_word(WORD w)   { data.push_back(w); }
+    void push_dword(DWORD d) { data.push_back(LOWORD(d)); data.push_back(HIWORD(d)); }
+    void push_wstr(const wchar_t* s) { while (*s) data.push_back((WORD)*s++); data.push_back(0); }
+    void push_wstr_empty() { data.push_back(0); }
+};
+
+inline void dlg_add_item(DlgBuf& b, DWORD style, short x, short y, short cx, short cy,
+                          WORD id, WORD cls_atom, const wchar_t* title) {
+    b.align4();
+    b.push_dword(WS_CHILD | WS_VISIBLE | style);
+    b.push_dword(0);
+    b.push_word((WORD)x); b.push_word((WORD)y);
+    b.push_word((WORD)cx); b.push_word((WORD)cy);
+    b.push_word(id);
+    b.push_word(0xFFFF); b.push_word(cls_atom);
+    b.push_wstr(title);
+    b.push_word(0);
+}
 
 // Reusable owner-drawn dialog styling for Chronos dialogs.
 // Ensures popups share the same visual language as the main window.
