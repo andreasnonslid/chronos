@@ -25,7 +25,7 @@ constexpr WORD CLS_STATIC = 0x0082;
 constexpr WORD DLG_ITEM_COUNT = 11;
 constexpr short DLG_W = 170, DLG_H = 110;
 
-inline std::vector<DWORD> build_template() {
+inline std::vector<WORD> build_template() {
     DlgBuf b;
 
     b.push_dword(WS_POPUP | WS_BORDER);
