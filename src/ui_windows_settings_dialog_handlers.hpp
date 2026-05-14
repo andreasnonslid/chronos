@@ -215,7 +215,7 @@ static INT_PTR on_resize(HWND dlg, WPARAM wp) {
 
 static INT_PTR on_get_min_max_info(HWND dlg, LPARAM lp) {
     auto* mm = reinterpret_cast<MINMAXINFO*>(lp);
-    RECT r{0, 0, 200, 140};
+    RECT r{0, 0, DLG_W, DLG_H};
     MapDialogRect(dlg, &r);
     int frame_x = GetSystemMetrics(SM_CXSIZEFRAME);
     int frame_y = GetSystemMetrics(SM_CYSIZEFRAME);
