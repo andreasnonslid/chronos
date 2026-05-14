@@ -40,15 +40,15 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto& th = ctx.theme;
     auto& ts = ctx.app.timers[i];
     auto m = TimerMetrics::from(layout);
-    int hh_cx = cw / 2 - m.col_gap, mm_cx = cw / 2, ss_cx = cw / 2 + m.col_gap;
+    int hour_cx = cw / 2 - m.col_gap, min_cx = cw / 2, sec_cx = cw / 2 + m.col_gap;
 
     SelectObject(hdc, ctx.res.fontSm);
     if (!ts.pomodoro) {
-        btn(hdc, {hh_cx - m.abw / 2, y + m.up_off, hh_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
+        btn(hdc, {hour_cx - m.abw / 2, y + m.up_off, hour_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
             tmr_act(i, A_TMR_HUP), ctx);
-        btn(hdc, {mm_cx - m.abw / 2, y + m.up_off, mm_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
+        btn(hdc, {min_cx - m.abw / 2, y + m.up_off, min_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
             tmr_act(i, A_TMR_MUP), ctx);
-        btn(hdc, {ss_cx - m.abw / 2, y + m.up_off, ss_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
+        btn(hdc, {sec_cx - m.abw / 2, y + m.up_off, sec_cx + m.abw / 2, y + m.up_off + m.abh}, false, L"\u25B2",
             tmr_act(i, A_TMR_SUP), ctx);
     }
 
@@ -78,24 +78,24 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     } else {
         SelectObject(hdc, ctx.res.fontBig);
         SetTextColor(hdc, th.text);
-        int field_h    = layout.dpi_scale(40);
-        int td_y       = y + m.td_off;
-        int field_half = layout.dpi_scale(22);
+        int field_h      = layout.dpi_scale(40);
+        int field_top    = y + m.td_off;
+        int field_half_w = layout.dpi_scale(22);
         long long total_s_edit = ts.dur.count();
         auto h_s  = std::format(L"{}", total_s_edit / 3600);
         auto mm_s = std::format(L"{:02}", (total_s_edit / 60) % 60);
         auto ss_s = std::format(L"{:02}", total_s_edit % 60);
-        RECT hr{hh_cx - field_half, td_y, hh_cx + field_half, td_y + field_h};
-        RECT mr{mm_cx - field_half, td_y, mm_cx + field_half, td_y + field_h};
-        RECT sr{ss_cx - field_half, td_y, ss_cx + field_half, td_y + field_h};
+        RECT hr{hour_cx - field_half_w, field_top, hour_cx + field_half_w, field_top + field_h};
+        RECT mr{min_cx  - field_half_w, field_top, min_cx  + field_half_w, field_top + field_h};
+        RECT sr{sec_cx  - field_half_w, field_top, sec_cx  + field_half_w, field_top + field_h};
         DrawTextW(hdc, h_s.c_str(), -1, &hr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         DrawTextW(hdc, mm_s.c_str(), -1, &mr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         DrawTextW(hdc, ss_s.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         int sep_w   = layout.dpi_scale(8);
-        int sep1_cx = (hh_cx + mm_cx) / 2;
-        int sep2_cx = (mm_cx + ss_cx) / 2;
-        RECT sep1r{sep1_cx - sep_w / 2, td_y, sep1_cx + sep_w / 2, td_y + field_h};
-        RECT sep2r{sep2_cx - sep_w / 2, td_y, sep2_cx + sep_w / 2, td_y + field_h};
+        int sep1_cx = (hour_cx + min_cx) / 2;
+        int sep2_cx = (min_cx  + sec_cx) / 2;
+        RECT sep1r{sep1_cx - sep_w / 2, field_top, sep1_cx + sep_w / 2, field_top + field_h};
+        RECT sep2r{sep2_cx - sep_w / 2, field_top, sep2_cx + sep_w / 2, field_top + field_h};
         DrawTextW(hdc, L":", -1, &sep1r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         DrawTextW(hdc, L":", -1, &sep2r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
@@ -103,11 +103,11 @@ inline void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, th.text);
     if (!ts.pomodoro) {
-        btn(hdc, {hh_cx - m.abw / 2, y + m.dn_off, hh_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
+        btn(hdc, {hour_cx - m.abw / 2, y + m.dn_off, hour_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
             tmr_act(i, A_TMR_HDN), ctx);
-        btn(hdc, {mm_cx - m.abw / 2, y + m.dn_off, mm_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
+        btn(hdc, {min_cx - m.abw / 2, y + m.dn_off, min_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
             tmr_act(i, A_TMR_MDN), ctx);
-        btn(hdc, {ss_cx - m.abw / 2, y + m.dn_off, ss_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
+        btn(hdc, {sec_cx - m.abw / 2, y + m.dn_off, sec_cx + m.abw / 2, y + m.dn_off + m.abh}, false, L"\u25BC",
             tmr_act(i, A_TMR_SDN), ctx);
     }
 }
@@ -141,7 +141,7 @@ inline void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
     int gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
-    int by_off = layout.tmr_h - bh;
+    int btn_bot_off = layout.tmr_h - bh;
     bool running = ts.t.is_running();
 
     SelectObject(hdc, ctx.res.fontSm);
@@ -149,18 +149,18 @@ inline void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     if (ts.pomodoro) {
         int cw3 = layout.dpi_scale(58);
         int cx0 = (cw - 3 * cw3 - 2 * gap) / 2;
-        btn(hdc, {cx0, y + by_off, cx0 + cw3, y + by_off + bh}, running, running ? L"Pause" : L"Start",
+        btn(hdc, {cx0, y + btn_bot_off, cx0 + cw3, y + btn_bot_off + bh}, running, running ? L"Pause" : L"Start",
             tmr_act(i, A_TMR_START), ctx);
-        btn(hdc, {cx0 + cw3 + gap, y + by_off, cx0 + 2 * cw3 + gap, y + by_off + bh}, false, L"Skip",
+        btn(hdc, {cx0 + cw3 + gap, y + btn_bot_off, cx0 + 2 * cw3 + gap, y + btn_bot_off + bh}, false, L"Skip",
             tmr_act(i, A_TMR_SKIP), ctx);
-        btn(hdc, {cx0 + 2 * (cw3 + gap), y + by_off, cx0 + 3 * cw3 + 2 * gap, y + by_off + bh}, false, L"Reset",
+        btn(hdc, {cx0 + 2 * (cw3 + gap), y + btn_bot_off, cx0 + 3 * cw3 + 2 * gap, y + btn_bot_off + bh}, false, L"Reset",
             tmr_act(i, A_TMR_RST), ctx);
     } else {
         int cw2 = layout.dpi_scale(86);
         int cx0 = (cw - 2 * cw2 - gap) / 2;
-        btn(hdc, {cx0, y + by_off, cx0 + cw2, y + by_off + bh}, running, running ? L"Pause" : L"Start",
+        btn(hdc, {cx0, y + btn_bot_off, cx0 + cw2, y + btn_bot_off + bh}, running, running ? L"Pause" : L"Start",
             tmr_act(i, A_TMR_START), ctx);
-        btn(hdc, {cx0 + cw2 + gap, y + by_off, cx0 + 2 * cw2 + gap, y + by_off + bh}, false, L"Reset",
+        btn(hdc, {cx0 + cw2 + gap, y + btn_bot_off, cx0 + 2 * cw2 + gap, y + btn_bot_off + bh}, false, L"Reset",
             tmr_act(i, A_TMR_RST), ctx);
     }
 

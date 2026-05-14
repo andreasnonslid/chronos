@@ -127,17 +127,17 @@ inline int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
     auto& th = ctx.theme;
     divider(hdc, y, cw, ctx);
 
-    int pad = layout.dpi_scale(10);
-    int bw  = layout.dpi_scale(56);
-    int bh  = layout.dpi_scale(24);
-    int by0 = y + (layout.alarm_header_h - bh) / 2;
+    int pad          = layout.dpi_scale(10);
+    int add_btn_w    = layout.dpi_scale(56);
+    int btn_h        = layout.dpi_scale(24);
+    int header_btn_y = y + (layout.alarm_header_h - btn_h) / 2;
 
     SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, th.text);
-    RECT title_r{pad, y, cw - bw - 2 * pad, y + layout.alarm_header_h};
+    RECT title_r{pad, y, cw - add_btn_w - 2 * pad, y + layout.alarm_header_h};
     DrawTextW(hdc, L"Alarms", -1, &title_r, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
-    btn(hdc, {cw - bw - pad, by0, cw - pad, by0 + bh}, false, L"+ Add", A_ALARM_ADD, ctx);
+    btn(hdc, {cw - add_btn_w - pad, header_btn_y, cw - pad, header_btn_y + btn_h}, false, L"+ Add", A_ALARM_ADD, ctx);
 
     int row_y = y + layout.alarm_header_h;
     int del_w = layout.dpi_scale(36);
@@ -182,10 +182,10 @@ inline int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
         SetTextColor(hdc, a.enabled ? th.text : th.dim);
         DrawTextW(hdc, label.c_str(), -1, &lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
-        int btn_top = row_mid - bh / 2;
-        btn(hdc, {tog_x, btn_top, tog_x + tog_w, btn_top + bh},
+        int btn_top = row_mid - btn_h / 2;
+        btn(hdc, {tog_x, btn_top, tog_x + tog_w, btn_top + btn_h},
             a.enabled, a.enabled ? L"On" : L"Off", A_ALARM_TOGGLE + i, ctx);
-        btn(hdc, {del_x, btn_top, del_x + del_w, btn_top + bh},
+        btn(hdc, {del_x, btn_top, del_x + del_w, btn_top + btn_h},
             false, L"Del", A_ALARM_DEL + i, ctx);
 
         row_y += layout.alarm_row_h;

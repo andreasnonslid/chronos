@@ -15,23 +15,22 @@ inline bool plain_key() {
         && GetKeyState(VK_RWIN) >= 0;
 }
 
+inline void trigger_start(HWND hwnd, WndState& s) {
+    if (s.app.show_sw)
+        handle(hwnd, A_SW_START, s);
+    else if (s.app.show_tmr && !s.app.timers.empty())
+        handle(hwnd, tmr_act(0, A_TMR_START), s);
+}
+
 inline std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, WndState& s) {
     switch (msg) {
     case WM_HOTKEY:
-        if (wp == HOTKEY_GLOBAL) {
-            if (s.app.show_sw)
-                handle(hwnd, A_SW_START, s);
-            else if (s.app.show_tmr && !s.app.timers.empty())
-                handle(hwnd, tmr_act(0, A_TMR_START), s);
-        }
+        if (wp == HOTKEY_GLOBAL) trigger_start(hwnd, s);
         return 0;
     case WM_KEYDOWN:
         switch (wp) {
         case VK_SPACE:
-            if (s.app.show_sw)
-                handle(hwnd, A_SW_START, s);
-            else if (s.app.show_tmr && !s.app.timers.empty())
-                handle(hwnd, tmr_act(0, A_TMR_START), s);
+            trigger_start(hwnd, s);
             return 0;
         case 'L':
             if (plain_key() && s.app.show_sw) handle(hwnd, A_SW_LAP, s);

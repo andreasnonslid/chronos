@@ -18,6 +18,22 @@
 #include "timer_presets.hpp"
 #include "wndstate.hpp"
 
+constexpr int CMD_POMODORO    = 100;
+constexpr int CMD_POMO_CFG    = 101;
+constexpr int CMD_CUSTOM_BASE = 200;
+
+inline void apply_timer_seconds(HWND hwnd, WndState& s, int idx, int secs) {
+    auto& ts = s.app.timers[idx];
+    ts.pomodoro = false;
+    ts.label.clear();
+    ts.dur = std::chrono::seconds{secs};
+    ts.notified = false;
+    ts.t.reset();
+    ts.t.set(ts.dur);
+    save_config(hwnd, s);
+    InvalidateRect(hwnd, nullptr, FALSE);
+}
+
 inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s) {
     switch (msg) {
     case WM_LBUTTONDOWN: {
@@ -46,9 +62,6 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
         POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
         int idx = timer_index_at_y(s.layout, layout_state(s), pt.y);
         if (idx >= 0 && !s.app.timers[idx].t.touched()) {
-            constexpr int CMD_POMODORO = 100;
-            constexpr int CMD_POMO_CFG = 101;
-            constexpr int CMD_CUSTOM_BASE = 200;
             HMENU menu = CreatePopupMenu();
             for (int i = 0; i < (int)std::size(TIMER_PRESETS); ++i) AppendMenuW(menu, MF_STRING, 1 + i, TIMER_PRESETS[i].label);
             if (!s.app.custom_preset_secs.empty()) {
@@ -90,23 +103,9 @@ inline std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPA
                     }
                 } else if (cmd >= CMD_CUSTOM_BASE &&
                            cmd < CMD_CUSTOM_BASE + (int)s.app.custom_preset_secs.size()) {
-                    ts.pomodoro = false;
-                    ts.label.clear();
-                    ts.dur = std::chrono::seconds{s.app.custom_preset_secs[cmd - CMD_CUSTOM_BASE]};
-                    ts.notified = false;
-                    ts.t.reset();
-                    ts.t.set(ts.dur);
-                    save_config(hwnd, s);
-                    InvalidateRect(hwnd, nullptr, FALSE);
+                    apply_timer_seconds(hwnd, s, idx, s.app.custom_preset_secs[cmd - CMD_CUSTOM_BASE]);
                 } else {
-                    ts.pomodoro = false;
-                    ts.label.clear();
-                    ts.dur = std::chrono::seconds{TIMER_PRESETS[cmd - 1].secs};
-                    ts.notified = false;
-                    ts.t.reset();
-                    ts.t.set(ts.dur);
-                    save_config(hwnd, s);
-                    InvalidateRect(hwnd, nullptr, FALSE);
+                    apply_timer_seconds(hwnd, s, idx, TIMER_PRESETS[cmd - 1].secs);
                 }
             }
         }

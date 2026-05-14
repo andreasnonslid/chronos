@@ -258,6 +258,102 @@ static INT_PTR on_init(HWND dlg, LPARAM lp) {
     return FALSE;
 }
 
+static void paint_appearance_tab(HWND dlg, HDC hdc, const Params& p, int sdy) {
+    auto& s = p.style;
+    RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
+    lbl.top += sdy; lbl.bottom += sdy;
+    s.draw_label(hdc, lbl, L"Theme");
+
+    RECT slbl = map_dlu(dlg, 70, 88, 80, 8);
+    slbl.top += sdy; slbl.bottom += sdy;
+    s.draw_label(hdc, slbl, L"Notifications");
+}
+
+static void paint_analog_clock_tab(HWND dlg, HDC hdc, const Params& p, int sdy) {
+    auto& s = p.style;
+    RECT preview = p.rects.analog_preview;
+
+    {
+        int sdc2 = SaveDC(hdc);
+        ExcludeClipRect(hdc, preview.left, preview.top, preview.right, preview.bottom);
+
+        RECT min_r = p.rects.analog_min_ticks;
+        min_r.top += sdy; min_r.bottom += sdy;
+        paint_option_btn(hdc, min_r,
+                         p.analog_style.show_minute_ticks ? L"Min ticks: on" : L"Min ticks: off",
+                         p.analog_style.show_minute_ticks, s);
+
+        RECT hrlbl = map_dlu(dlg, 158, 82, 80, 8);
+        hrlbl.top += sdy; hrlbl.bottom += sdy;
+        s.draw_label(hdc, hrlbl, L"Hour labels");
+
+        const wchar_t* lbl_names[] = {L"None", L"Sparse", L"Full"};
+        for (int i = 0; i < 3; ++i) {
+            RECT ar = p.rects.analog_labels[i];
+            ar.top += sdy; ar.bottom += sdy;
+            paint_option_btn(hdc, ar, lbl_names[i], (int)p.analog_style.hour_labels == i, s);
+        }
+
+        RECT color_lbl = map_dlu(dlg, 158, 112, 80, 8);
+        color_lbl.top += sdy; color_lbl.bottom += sdy;
+        s.draw_label(hdc, color_lbl, L"Colors");
+        for (int i = 0; i < ANALOG_COLOR_COUNT; ++i) {
+            RECT r = p.rects.analog_colors[i];
+            r.top += sdy; r.bottom += sdy;
+            int* field = analog_color_field(const_cast<AnalogClockStyle&>(p.analog_style), i);
+            bool custom = field && *field >= 0;
+            paint_option_btn(hdc, r, analog_color_label(i), custom, s);
+            RECT sw = {r.right - s.scale(14), r.top + s.scale(2), r.right - s.scale(3), r.bottom - s.scale(2)};
+            COLORREF sw_color = custom ? (COLORREF)*field : s.theme->dim;
+            GdiObj br{CreateSolidBrush(sw_color)};
+            FillRect(hdc, &sw, (HBRUSH)br.h);
+        }
+
+        RECT value_lbl = map_dlu(dlg, 68, 248, 200, 8);
+        value_lbl.top += sdy; value_lbl.bottom += sdy;
+        s.draw_label(hdc, value_lbl, L"Size and opacity");
+        for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
+            RECT r = p.rects.analog_values[i];
+            r.top += sdy; r.bottom += sdy;
+            int* field = analog_value_field(const_cast<AnalogClockStyle&>(p.analog_style), i);
+            wchar_t buf[96];
+            wsprintfW(buf, L"%s: %d", analog_value_label(i), field ? *field : 0);
+            paint_option_btn(hdc, r, buf, false, s);
+        }
+
+        RestoreDC(hdc, sdc2);
+    }
+
+    // Fixed preview drawn on top — no scroll offset
+    RECT prev_lbl = map_dlu(dlg, 68, 64, 80, 8);
+    s.draw_label(hdc, prev_lbl, L"Live preview");
+    draw_analog_clock(hdc, preview, p.analog_style, *s.theme, s.dpi, 10, 10, 30);
+}
+
+static void paint_clock_tab(HWND dlg, HDC hdc, const Params& p, int sdy) {
+    auto& s = p.style;
+    RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
+    lbl.top += sdy; lbl.bottom += sdy;
+    s.draw_label(hdc, lbl, L"Format");
+
+    if (p.clock_view == ClockView::Analog)
+        paint_analog_clock_tab(dlg, hdc, p, sdy);
+}
+
+static void paint_timers_tab(HWND dlg, HDC hdc, const Params& p, int sdy) {
+    auto& s = p.style;
+    RECT lbl = map_dlu(dlg, 70, 28, 100, 12);
+    lbl.top += sdy; lbl.bottom += sdy;
+    s.draw_label(hdc, lbl, L"Custom presets");
+
+    for (int i = 0; i < 5; ++i) {
+        RECT num = map_dlu(dlg, 76, (short)(40 + i * 16), 16, 12);
+        num.top += sdy; num.bottom += sdy;
+        auto txt = std::format(L"{}.", i + 1);
+        s.draw_label(hdc, num, txt.c_str());
+    }
+}
+
 static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
     auto* p = dialog_params(dlg);
     if (!p) return FALSE;
@@ -283,17 +379,13 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
 
     HPEN div_pen = CreatePen(PS_SOLID, 1, s.theme->divider);
     auto* old_pen = (HPEN)SelectObject(hdc, div_pen);
-
     MoveToEx(hdc, 0, div_y.bottom, nullptr);
     LineTo(hdc, rc.right, div_y.bottom);
-
     MoveToEx(hdc, sb.right, div_y.bottom, nullptr);
     LineTo(hdc, sb.right, rc.bottom);
-
     int btn_area_top = content_area_bottom(dlg);
     MoveToEx(hdc, sb.right, btn_area_top, nullptr);
     LineTo(hdc, rc.right, btn_area_top);
-
     SelectObject(hdc, old_pen);
     DeleteObject(div_pen);
 
@@ -303,96 +395,12 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
 
     int save_dc = SaveDC(hdc);
     IntersectClipRect(hdc, sb.right + 1, div_y.bottom + 1, rc.right, btn_area_top);
-
     int sdy = -p->scroll_y;
 
-    if (p->active_tab == TAB_APPEARANCE) {
-        RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
-        lbl.top += sdy; lbl.bottom += sdy;
-        s.draw_label(hdc, lbl, L"Theme");
-
-        RECT slbl = map_dlu(dlg, 70, 88, 80, 8);
-        slbl.top += sdy; slbl.bottom += sdy;
-        s.draw_label(hdc, slbl, L"Notifications");
-
-    } else if (p->active_tab == TAB_CLOCK) {
-        RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
-        lbl.top += sdy; lbl.bottom += sdy;
-        s.draw_label(hdc, lbl, L"Format");
-
-        if (p->clock_view == ClockView::Analog) {
-            RECT preview = p->rects.analog_preview;
-
-            // Draw scrollable settings clipped to exclude the sticky preview region
-            {
-                int sdc2 = SaveDC(hdc);
-                ExcludeClipRect(hdc, preview.left, preview.top, preview.right, preview.bottom);
-
-                RECT min_r = p->rects.analog_min_ticks;
-                min_r.top += sdy; min_r.bottom += sdy;
-                paint_option_btn(hdc, min_r,
-                                 p->analog_style.show_minute_ticks ? L"Min ticks: on" : L"Min ticks: off",
-                                 p->analog_style.show_minute_ticks, s);
-
-                RECT hrlbl = map_dlu(dlg, 158, 82, 80, 8);
-                hrlbl.top += sdy; hrlbl.bottom += sdy;
-                s.draw_label(hdc, hrlbl, L"Hour labels");
-
-                const wchar_t* lbl_names[] = {L"None", L"Sparse", L"Full"};
-                for (int i = 0; i < 3; ++i) {
-                    RECT ar = p->rects.analog_labels[i];
-                    ar.top += sdy; ar.bottom += sdy;
-                    paint_option_btn(hdc, ar, lbl_names[i],
-                                     (int)p->analog_style.hour_labels == i, s);
-                }
-
-                RECT color_lbl = map_dlu(dlg, 158, 112, 80, 8);
-                color_lbl.top += sdy; color_lbl.bottom += sdy;
-                s.draw_label(hdc, color_lbl, L"Colors");
-                for (int i = 0; i < ANALOG_COLOR_COUNT; ++i) {
-                    RECT r = p->rects.analog_colors[i];
-                    r.top += sdy; r.bottom += sdy;
-                    int* field = analog_color_field(p->analog_style, i);
-                    bool custom = field && *field >= 0;
-                    paint_option_btn(hdc, r, analog_color_label(i), custom, s);
-                    RECT sw = {r.right - s.scale(14), r.top + s.scale(2), r.right - s.scale(3), r.bottom - s.scale(2)};
-                    COLORREF sw_color = custom ? (COLORREF)*field : s.theme->dim;
-                    GdiObj br{CreateSolidBrush(sw_color)};
-                    FillRect(hdc, &sw, (HBRUSH)br.h);
-                }
-
-                RECT value_lbl = map_dlu(dlg, 68, 248, 200, 8);
-                value_lbl.top += sdy; value_lbl.bottom += sdy;
-                s.draw_label(hdc, value_lbl, L"Size and opacity");
-                for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
-                    RECT r = p->rects.analog_values[i];
-                    r.top += sdy; r.bottom += sdy;
-                    int* field = analog_value_field(p->analog_style, i);
-                    wchar_t buf[96];
-                    wsprintfW(buf, L"%s: %d", analog_value_label(i), field ? *field : 0);
-                    paint_option_btn(hdc, r, buf, false, s);
-                }
-
-                RestoreDC(hdc, sdc2);
-            }
-
-            // Fixed preview drawn on top — no sdy offset
-            RECT prev_lbl = map_dlu(dlg, 68, 64, 80, 8);
-            s.draw_label(hdc, prev_lbl, L"Live preview");
-            draw_analog_clock(hdc, preview, p->analog_style, *s.theme, s.dpi, 10, 10, 30);
-        }
-
-    } else if (p->active_tab == TAB_TIMERS) {
-        RECT lbl = map_dlu(dlg, 70, 28, 100, 12);
-        lbl.top += sdy; lbl.bottom += sdy;
-        s.draw_label(hdc, lbl, L"Custom presets");
-
-        for (int i = 0; i < 5; ++i) {
-            RECT num = map_dlu(dlg, 76, (short)(40 + i * 16), 16, 12);
-            num.top += sdy; num.bottom += sdy;
-            auto txt = std::format(L"{}.", i + 1);
-            s.draw_label(hdc, num, txt.c_str());
-        }
+    switch (p->active_tab) {
+    case TAB_APPEARANCE: paint_appearance_tab(dlg, hdc, *p, sdy); break;
+    case TAB_CLOCK:      paint_clock_tab(dlg, hdc, *p, sdy);      break;
+    case TAB_TIMERS:     paint_timers_tab(dlg, hdc, *p, sdy);     break;
     }
 
     RestoreDC(hdc, save_dc);

@@ -10,6 +10,37 @@
 
 #include "config.hpp"
 
+inline void write_analog_style(const AnalogClockStyle& a, std::ostream& f) {
+    AnalogClockStyle def;
+    if (a.hour_color != def.hour_color)             f << std::format("analog_hour_color={}\n",         a.hour_color);
+    if (a.minute_color != def.minute_color)         f << std::format("analog_minute_color={}\n",       a.minute_color);
+    if (a.second_color != def.second_color)         f << std::format("analog_second_color={}\n",       a.second_color);
+    if (a.face_color != def.face_color)             f << std::format("analog_face_color={}\n",         a.face_color);
+    if (a.tick_color != def.tick_color)             f << std::format("analog_tick_color={}\n",         a.tick_color);
+    if (a.background_color != def.background_color) f << std::format("analog_background_color={}\n",   a.background_color);
+    if (a.face_fill_color != def.face_fill_color)   f << std::format("analog_face_fill_color={}\n",    a.face_fill_color);
+    if (a.face_outline_color != def.face_outline_color) f << std::format("analog_face_outline_color={}\n", a.face_outline_color);
+    if (a.hour_label_color != def.hour_label_color) f << std::format("analog_hour_label_color={}\n",   a.hour_label_color);
+    if (a.center_dot_color != def.center_dot_color) f << std::format("analog_center_dot_color={}\n",   a.center_dot_color);
+    if (a.hour_len_pct != def.hour_len_pct)         f << std::format("analog_hour_len={}\n",           a.hour_len_pct);
+    if (a.minute_len_pct != def.minute_len_pct)     f << std::format("analog_minute_len={}\n",         a.minute_len_pct);
+    if (a.second_len_pct != def.second_len_pct)     f << std::format("analog_second_len={}\n",         a.second_len_pct);
+    if (a.hour_thickness != def.hour_thickness)     f << std::format("analog_hour_thick={}\n",         a.hour_thickness);
+    if (a.minute_thickness != def.minute_thickness) f << std::format("analog_minute_thick={}\n",       a.minute_thickness);
+    if (a.second_thickness != def.second_thickness) f << std::format("analog_second_thick={}\n",       a.second_thickness);
+    if (a.hour_tick_pct != def.hour_tick_pct)       f << std::format("analog_hour_tick={}\n",          a.hour_tick_pct);
+    if (a.minute_tick_pct != def.minute_tick_pct)   f << std::format("analog_minute_tick={}\n",        a.minute_tick_pct);
+    if (a.center_dot_size != def.center_dot_size)   f << std::format("analog_center_dot_size={}\n",    a.center_dot_size);
+    if (a.hour_opacity_pct != def.hour_opacity_pct) f << std::format("analog_hour_opacity={}\n",       a.hour_opacity_pct);
+    if (a.minute_opacity_pct != def.minute_opacity_pct) f << std::format("analog_minute_opacity={}\n", a.minute_opacity_pct);
+    if (a.second_opacity_pct != def.second_opacity_pct) f << std::format("analog_second_opacity={}\n", a.second_opacity_pct);
+    if (a.tick_opacity_pct != def.tick_opacity_pct) f << std::format("analog_tick_opacity={}\n",       a.tick_opacity_pct);
+    if (a.face_opacity_pct != def.face_opacity_pct) f << std::format("analog_face_opacity={}\n",       a.face_opacity_pct);
+    if (a.radius_pct != def.radius_pct)             f << std::format("analog_radius={}\n",             a.radius_pct);
+    if (a.show_minute_ticks != def.show_minute_ticks) f << std::format("analog_show_min_ticks={}\n",   a.show_minute_ticks ? 1 : 0);
+    if (a.hour_labels != def.hour_labels)           f << std::format("analog_hour_labels={}\n",        (int)a.hour_labels);
+}
+
 inline bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
     f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\nsound_on_expiry={}\ntheme={}\nclock_view={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
@@ -40,37 +71,7 @@ inline bool config_write(const Config& c, std::ostream& f) {
         f << std::format("pomodoro_cadence={}\n", c.pomodoro_cadence);
     if (c.pomodoro_auto_start != defaults.pomodoro_auto_start)
         f << std::format("pomodoro_auto_start={}\n", c.pomodoro_auto_start ? 1 : 0);
-    {
-        const auto& a = c.analog_style;
-        AnalogClockStyle def;
-        if (a.hour_color != def.hour_color) f << std::format("analog_hour_color={}\n", a.hour_color);
-        if (a.minute_color != def.minute_color) f << std::format("analog_minute_color={}\n", a.minute_color);
-        if (a.second_color != def.second_color) f << std::format("analog_second_color={}\n", a.second_color);
-        if (a.face_color != def.face_color) f << std::format("analog_face_color={}\n", a.face_color);
-        if (a.tick_color != def.tick_color) f << std::format("analog_tick_color={}\n", a.tick_color);
-        if (a.background_color != def.background_color) f << std::format("analog_background_color={}\n", a.background_color);
-        if (a.face_fill_color != def.face_fill_color) f << std::format("analog_face_fill_color={}\n", a.face_fill_color);
-        if (a.face_outline_color != def.face_outline_color) f << std::format("analog_face_outline_color={}\n", a.face_outline_color);
-        if (a.hour_label_color != def.hour_label_color) f << std::format("analog_hour_label_color={}\n", a.hour_label_color);
-        if (a.center_dot_color != def.center_dot_color) f << std::format("analog_center_dot_color={}\n", a.center_dot_color);
-        if (a.hour_len_pct != def.hour_len_pct) f << std::format("analog_hour_len={}\n", a.hour_len_pct);
-        if (a.minute_len_pct != def.minute_len_pct) f << std::format("analog_minute_len={}\n", a.minute_len_pct);
-        if (a.second_len_pct != def.second_len_pct) f << std::format("analog_second_len={}\n", a.second_len_pct);
-        if (a.hour_thickness != def.hour_thickness) f << std::format("analog_hour_thick={}\n", a.hour_thickness);
-        if (a.minute_thickness != def.minute_thickness) f << std::format("analog_minute_thick={}\n", a.minute_thickness);
-        if (a.second_thickness != def.second_thickness) f << std::format("analog_second_thick={}\n", a.second_thickness);
-        if (a.hour_tick_pct != def.hour_tick_pct) f << std::format("analog_hour_tick={}\n", a.hour_tick_pct);
-        if (a.minute_tick_pct != def.minute_tick_pct) f << std::format("analog_minute_tick={}\n", a.minute_tick_pct);
-        if (a.center_dot_size != def.center_dot_size) f << std::format("analog_center_dot_size={}\n", a.center_dot_size);
-        if (a.hour_opacity_pct != def.hour_opacity_pct) f << std::format("analog_hour_opacity={}\n", a.hour_opacity_pct);
-        if (a.minute_opacity_pct != def.minute_opacity_pct) f << std::format("analog_minute_opacity={}\n", a.minute_opacity_pct);
-        if (a.second_opacity_pct != def.second_opacity_pct) f << std::format("analog_second_opacity={}\n", a.second_opacity_pct);
-        if (a.tick_opacity_pct != def.tick_opacity_pct) f << std::format("analog_tick_opacity={}\n", a.tick_opacity_pct);
-        if (a.face_opacity_pct != def.face_opacity_pct) f << std::format("analog_face_opacity={}\n", a.face_opacity_pct);
-        if (a.radius_pct != def.radius_pct) f << std::format("analog_radius={}\n", a.radius_pct);
-        if (a.show_minute_ticks != def.show_minute_ticks) f << std::format("analog_show_min_ticks={}\n", a.show_minute_ticks ? 1 : 0);
-        if (a.hour_labels != def.hour_labels) f << std::format("analog_hour_labels={}\n", (int)a.hour_labels);
-    }
+    write_analog_style(c.analog_style, f);
     if (c.num_custom_presets > 0) {
         f << std::format("num_custom_presets={}\n", c.num_custom_presets);
         for (int i = 0; i < c.num_custom_presets; ++i)
