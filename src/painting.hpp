@@ -8,6 +8,7 @@
 #include <vector>
 #include "assert.hpp"
 #include "actions.hpp"
+#include "encoding.hpp"
 #include "app.hpp"
 #include "formatting.hpp"
 #include "layout.hpp"
@@ -24,7 +25,7 @@ inline int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
 
     SelectObject(hdc, ctx.res.fontSm);
     int by = (layout.bar_h - layout.btn_h) / 2;
-    int bx = (cw - (layout.w_pin + layout.w_clk + layout.w_sw + layout.w_tmr + layout.w_set + 4 * layout.bar_gap)) / 2;
+    int bx = (cw - (layout.w_pin + layout.w_clk + layout.w_sw + layout.w_tmr + layout.w_alm + layout.w_set + 5 * layout.bar_gap)) / 2;
     btn(hdc, {bx, by, bx + layout.w_pin, by + layout.btn_h}, ctx.app.topmost, L"Pin", A_TOPMOST, ctx);
     bx += layout.w_pin + layout.bar_gap;
     btn(hdc, {bx, by, bx + layout.w_clk, by + layout.btn_h}, ctx.app.show_clk, L"Clock", A_SHOW_CLK, ctx);
@@ -33,6 +34,8 @@ inline int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
     bx += layout.w_sw + layout.bar_gap;
     btn(hdc, {bx, by, bx + layout.w_tmr, by + layout.btn_h}, ctx.app.show_tmr, L"Timers", A_SHOW_TMR, ctx);
     bx += layout.w_tmr + layout.bar_gap;
+    btn(hdc, {bx, by, bx + layout.w_alm, by + layout.btn_h}, ctx.app.show_alarms, L"Alarms", A_SHOW_ALARMS, ctx);
+    bx += layout.w_alm + layout.bar_gap;
     btn(hdc, {bx, by, bx + layout.w_set, by + layout.btn_h}, false, L"\u2699", A_SETTINGS, ctx);
     return layout.bar_h;
 }
@@ -119,6 +122,86 @@ inline int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::s
     return y + layout.sw_h;
 }
 
+inline int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
+    auto& layout = ctx.layout;
+    auto& th = ctx.theme;
+    divider(hdc, y, cw, ctx);
+
+    int pad = layout.dpi_scale(10);
+    int bw  = layout.dpi_scale(56);
+    int bh  = layout.dpi_scale(24);
+    int by0 = y + (layout.alarm_header_h - bh) / 2;
+
+    SelectObject(hdc, ctx.res.fontSm);
+    SetTextColor(hdc, th.text);
+    RECT title_r{pad, y, cw - bw - 2 * pad, y + layout.alarm_header_h};
+    DrawTextW(hdc, L"Alarms", -1, &title_r, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+    btn(hdc, {cw - bw - pad, by0, cw - pad, by0 + bh}, false, L"+ Add", A_ALARM_ADD, ctx);
+
+    int row_y = y + layout.alarm_header_h;
+    int del_w = layout.dpi_scale(36);
+    int tog_w = layout.dpi_scale(50);
+
+    HBRUSH stripe = CreateSolidBrush(th.bar);
+    for (int i = 0; i < (int)ctx.app.alarms.size(); ++i) {
+        const auto& a = ctx.app.alarms[i];
+
+        RECT row_bg{0, row_y, cw, row_y + layout.alarm_row_h};
+        if (i % 2 == 1)
+            FillRect(hdc, &row_bg, stripe);
+
+        // Build schedule string
+        std::wstring sched;
+        if (a.schedule == AlarmSchedule::Days) {
+            const wchar_t* day_names[] = {L"Mo", L"Tu", L"We", L"Th", L"Fr", L"Sa", L"Su"};
+            for (int d = 0; d < 7; ++d)
+                if (a.days_mask & (1 << d)) {
+                    if (!sched.empty()) sched += L' ';
+                    sched += day_names[d];
+                }
+            if (sched.empty()) sched = L"(no days)";
+        } else {
+            sched = std::format(L"{:04}-{:02}-{:02}", a.date_year, a.date_month, a.date_day);
+        }
+        std::wstring label;
+        {
+            std::wstring name_w = utf8_to_wide(a.name);
+            if (!name_w.empty()) label = name_w + L"  ";
+        }
+        label += std::format(L"{:02}:{:02}  {}", a.hour, a.minute, sched);
+
+        int text_x = pad;
+        int row_mid = row_y + layout.alarm_row_h / 2;
+        int text_h  = layout.dpi_scale(18);
+        int buttons_right = cw - pad;
+        int del_x  = buttons_right - del_w;
+        int tog_x  = del_x - layout.dpi_scale(6) - tog_w;
+
+        RECT lr{text_x, row_mid - text_h / 2, tog_x - layout.dpi_scale(6), row_mid + text_h / 2};
+        SetTextColor(hdc, a.enabled ? th.text : th.dim);
+        DrawTextW(hdc, label.c_str(), -1, &lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+        int btn_top = row_mid - bh / 2;
+        btn(hdc, {tog_x, btn_top, tog_x + tog_w, btn_top + bh},
+            a.enabled, a.enabled ? L"On" : L"Off", A_ALARM_TOGGLE + i, ctx);
+        btn(hdc, {del_x, btn_top, del_x + del_w, btn_top + bh},
+            false, L"Del", A_ALARM_DEL + i, ctx);
+
+        row_y += layout.alarm_row_h;
+    }
+    DeleteObject(stripe);
+
+    if (ctx.app.alarms.empty()) {
+        SetTextColor(hdc, th.dim);
+        RECT er{pad, row_y, cw - pad, row_y + layout.alarm_row_h};
+        DrawTextW(hdc, L"No alarms set", -1, &er, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        row_y += layout.alarm_row_h;
+    }
+
+    return row_y;
+}
+
 inline void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     RECT cr{0, layout.bar_h, cw, y_bottom > layout.bar_h ? y_bottom : layout.bar_h + layout.dpi_scale(200)};
@@ -180,5 +263,6 @@ inline void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     if (ctx.app.show_clk) y = paint_clock(hdc, cw, y, ctx);
     if (ctx.app.show_sw) y = paint_stopwatch(hdc, cw, y, ctx, now);
     if (ctx.app.show_tmr) y = paint_timers(hdc, cw, y, ctx, now);
+    if (ctx.app.show_alarms) y = paint_alarms(hdc, cw, y, ctx);
     if (ctx.app.show_help) paint_help(hdc, cw, y, ctx);
 }

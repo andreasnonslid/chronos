@@ -57,6 +57,52 @@ inline void update_title(HWND hwnd, WndState& s) {
     if (s.tray_active) tray_update_tip(hwnd, title.c_str());
 }
 
+inline void check_alarms(HWND hwnd, WndState& s) {
+    auto& app = s.app;
+    if (app.alarms.empty()) return;
+
+    SYSTEMTIME st; GetLocalTime(&st);
+    int current_minute = st.wHour * 60 + st.wMinute;
+
+    // Reset notified flags at the start of each new minute
+    if (current_minute != app.alarm_notified_minute) {
+        app.alarm_notified_minute = current_minute;
+        for (auto& a : app.alarms) a.notified = false;
+    }
+
+    // SYSTEMTIME wDayOfWeek: 0=Sunday, 1=Monday, ..., 6=Saturday
+    // Our bitmask: bit 0=Monday ... bit 6=Sunday
+    int dow_sys = st.wDayOfWeek; // 0=Sun
+    int dow_bit = (dow_sys == 0) ? 6 : (dow_sys - 1); // Mon=0 ... Sun=6
+
+    for (auto& a : app.alarms) {
+        if (!a.enabled) continue;
+        if (a.notified) continue;
+        if (a.hour != st.wHour || a.minute != st.wMinute) continue;
+
+        bool matches = false;
+        if (a.schedule == AlarmSchedule::Days) {
+            matches = (a.days_mask & (1 << dow_bit)) != 0;
+        } else {
+            matches = (a.date_year  == st.wYear  &&
+                       a.date_month == st.wMonth &&
+                       a.date_day   == st.wDay);
+        }
+        if (!matches) continue;
+
+        a.notified = true;
+        MessageBeep(MB_ICONASTERISK);
+        FLASHWINFO fi{sizeof(fi), hwnd, FLASHW_ALL | FLASHW_TIMERNOFG, 3, 0};
+        FlashWindowEx(&fi);
+
+        if (s.tray_active) {
+            std::wstring name_w = utf8_to_wide(a.name);
+            const wchar_t* title = L"Alarm";
+            tray_notify(hwnd, title, name_w.empty() ? title : name_w.c_str());
+        }
+    }
+}
+
 inline void handle_wm_timer(HWND hwnd, WndState& s) {
     using namespace std::chrono;
     auto now = steady_clock::now();
@@ -86,6 +132,7 @@ inline void handle_wm_timer(HWND hwnd, WndState& s) {
             }
         }
     }
+    check_alarms(hwnd, s);
     update_title(hwnd, s);
     InvalidateRect(hwnd, nullptr, FALSE);
     sync_timer(hwnd, s);

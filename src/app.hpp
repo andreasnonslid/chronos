@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include "alarm.hpp"
 #include "config.hpp"
 #include "stopwatch.hpp"
 #include "timer.hpp"
@@ -50,6 +51,9 @@ struct App {
     int pomodoro_cadence = POMODORO_DEFAULT_CADENCE;
     bool pomodoro_auto_start = true;
     std::vector<int> custom_preset_secs;
+    bool show_alarms = false;
+    std::vector<Alarm> alarms;
+    int alarm_notified_minute = -1;    // wall-clock minute (0–1439) when notified flags were last reset
     bool show_help = false;
     bool lap_write_failed = false;
     int blink_act = 0;

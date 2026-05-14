@@ -41,6 +41,8 @@ inline void save_config(HWND hwnd, const WndState& s) {
     cfg.clock_view = s.app.clock_view;
     cfg.show_sw = s.app.show_sw;
     cfg.show_tmr = s.app.show_tmr;
+    cfg.show_alarms = s.app.show_alarms;
+    cfg.alarms = s.app.alarms;
     cfg.topmost = s.app.topmost;
     cfg.sound_on_expiry = s.app.sound_on_expiry;
     cfg.theme_mode = s.app.theme_mode;
@@ -118,6 +120,9 @@ inline void load_config(HWND hwnd, WndState& s) {
     s.app.clock_view = cfg.clock_view;
     s.app.show_sw = cfg.show_sw;
     s.app.show_tmr = cfg.show_tmr;
+    s.app.show_alarms = cfg.show_alarms;
+    s.app.alarms = cfg.alarms;
+    s.app.alarm_notified_minute = -1;
     s.app.topmost = cfg.topmost;
     s.app.sound_on_expiry = cfg.sound_on_expiry;
     s.app.theme_mode = cfg.theme_mode;

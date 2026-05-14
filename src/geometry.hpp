@@ -8,7 +8,9 @@ inline LayoutState layout_state(const WndState& s) {
         .show_clk = s.app.show_clk,
         .show_sw = s.app.show_sw,
         .show_tmr = s.app.show_tmr,
+        .show_alarms = s.app.show_alarms,
         .timer_count = (int)s.app.timers.size(),
+        .alarm_count = (int)s.app.alarms.size(),
         .clock_view = s.app.clock_view,
     };
 }

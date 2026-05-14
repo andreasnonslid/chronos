@@ -1,7 +1,9 @@
 #pragma once
 #include <array>
 #include <string>
+#include <vector>
 
+#include "alarm.hpp"
 #include "pomodoro.hpp"
 
 enum class ThemeMode { Auto = 0, Light = 1, Dark = 2 };
@@ -83,6 +85,8 @@ struct Config {
     bool pomodoro_auto_start = true;
     ClockView clock_view = ClockView::H24_HMS;
     AnalogClockStyle analog_style;
+    bool show_alarms = false;
+    std::vector<Alarm> alarms;
     int num_custom_presets = 0;
     std::array<int, MAX_CUSTOM_PRESETS> custom_preset_secs{};
     Config() { timer_secs.fill(60); }

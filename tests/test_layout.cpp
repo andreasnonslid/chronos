@@ -53,8 +53,8 @@ TEST_CASE("Layout update_for_dpi: 192 DPI doubles values", "[layout]") {
 TEST_CASE("Layout bar_min_client_w: correct at 96 DPI", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    // w_pin(44) + w_clk(48) + w_sw(76) + w_tmr(54) + w_set(32) + 4*bar_gap(6) + 2*dpi_scale(8)
-    int expected = 44 + 48 + 76 + 54 + 32 + 4 * 6 + 2 * 8;
+    // w_pin(44) + w_clk(48) + w_sw(76) + w_tmr(54) + w_alm(56) + w_set(32) + 5*bar_gap(6) + 2*dpi_scale(8)
+    int expected = 44 + 48 + 76 + 54 + 56 + 32 + 5 * 6 + 2 * 8;
     REQUIRE(l.bar_min_client_w() == expected);
 }
 
@@ -63,7 +63,7 @@ TEST_CASE("Layout bar_min_client_w: correct at 96 DPI", "[layout]") {
 TEST_CASE("client_height_for: all sections visible", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{true, true, true, 2};
+    LayoutState s{true, true, true, false, 2};
     // bar_h + clk_h + sw_h + 2*tmr_h
     REQUIRE(client_height_for(l, s) == 36 + 62 + 116 + 2 * 114);
 }
@@ -71,21 +71,21 @@ TEST_CASE("client_height_for: all sections visible", "[layout]") {
 TEST_CASE("client_height_for: none visible", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{false, false, false, 1};
+    LayoutState s{false, false, false, false, 1};
     REQUIRE(client_height_for(l, s) == 36); // just bar
 }
 
 TEST_CASE("client_height_for: only clock", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{true, false, false, 1};
+    LayoutState s{true, false, false, false, 1};
     REQUIRE(client_height_for(l, s) == 36 + 62);
 }
 
 TEST_CASE("client_height_for: timers with 3 slots", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{false, false, true, 3};
+    LayoutState s{false, false, true, false, 3};
     REQUIRE(client_height_for(l, s) == 36 + 3 * 114);
 }
 
@@ -94,7 +94,7 @@ TEST_CASE("client_height_for: timers with 3 slots", "[layout]") {
 TEST_CASE("timer_index_at_y: click in timer region", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{true, true, true, 2};
+    LayoutState s{true, true, true, false, 2};
     int top = l.bar_h + l.clk_h + l.sw_h;
     REQUIRE(timer_index_at_y(l, s, top + 1) == 0);
     REQUIRE(timer_index_at_y(l, s, top + l.tmr_h + 1) == 1);
@@ -103,21 +103,21 @@ TEST_CASE("timer_index_at_y: click in timer region", "[layout]") {
 TEST_CASE("timer_index_at_y: click above timer region", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{true, true, true, 1};
+    LayoutState s{true, true, true, false, 1};
     REQUIRE(timer_index_at_y(l, s, l.bar_h) == -1);
 }
 
 TEST_CASE("timer_index_at_y: timers hidden", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{false, false, false, 0};
+    LayoutState s{false, false, false, false, 0};
     REQUIRE(timer_index_at_y(l, s, 50) == -1);
 }
 
 TEST_CASE("timer_index_at_y: click below all timers", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{false, false, true, 1};
+    LayoutState s{false, false, true, false, 1};
     int bottom = l.bar_h + l.tmr_h;
     REQUIRE(timer_index_at_y(l, s, bottom + 10) == -1);
 }
@@ -125,8 +125,8 @@ TEST_CASE("timer_index_at_y: click below all timers", "[layout]") {
 TEST_CASE("client_height_for: analog clock uses taller height", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState digital{true, false, false, 1, ClockView::H24_HMS};
-    LayoutState analog{true, false, false, 1, ClockView::Analog};
+    LayoutState digital{true, false, false, false, 1, 0, ClockView::H24_HMS};
+    LayoutState analog{true, false, false, false, 1, 0, ClockView::Analog};
     int h_digital = client_height_for(l, digital);
     int h_analog = client_height_for(l, analog);
     REQUIRE(h_digital == 36 + 62);
@@ -147,8 +147,23 @@ TEST_CASE("effective_clk_h returns correct height per view", "[layout]") {
 TEST_CASE("timer_index_at_y accounts for analog clock height", "[layout]") {
     Layout l;
     l.update_for_dpi(96);
-    LayoutState s{true, false, true, 1, ClockView::Analog};
+    LayoutState s{true, false, true, false, 1, 0, ClockView::Analog};
     int top = l.bar_h + l.analog_clk_h;
     REQUIRE(timer_index_at_y(l, s, top + 1) == 0);
     REQUIRE(timer_index_at_y(l, s, top - 1) == -1);
+}
+
+TEST_CASE("client_height_for: alarms visible with zero count reserves one row", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{false, false, false, true, 0, 0};
+    // bar_h + alarm_header_h + 1*alarm_row_h (empty-state row)
+    REQUIRE(client_height_for(l, s) == 36 + 42 + 32);
+}
+
+TEST_CASE("client_height_for: alarms visible with two alarms", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{false, false, false, true, 0, 2};
+    REQUIRE(client_height_for(l, s) == 36 + 42 + 2 * 32);
 }

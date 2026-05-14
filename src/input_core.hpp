@@ -3,6 +3,7 @@
 #include <shellapi.h>
 #include <chrono>
 #include "actions.hpp"
+#include "alarm_dialog.hpp"
 #include "config_io.hpp"
 #include "geometry.hpp"
 #include "polling.hpp"
@@ -61,6 +62,15 @@ inline void handle(HWND hwnd, int act, WndState& s) {
         if (ui::show_settings_dialog(hwnd, s.app, (ui::FontHandle)s.fontSm.h, s.active_theme, s.layout.dpi)) {
             if (s.app.theme_mode != old_theme) apply_theme(hwnd, s);
             if (s.app.clock_view != old_clock) resize_window(hwnd, s);
+            save_config(hwnd, s);
+        }
+    }
+    if (r.open_alarm_dialog && s.app.alarms.size() < (size_t)ALARM_MAX_COUNT) {
+        Alarm new_alarm;
+        if (alarm_dlg::show_add_alarm_dialog(hwnd, new_alarm,
+                (HFONT)s.fontSm.h, s.active_theme, s.layout.dpi)) {
+            s.app.alarms.push_back(new_alarm);
+            resize_window(hwnd, s);
             save_config(hwnd, s);
         }
     }
