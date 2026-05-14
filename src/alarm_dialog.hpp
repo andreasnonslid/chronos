@@ -44,7 +44,7 @@ struct Params {
 
 // ─── Template builder ─────────────────────────────────────────────────────────
 
-inline std::vector<DWORD> build_template() {
+inline std::vector<WORD> build_template() {
     DlgBuf b;
     b.push_dword(WS_POPUP | WS_BORDER);
     b.push_dword(0);
