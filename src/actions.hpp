@@ -170,13 +170,7 @@ inline HandleResult dispatch_timer_action(App& app, int idx, int off,
                 ts.label.clear();
             } else {
                 ts.pomodoro = true;
-                ts.pomodoro_phase = 0;
-                ts.pomodoro_work_elapsed = {};
-                ts.dur = seconds{app.pomodoro_work_secs};
-                ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
-                ts.notified = false;
-                ts.t.reset();
-                ts.t.set(ts.dur);
+                reset_timer_slot(ts, app);
             }
             r.save_config = true;
         }
