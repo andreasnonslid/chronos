@@ -122,7 +122,6 @@ inline void load_config(HWND hwnd, WndState& s) {
     s.app.show_tmr = cfg.show_tmr;
     s.app.show_alarms = cfg.show_alarms;
     s.app.alarms = cfg.alarms;
-    s.app.alarm_notified.assign(cfg.alarms.size(), false);
     s.app.alarm_notified_minute = -1;
     s.app.topmost = cfg.topmost;
     s.app.sound_on_expiry = cfg.sound_on_expiry;

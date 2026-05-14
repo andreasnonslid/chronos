@@ -53,7 +53,6 @@ struct App {
     std::vector<int> custom_preset_secs;
     bool show_alarms = false;
     std::vector<Alarm> alarms;
-    std::vector<bool> alarm_notified;  // parallel to alarms, reset each minute
     int alarm_notified_minute = -1;    // wall-clock minute (0–1439) when notified flags were last reset
     bool show_help = false;
     bool lap_write_failed = false;

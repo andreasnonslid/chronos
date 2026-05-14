@@ -24,4 +24,5 @@ struct Alarm {
     int date_year = 2026, date_month = 1, date_day = 1;
     int hour = 8, minute = 0;
     bool enabled = true;
+    bool notified = false;  // runtime-only, not persisted; reset each minute by check_alarms
 };

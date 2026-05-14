@@ -67,10 +67,7 @@ inline void check_alarms(HWND hwnd, WndState& s) {
     // Reset notified flags at the start of each new minute
     if (current_minute != app.alarm_notified_minute) {
         app.alarm_notified_minute = current_minute;
-        app.alarm_notified.assign(app.alarms.size(), false);
-    } else {
-        // Ensure size matches (alarms may have been added/removed)
-        app.alarm_notified.resize(app.alarms.size(), false);
+        for (auto& a : app.alarms) a.notified = false;
     }
 
     // SYSTEMTIME wDayOfWeek: 0=Sunday, 1=Monday, ..., 6=Saturday
@@ -78,10 +75,9 @@ inline void check_alarms(HWND hwnd, WndState& s) {
     int dow_sys = st.wDayOfWeek; // 0=Sun
     int dow_bit = (dow_sys == 0) ? 6 : (dow_sys - 1); // Mon=0 ... Sun=6
 
-    for (int i = 0; i < (int)app.alarms.size(); ++i) {
-        const auto& a = app.alarms[i];
+    for (auto& a : app.alarms) {
         if (!a.enabled) continue;
-        if (app.alarm_notified[i]) continue;
+        if (a.notified) continue;
         if (a.hour != st.wHour || a.minute != st.wMinute) continue;
 
         bool matches = false;
@@ -94,7 +90,7 @@ inline void check_alarms(HWND hwnd, WndState& s) {
         }
         if (!matches) continue;
 
-        app.alarm_notified[i] = true;
+        a.notified = true;
         MessageBeep(MB_ICONASTERISK);
         FLASHWINFO fi{sizeof(fi), hwnd, FLASHW_ALL | FLASHW_TIMERNOFG, 3, 0};
         FlashWindowEx(&fi);

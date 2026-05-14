@@ -236,8 +236,6 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
             int i = act - A_ALARM_DEL;
             if (i >= 0 && i < (int)app.alarms.size()) {
                 app.alarms.erase(app.alarms.begin() + i);
-                if (i < (int)app.alarm_notified.size())
-                    app.alarm_notified.erase(app.alarm_notified.begin() + i);
                 r.resize = true;
                 r.save_config = true;
             }

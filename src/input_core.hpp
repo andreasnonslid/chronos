@@ -69,10 +69,7 @@ inline void handle(HWND hwnd, int act, WndState& s) {
         Alarm new_alarm;
         if (alarm_dlg::show_add_alarm_dialog(hwnd, new_alarm,
                 (HFONT)s.fontSm.h, s.active_theme, s.layout.dpi)) {
-            s.app.alarms.reserve(s.app.alarms.size() + 1);
-            s.app.alarm_notified.reserve(s.app.alarm_notified.size() + 1);
             s.app.alarms.push_back(new_alarm);
-            s.app.alarm_notified.push_back(false);
             resize_window(hwnd, s);
             save_config(hwnd, s);
         }
