@@ -9,13 +9,21 @@
 // ─── Runtime DLGTEMPLATE builder ─────────────────────────────────────────────
 
 /// Word-stream buffer for building a DLGTEMPLATE at runtime.
+/// Backed by DWORD elements to guarantee the 4-byte alignment required by DLGTEMPLATE.
 struct DlgBuf {
-    std::vector<WORD> data;
-    void align4() { while (data.size() % 2) data.push_back(0); }
-    void push_word(WORD w)   { data.push_back(w); }
-    void push_dword(DWORD d) { data.push_back(LOWORD(d)); data.push_back(HIWORD(d)); }
-    void push_wstr(const wchar_t* s) { while (*s) data.push_back((WORD)*s++); data.push_back(0); }
-    void push_wstr_empty() { data.push_back(0); }
+    std::vector<DWORD> data;
+    size_t nbytes = 0;
+
+    void _byte(BYTE b) {
+        if (nbytes % 4 == 0) data.push_back(0);
+        reinterpret_cast<BYTE*>(data.data())[nbytes] = b;
+        ++nbytes;
+    }
+    void align4()            { while (nbytes % 4) _byte(0); }
+    void push_word(WORD w)   { _byte(LOBYTE(w)); _byte(HIBYTE(w)); }
+    void push_dword(DWORD d) { push_word(LOWORD(d)); push_word(HIWORD(d)); }
+    void push_wstr(const wchar_t* s) { while (*s) push_word((WORD)*s++); push_word(0); }
+    void push_wstr_empty()   { push_word(0); }
 };
 
 /// Appends a DLGITEMTEMPLATE entry to @p b for a standard Win32 control class atom.
