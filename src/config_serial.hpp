@@ -282,5 +282,14 @@ inline bool config_read(Config& c, std::istream& f) {
         }
     }
     c.pos_valid = has_x && has_y && has_w;
+    for (auto& a : c.alarms) {
+        if (a.schedule == AlarmSchedule::Date) {
+            int yr = a.date_year, mo = a.date_month;
+            int max_day = 31;
+            if (mo == 4 || mo == 6 || mo == 9 || mo == 11) max_day = 30;
+            else if (mo == 2) max_day = (yr % 4 == 0 && (yr % 100 != 0 || yr % 400 == 0)) ? 29 : 28;
+            if (a.date_day > max_day) a.date_day = max_day;
+        }
+    }
     return true;
 }
