@@ -115,6 +115,9 @@ inline std::vector<WORD> build_template() {
 struct Params {
     int work_min, short_min, long_min;
     DlgStyle style;
+    GdiObj brush_bg;
+    GdiObj brush_edit;
+    GdiObj brush_btn;
 };
 
 inline bool read_field(HWND dlg, int id, int& out) {
@@ -159,6 +162,10 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             return TRUE;
         }, (LPARAM)p);
 
+        p->brush_bg   = GdiObj{CreateSolidBrush(p->style.theme->bg)};
+        p->brush_edit = GdiObj{CreateSolidBrush(p->style.theme->bar)};
+        p->brush_btn  = GdiObj{CreateSolidBrush(p->style.theme->bg)};
+
         SetFocus(GetDlgItem(dlg, IDC_POMO_WORK));
         SendDlgItemMessageW(dlg, IDC_POMO_WORK, EM_SETSEL, 0, -1);
         return FALSE;
@@ -193,32 +200,21 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CTLCOLORSTATIC: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        HDC hdc = (HDC)wp;
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkMode(hdc, TRANSPARENT);
-        static HBRUSH s_bg = nullptr;
-        if (s_bg) DeleteObject(s_bg);
-        s_bg = CreateSolidBrush(p->style.theme->bg);
-        return (INT_PTR)s_bg;
+        SetTextColor((HDC)wp, p->style.theme->text);
+        SetBkMode((HDC)wp, TRANSPARENT);
+        return (INT_PTR)p->brush_bg.h;
     }
     case WM_CTLCOLOREDIT: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        HDC hdc = (HDC)wp;
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkColor(hdc, p->style.theme->bar);
-        static HBRUSH s_edit_bg = nullptr;
-        if (s_edit_bg) DeleteObject(s_edit_bg);
-        s_edit_bg = CreateSolidBrush(p->style.theme->bar);
-        return (INT_PTR)s_edit_bg;
+        SetTextColor((HDC)wp, p->style.theme->text);
+        SetBkColor((HDC)wp, p->style.theme->bar);
+        return (INT_PTR)p->brush_edit.h;
     }
     case WM_CTLCOLORBTN: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        static HBRUSH s_btn_bg = nullptr;
-        if (s_btn_bg) DeleteObject(s_btn_bg);
-        s_btn_bg = CreateSolidBrush(p->style.theme->bg);
-        return (INT_PTR)s_btn_bg;
+        return (INT_PTR)p->brush_btn.h;
     }
     case WM_NCHITTEST: {
         RECT title_rc = {0, 0, DLG_W, 22};
