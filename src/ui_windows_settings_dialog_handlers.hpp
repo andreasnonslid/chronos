@@ -377,7 +377,7 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
             }
 
             // Fixed preview drawn on top — no sdy offset
-            RECT prev_lbl = map_dlu(dlg, 68, 48, 80, 8);
+            RECT prev_lbl = map_dlu(dlg, 68, 64, 80, 8);
             s.draw_label(hdc, prev_lbl, L"Live preview");
             draw_analog_clock(hdc, preview, p->analog_style, *s.theme, s.dpi, 10, 10, 30);
         }
