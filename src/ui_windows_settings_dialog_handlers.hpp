@@ -248,6 +248,11 @@ static INT_PTR on_init(HWND dlg, LPARAM lp) {
     p->rects = compute_rects(dlg);
     p->clock_combo_rc = map_dlu(dlg, 68, 40, 212, 80);
 
+    p->brush_bg    = GdiObj{CreateSolidBrush(p->style.theme->bg)};
+    p->brush_edit  = GdiObj{CreateSolidBrush(p->style.theme->bar)};
+    p->brush_btn   = GdiObj{CreateSolidBrush(p->style.theme->bg)};
+    p->brush_combo = GdiObj{CreateSolidBrush(p->style.theme->bar)};
+
     tab_appearance_init(dlg, *p);
     tab_pomodoro_init(dlg, *p);
     tab_timers_init(dlg, *p);
@@ -404,39 +409,23 @@ static INT_PTR on_ctl_color(HWND dlg, UINT msg, HDC hdc) {
     if (!p) return FALSE;
 
     switch (msg) {
-    case WM_CTLCOLORSTATIC: {
+    case WM_CTLCOLORSTATIC:
         SetTextColor(hdc, p->style.theme->text);
         SetBkMode(hdc, TRANSPARENT);
-        static HBRUSH s_bg = nullptr;
-        if (s_bg) DeleteObject(s_bg);
-        s_bg = CreateSolidBrush(p->style.theme->bg);
-        return (INT_PTR)s_bg;
-    }
-    case WM_CTLCOLOREDIT: {
+        return (INT_PTR)p->brush_bg.h;
+    case WM_CTLCOLOREDIT:
         SetTextColor(hdc, p->style.theme->text);
         SetBkColor(hdc, p->style.theme->bar);
-        static HBRUSH s_edit_bg = nullptr;
-        if (s_edit_bg) DeleteObject(s_edit_bg);
-        s_edit_bg = CreateSolidBrush(p->style.theme->bar);
-        return (INT_PTR)s_edit_bg;
-    }
-    case WM_CTLCOLORBTN: {
+        return (INT_PTR)p->brush_edit.h;
+    case WM_CTLCOLORBTN:
         SetTextColor(hdc, p->style.theme->text);
         SetBkMode(hdc, TRANSPARENT);
-        static HBRUSH s_btn_bg = nullptr;
-        if (s_btn_bg) DeleteObject(s_btn_bg);
-        s_btn_bg = CreateSolidBrush(p->style.theme->bg);
-        return (INT_PTR)s_btn_bg;
-    }
+        return (INT_PTR)p->brush_btn.h;
     case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLORCOMBOBOX: {
+    case WM_CTLCOLORCOMBOBOX:
         SetTextColor(hdc, p->style.theme->text);
         SetBkColor(hdc, p->style.theme->bar);
-        static HBRUSH s_combo_bg = nullptr;
-        if (s_combo_bg) DeleteObject(s_combo_bg);
-        s_combo_bg = CreateSolidBrush(p->style.theme->bar);
-        return (INT_PTR)s_combo_bg;
-    }
+        return (INT_PTR)p->brush_combo.h;
     }
     return FALSE;
 }

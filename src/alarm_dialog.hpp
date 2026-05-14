@@ -37,34 +37,15 @@ struct Params {
     RECT rc_days_btn{};
     RECT rc_date_btn{};
     RECT rc_day[7]{};  // Mon-Sun painted toggles
+    GdiObj brush_bg{};
+    GdiObj brush_edit{};
+    GdiObj brush_btn{};
 };
 
 // ─── Template builder ─────────────────────────────────────────────────────────
 
-struct Buf {
-    std::vector<WORD> data;
-    void align4() { while (data.size() % 2) data.push_back(0); }
-    void push_word(WORD w)   { data.push_back(w); }
-    void push_dword(DWORD d) { data.push_back(LOWORD(d)); data.push_back(HIWORD(d)); }
-    void push_wstr(const wchar_t* s) { while (*s) data.push_back((WORD)*s++); data.push_back(0); }
-    void push_wstr_empty() { data.push_back(0); }
-};
-
-inline void add_item(Buf& b, DWORD style, short x, short y, short cx, short cy,
-                     WORD id, WORD cls_atom, const wchar_t* title) {
-    b.align4();
-    b.push_dword(WS_CHILD | WS_VISIBLE | style);
-    b.push_dword(0); // exStyle
-    b.push_word((WORD)x); b.push_word((WORD)y);
-    b.push_word((WORD)cx); b.push_word((WORD)cy);
-    b.push_word(id);
-    b.push_word(0xFFFF); b.push_word(cls_atom);
-    b.push_wstr(title);
-    b.push_word(0);
-}
-
 inline std::vector<WORD> build_template() {
-    Buf b;
+    DlgBuf b;
     b.push_dword(WS_POPUP | WS_BORDER);
     b.push_dword(0);
     b.push_word(CTRL_COUNT);
@@ -75,23 +56,23 @@ inline std::vector<WORD> build_template() {
     b.push_wstr_empty(); // caption (painted)
 
     // Name edit  (x=46 y=25 w=148 h=11)
-    add_item(b, ES_AUTOHSCROLL | WS_TABSTOP, 46, 25, 148, 11, IDC_ALM_NAME, CLS_EDIT, L"");
+    dlg_add_item(b, ES_AUTOHSCROLL | WS_TABSTOP, 46, 25, 148, 11, IDC_ALM_NAME, CLS_EDIT, L"");
     // Hour edit  (x=46 y=40 w=22 h=11)
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 46, 40, 22, 11, IDC_ALM_HOUR, CLS_EDIT, L"");
+    dlg_add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 46, 40, 22, 11, IDC_ALM_HOUR, CLS_EDIT, L"");
     // Min edit   (x=78 y=40 w=22 h=11)
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 78, 40, 22, 11, IDC_ALM_MIN,  CLS_EDIT, L"");
+    dlg_add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 78, 40, 22, 11, IDC_ALM_MIN,  CLS_EDIT, L"");
 
     // Date fields: Year (x=36 y=70 w=38 h=11), Month (x=104 y=70 w=22 h=11), Day (x=158 y=70 w=22 h=11)
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 36, 70, 38, 11, IDC_ALM_YEAR,  CLS_EDIT, L"");
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 104, 70, 22, 11, IDC_ALM_MONTH, CLS_EDIT, L"");
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 158, 70, 22, 11, IDC_ALM_DAY,   CLS_EDIT, L"");
+    dlg_add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 36, 70, 38, 11, IDC_ALM_YEAR,  CLS_EDIT, L"");
+    dlg_add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 104, 70, 22, 11, IDC_ALM_MONTH, CLS_EDIT, L"");
+    dlg_add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 158, 70, 22, 11, IDC_ALM_DAY,   CLS_EDIT, L"");
 
     // OK / Cancel (owner-draw)
     constexpr short btn_w = 44, btn_h = 16;
     constexpr short btn_y = 118;
     constexpr short btn_x0 = (DLG_W - 2 * btn_w - 8) / 2;
-    add_item(b, BS_OWNERDRAW | WS_TABSTOP, btn_x0, btn_y, btn_w, btn_h, IDC_ALM_OK,     CLS_BUTTON, L"OK");
-    add_item(b, BS_OWNERDRAW | WS_TABSTOP, btn_x0 + btn_w + 8, btn_y, btn_w, btn_h, IDC_ALM_CANCEL, CLS_BUTTON, L"Cancel");
+    dlg_add_item(b, BS_OWNERDRAW | WS_TABSTOP, btn_x0, btn_y, btn_w, btn_h, IDC_ALM_OK,     CLS_BUTTON, L"OK");
+    dlg_add_item(b, BS_OWNERDRAW | WS_TABSTOP, btn_x0 + btn_w + 8, btn_y, btn_w, btn_h, IDC_ALM_CANCEL, CLS_BUTTON, L"Cancel");
 
     return b.data;
 }
@@ -164,6 +145,9 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         }
 
         init_painted_rects(dlg, *p);
+        p->brush_bg   = GdiObj{CreateSolidBrush(p->style.theme->bg)};
+        p->brush_edit = GdiObj{CreateSolidBrush(p->style.theme->bar)};
+        p->brush_btn  = GdiObj{CreateSolidBrush(p->style.theme->bg)};
 
         // Set fonts on all children
         EnumChildWindows(dlg, [](HWND ch, LPARAM par) -> BOOL {
@@ -253,30 +237,19 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
     case WM_CTLCOLORSTATIC: {
         if (!p) break;
-        HDC hdc = (HDC)wp;
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkMode(hdc, TRANSPARENT);
-        static HBRUSH s_bg = nullptr;
-        if (s_bg) DeleteObject(s_bg);
-        s_bg = CreateSolidBrush(p->style.theme->bg);
-        return (INT_PTR)s_bg;
+        SetTextColor((HDC)wp, p->style.theme->text);
+        SetBkMode((HDC)wp, TRANSPARENT);
+        return (INT_PTR)p->brush_bg.h;
     }
     case WM_CTLCOLOREDIT: {
         if (!p) break;
-        HDC hdc = (HDC)wp;
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkColor(hdc, p->style.theme->bar);
-        static HBRUSH s_edit_bg = nullptr;
-        if (s_edit_bg) DeleteObject(s_edit_bg);
-        s_edit_bg = CreateSolidBrush(p->style.theme->bar);
-        return (INT_PTR)s_edit_bg;
+        SetTextColor((HDC)wp, p->style.theme->text);
+        SetBkColor((HDC)wp, p->style.theme->bar);
+        return (INT_PTR)p->brush_edit.h;
     }
     case WM_CTLCOLORBTN: {
         if (!p) break;
-        static HBRUSH s_btn_bg = nullptr;
-        if (s_btn_bg) DeleteObject(s_btn_bg);
-        s_btn_bg = CreateSolidBrush(p->style.theme->bg);
-        return (INT_PTR)s_btn_bg;
+        return (INT_PTR)p->brush_btn.h;
     }
 
     case WM_NCHITTEST: {

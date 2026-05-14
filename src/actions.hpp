@@ -47,6 +47,19 @@ constexpr int A_TMR_DEL = 9;
 constexpr int A_TMR_POMO = 10;
 constexpr int A_TMR_SKIP = 11;
 
+/// Resets @p ts to its initial state, restoring pomodoro phase 0 if applicable.
+inline void reset_timer_slot(TimerSlot& ts, const App& app) {
+    ts.notified = false;
+    if (ts.pomodoro) {
+        ts.pomodoro_phase = 0;
+        ts.dur = std::chrono::seconds{app.pomodoro_work_secs};
+        ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
+        ts.pomodoro_work_elapsed = {};
+    }
+    ts.t.reset();
+    ts.t.set(ts.dur);
+}
+
 inline bool apply_timer_hms_adjust(TimerSlot& ts, int off) {
     auto total = ts.dur.count();
     int h = (int)(total / 3600);
@@ -117,6 +130,73 @@ struct HandleResult {
     bool open_settings = false;
     bool open_alarm_dialog = false;
 };
+
+/// Handles a single timer-slot action (start/stop, adjust, add/del, pomodoro).
+inline HandleResult dispatch_timer_action(App& app, int idx, int off,
+                                           std::chrono::steady_clock::time_point now) {
+    using namespace std::chrono;
+    HandleResult r;
+    if (idx < 0 || idx >= (int)app.timers.size()) return r;
+    auto& ts = app.timers[idx];
+
+    if (off == A_TMR_START) {
+        if (!ts.t.touched()) {
+            if (ts.dur.count() > 0) ts.t.start(now);
+        } else if (ts.t.is_running())
+            ts.t.pause(now);
+        else
+            ts.t.start(now);
+    } else if (off == A_TMR_RST) {
+        reset_timer_slot(ts, app);
+        r.save_config = true;
+    } else if (off == A_TMR_ADD) {
+        if ((int)app.timers.size() < Config::MAX_TIMERS) {
+            TimerSlot ns;
+            ns.t.set(ns.dur);
+            app.timers.insert(app.timers.begin() + idx + 1, ns);
+            r.resize = true;
+            r.save_config = true;
+        }
+    } else if (off == A_TMR_DEL) {
+        if ((int)app.timers.size() > 1) {
+            app.timers.erase(app.timers.begin() + idx);
+            r.resize = true;
+            r.save_config = true;
+        }
+    } else if (off == A_TMR_POMO) {
+        if (!ts.t.touched()) {
+            if (ts.pomodoro) {
+                ts.pomodoro = false;
+                ts.label.clear();
+            } else {
+                ts.pomodoro = true;
+                reset_timer_slot(ts, app);
+            }
+            r.save_config = true;
+        }
+    } else if (off == A_TMR_SKIP) {
+        if (ts.pomodoro && ts.t.touched()) {
+            if (pomodoro_is_work(ts.pomodoro_phase)) {
+                auto elapsed = duration_cast<seconds>(ts.t.total_elapsed(now));
+                ts.pomodoro_work_elapsed += elapsed;
+            }
+            ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase, app.pomodoro_cadence);
+            auto secs = seconds{pomodoro_phase_secs(ts.pomodoro_phase,
+                app.pomodoro_work_secs, app.pomodoro_short_secs, app.pomodoro_long_secs,
+                app.pomodoro_cadence)};
+            ts.dur = secs;
+            ts.notified = false;
+            ts.t.reset();
+            ts.t.set(secs);
+            ts.t.start(now);
+            ts.label = pomodoro_phase_label(ts.pomodoro_phase, app.pomodoro_cadence);
+            r.save_config = true;
+        }
+    } else if (!ts.t.touched() && apply_timer_hms_adjust(ts, off)) {
+        r.save_config = true;
+    }
+    return r;
+}
 
 inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_point now,
                                      const std::filesystem::path& config_dir) {
@@ -218,17 +298,8 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         r.open_alarm_dialog = true;
         break;
     case A_TMR_RST_ALL:
-        for (auto& ts : app.timers) {
-            ts.notified = false;
-            if (ts.pomodoro) {
-                ts.pomodoro_phase = 0;
-                ts.dur = std::chrono::seconds{app.pomodoro_work_secs};
-                ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
-                ts.pomodoro_work_elapsed = {};
-            }
-            ts.t.reset();
-            ts.t.set(ts.dur);
-        }
+        for (auto& ts : app.timers)
+            reset_timer_slot(ts, app);
         r.save_config = true;
         break;
     default:
@@ -248,77 +319,7 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         } else if (act >= A_TMR_BASE) {
             int idx = (act - A_TMR_BASE) / TMR_STRIDE;
             int off = (act - A_TMR_BASE) % TMR_STRIDE;
-            if (idx < 0 || idx >= (int)app.timers.size()) break;
-            auto& ts = app.timers[idx];
-            if (off == A_TMR_START) {
-                if (!ts.t.touched()) {
-                    if (ts.dur.count() > 0) ts.t.start(now);
-                } else if (ts.t.is_running())
-                    ts.t.pause(now);
-                else
-                    ts.t.start(now);
-            } else if (off == A_TMR_RST) {
-                ts.notified = false;
-                if (ts.pomodoro) {
-                    ts.pomodoro_phase = 0;
-                    ts.dur = std::chrono::seconds{app.pomodoro_work_secs};
-                    ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
-                    ts.pomodoro_work_elapsed = {};
-                }
-                ts.t.reset();
-                ts.t.set(ts.dur);
-            } else if (off == A_TMR_ADD) {
-                if ((int)app.timers.size() < Config::MAX_TIMERS) {
-                    TimerSlot ns;
-                    ns.t.set(ns.dur);
-                    app.timers.insert(app.timers.begin() + idx + 1, ns);
-                    r.resize = true;
-                    r.save_config = true;
-                }
-            } else if (off == A_TMR_DEL) {
-                if ((int)app.timers.size() > 1) {
-                    app.timers.erase(app.timers.begin() + idx);
-                    r.resize = true;
-                    r.save_config = true;
-                }
-            } else if (off == A_TMR_POMO) {
-                if (!ts.t.touched()) {
-                    if (ts.pomodoro) {
-                        ts.pomodoro = false;
-                        ts.label.clear();
-                    } else {
-                        ts.pomodoro = true;
-                        ts.pomodoro_phase = 0;
-                        ts.pomodoro_work_elapsed = {};
-                        ts.dur = seconds{app.pomodoro_work_secs};
-                        ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
-                        ts.notified = false;
-                        ts.t.reset();
-                        ts.t.set(ts.dur);
-                    }
-                    r.save_config = true;
-                }
-            } else if (off == A_TMR_SKIP) {
-                if (ts.pomodoro && ts.t.touched()) {
-                    if (pomodoro_is_work(ts.pomodoro_phase)) {
-                        auto elapsed = duration_cast<seconds>(ts.t.total_elapsed(now));
-                        ts.pomodoro_work_elapsed += elapsed;
-                    }
-                    ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase, app.pomodoro_cadence);
-                    auto secs = seconds{pomodoro_phase_secs(ts.pomodoro_phase,
-                        app.pomodoro_work_secs, app.pomodoro_short_secs, app.pomodoro_long_secs,
-                        app.pomodoro_cadence)};
-                    ts.dur = secs;
-                    ts.notified = false;
-                    ts.t.reset();
-                    ts.t.set(secs);
-                    ts.t.start(now);
-                    ts.label = pomodoro_phase_label(ts.pomodoro_phase, app.pomodoro_cadence);
-                    r.save_config = true;
-                }
-            } else if (!ts.t.touched() && apply_timer_hms_adjust(ts, off)) {
-                r.save_config = true;
-            }
+            r = dispatch_timer_action(app, idx, off, now);
         }
     }
     return r;

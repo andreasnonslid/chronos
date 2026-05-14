@@ -2,7 +2,6 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <format>
-#include <vector>
 #include "app.hpp"
 #include "dialog_style.hpp"
 
@@ -22,35 +21,12 @@ constexpr WORD CLS_BUTTON = 0x0080;
 constexpr WORD CLS_EDIT   = 0x0081;
 constexpr WORD CLS_STATIC = 0x0082;
 
-struct Buf {
-    std::vector<WORD> data;
-    void align4() { while (data.size() % 2) data.push_back(0); }
-    void push_word(WORD w)  { data.push_back(w); }
-    void push_dword(DWORD d) { data.push_back(LOWORD(d)); data.push_back(HIWORD(d)); }
-    void push_wstr(const wchar_t* s) { while (*s) data.push_back((WORD)*s++); data.push_back(0); }
-    void push_wstr_empty() { data.push_back(0); }
-};
-
-inline void add_item(Buf& b, DWORD style, DWORD exStyle,
-                     short x, short y, short cx, short cy,
-                     WORD id, WORD cls_atom, const wchar_t* title) {
-    b.align4();
-    b.push_dword(WS_CHILD | WS_VISIBLE | style);
-    b.push_dword(exStyle);
-    b.push_word((WORD)x);  b.push_word((WORD)y);
-    b.push_word((WORD)cx); b.push_word((WORD)cy);
-    b.push_word(id);
-    b.push_word(0xFFFF); b.push_word(cls_atom);
-    b.push_wstr(title);
-    b.push_word(0);
-}
-
 // 3 labels + 3 edits + 3 "min" statics + 2 buttons = 11
 constexpr WORD DLG_ITEM_COUNT = 11;
 constexpr short DLG_W = 170, DLG_H = 110;
 
 inline std::vector<WORD> build_template() {
-    Buf b;
+    DlgBuf b;
 
     b.push_dword(WS_POPUP | WS_BORDER);
     b.push_dword(0);
@@ -72,40 +48,40 @@ inline std::vector<WORD> build_template() {
     short row_h = 12;
 
     // Row 0 — Work
-    add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
-             lbl_x, row_y0, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Work");
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
-             ed_x, row_y0, ed_w, row_h, IDC_POMO_WORK, CLS_EDIT, L"");
-    add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
-             min_x, row_y0, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
+    dlg_add_item(b, SS_RIGHT | SS_CENTERIMAGE,
+                 lbl_x, row_y0, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Work");
+    dlg_add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP,
+                 ed_x, row_y0, ed_w, row_h, IDC_POMO_WORK, CLS_EDIT, L"");
+    dlg_add_item(b, SS_LEFT | SS_CENTERIMAGE,
+                 min_x, row_y0, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
 
     // Row 1 — Short break
     short r1 = row_y0 + row_sp;
-    add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
-             lbl_x, r1, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Short break");
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
-             ed_x, r1, ed_w, row_h, IDC_POMO_SHORT, CLS_EDIT, L"");
-    add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
-             min_x, r1, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
+    dlg_add_item(b, SS_RIGHT | SS_CENTERIMAGE,
+                 lbl_x, r1, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Short break");
+    dlg_add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP,
+                 ed_x, r1, ed_w, row_h, IDC_POMO_SHORT, CLS_EDIT, L"");
+    dlg_add_item(b, SS_LEFT | SS_CENTERIMAGE,
+                 min_x, r1, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
 
     // Row 2 — Long break
     short r2 = row_y0 + 2 * row_sp;
-    add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
-             lbl_x, r2, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Long break");
-    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
-             ed_x, r2, ed_w, row_h, IDC_POMO_LONG, CLS_EDIT, L"");
-    add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
-             min_x, r2, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
+    dlg_add_item(b, SS_RIGHT | SS_CENTERIMAGE,
+                 lbl_x, r2, lbl_w, row_h, 0xFFFF, CLS_STATIC, L"Long break");
+    dlg_add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP,
+                 ed_x, r2, ed_w, row_h, IDC_POMO_LONG, CLS_EDIT, L"");
+    dlg_add_item(b, SS_LEFT | SS_CENTERIMAGE,
+                 min_x, r2, min_w, row_h, 0xFFFF, CLS_STATIC, L"min");
 
     // Buttons — centered at bottom
     short btn_y = row_y0 + 3 * row_sp + 4;
     short btn_w = 44, btn_h = 16, btn_gap = 8;
     short total_w = 2 * btn_w + btn_gap;
     short btn_x0 = (DLG_W - total_w) / 2;
-    add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
-             btn_x0, btn_y, btn_w, btn_h, IDC_BTN_OK, CLS_BUTTON, L"OK");
-    add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
-             btn_x0 + btn_w + btn_gap, btn_y, btn_w, btn_h, IDC_BTN_CANCEL, CLS_BUTTON, L"Cancel");
+    dlg_add_item(b, BS_OWNERDRAW | WS_TABSTOP,
+                 btn_x0, btn_y, btn_w, btn_h, IDC_BTN_OK, CLS_BUTTON, L"OK");
+    dlg_add_item(b, BS_OWNERDRAW | WS_TABSTOP,
+                 btn_x0 + btn_w + btn_gap, btn_y, btn_w, btn_h, IDC_BTN_CANCEL, CLS_BUTTON, L"Cancel");
 
     return b.data;
 }
@@ -115,6 +91,9 @@ inline std::vector<WORD> build_template() {
 struct Params {
     int work_min, short_min, long_min;
     DlgStyle style;
+    GdiObj brush_bg{};
+    GdiObj brush_edit{};
+    GdiObj brush_btn{};
 };
 
 inline bool read_field(HWND dlg, int id, int& out) {
@@ -159,6 +138,10 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             return TRUE;
         }, (LPARAM)p);
 
+        p->brush_bg   = GdiObj{CreateSolidBrush(p->style.theme->bg)};
+        p->brush_edit = GdiObj{CreateSolidBrush(p->style.theme->bar)};
+        p->brush_btn  = GdiObj{CreateSolidBrush(p->style.theme->bg)};
+
         SetFocus(GetDlgItem(dlg, IDC_POMO_WORK));
         SendDlgItemMessageW(dlg, IDC_POMO_WORK, EM_SETSEL, 0, -1);
         return FALSE;
@@ -193,32 +176,21 @@ inline INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CTLCOLORSTATIC: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        HDC hdc = (HDC)wp;
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkMode(hdc, TRANSPARENT);
-        static HBRUSH s_bg = nullptr;
-        if (s_bg) DeleteObject(s_bg);
-        s_bg = CreateSolidBrush(p->style.theme->bg);
-        return (INT_PTR)s_bg;
+        SetTextColor((HDC)wp, p->style.theme->text);
+        SetBkMode((HDC)wp, TRANSPARENT);
+        return (INT_PTR)p->brush_bg.h;
     }
     case WM_CTLCOLOREDIT: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        HDC hdc = (HDC)wp;
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkColor(hdc, p->style.theme->bar);
-        static HBRUSH s_edit_bg = nullptr;
-        if (s_edit_bg) DeleteObject(s_edit_bg);
-        s_edit_bg = CreateSolidBrush(p->style.theme->bar);
-        return (INT_PTR)s_edit_bg;
+        SetTextColor((HDC)wp, p->style.theme->text);
+        SetBkColor((HDC)wp, p->style.theme->bar);
+        return (INT_PTR)p->brush_edit.h;
     }
     case WM_CTLCOLORBTN: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        static HBRUSH s_btn_bg = nullptr;
-        if (s_btn_bg) DeleteObject(s_btn_bg);
-        s_btn_bg = CreateSolidBrush(p->style.theme->bg);
-        return (INT_PTR)s_btn_bg;
+        return (INT_PTR)p->brush_btn.h;
     }
     case WM_NCHITTEST: {
         RECT title_rc = {0, 0, DLG_W, 22};

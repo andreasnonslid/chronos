@@ -57,4 +57,8 @@ struct Params {
     HitRects rects{};
     int scroll_y = 0;       // current scroll offset in pixels
     RECT clock_combo_rc{};  // base pixel rect of the combobox (unscrolled)
+    GdiObj brush_bg{};
+    GdiObj brush_edit{};
+    GdiObj brush_btn{};
+    GdiObj brush_combo{};
 };
