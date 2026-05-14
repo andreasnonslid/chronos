@@ -47,6 +47,18 @@ constexpr int A_TMR_DEL = 9;
 constexpr int A_TMR_POMO = 10;
 constexpr int A_TMR_SKIP = 11;
 
+inline void reset_timer_slot(TimerSlot& ts, const App& app) {
+    ts.notified = false;
+    if (ts.pomodoro) {
+        ts.pomodoro_phase = 0;
+        ts.dur = std::chrono::seconds{app.pomodoro_work_secs};
+        ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
+        ts.pomodoro_work_elapsed = {};
+    }
+    ts.t.reset();
+    ts.t.set(ts.dur);
+}
+
 inline bool apply_timer_hms_adjust(TimerSlot& ts, int off) {
     auto total = ts.dur.count();
     int h = (int)(total / 3600);
@@ -218,17 +230,8 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         r.open_alarm_dialog = true;
         break;
     case A_TMR_RST_ALL:
-        for (auto& ts : app.timers) {
-            ts.notified = false;
-            if (ts.pomodoro) {
-                ts.pomodoro_phase = 0;
-                ts.dur = std::chrono::seconds{app.pomodoro_work_secs};
-                ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
-                ts.pomodoro_work_elapsed = {};
-            }
-            ts.t.reset();
-            ts.t.set(ts.dur);
-        }
+        for (auto& ts : app.timers)
+            reset_timer_slot(ts, app);
         r.save_config = true;
         break;
     default:
@@ -258,15 +261,7 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
                 else
                     ts.t.start(now);
             } else if (off == A_TMR_RST) {
-                ts.notified = false;
-                if (ts.pomodoro) {
-                    ts.pomodoro_phase = 0;
-                    ts.dur = std::chrono::seconds{app.pomodoro_work_secs};
-                    ts.label = pomodoro_phase_label(0, app.pomodoro_cadence);
-                    ts.pomodoro_work_elapsed = {};
-                }
-                ts.t.reset();
-                ts.t.set(ts.dur);
+                reset_timer_slot(ts, app);
             } else if (off == A_TMR_ADD) {
                 if ((int)app.timers.size() < Config::MAX_TIMERS) {
                     TimerSlot ns;
