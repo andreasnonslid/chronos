@@ -61,9 +61,8 @@ static void position_scrollable_controls(HWND dlg, const Params& p) {
     SetWindowPos(combo, nullptr,
                  p.clock_combo_rc.left,
                  p.clock_combo_rc.top - p.scroll_y,
-                 p.clock_combo_rc.right - p.clock_combo_rc.left,
-                 p.clock_combo_rc.bottom - p.clock_combo_rc.top,
-                 SWP_NOZORDER | SWP_NOACTIVATE);
+                 0, 0,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
 }
 
 static int rect_bottom_after_scroll(const RECT& r, const Params& p) {

@@ -27,8 +27,8 @@ static HitRects compute_rects(HWND dlg) {
     h.sidebar[3] = map_dlu(dlg, 3, 72, 56, 14);
 
     // Analog settings sit below the format dropdown (which is at y=40, h=12).
-    // Preview is fixed (sticky) at y=58; right column starts at x=158.
-    h.analog_preview = map_dlu(dlg, 68, 58, 80, 80);
+    // "Live preview" label at y=64 (h=8), preview fixed (sticky) at y=76; right column starts at x=158.
+    h.analog_preview = map_dlu(dlg, 68, 76, 80, 80);
     h.analog_min_ticks = map_dlu(dlg, 158,  64, 122, 12);
     h.analog_labels[0] = map_dlu(dlg, 158,  92,  40, 12);
     h.analog_labels[1] = map_dlu(dlg, 202,  92,  40, 12);
