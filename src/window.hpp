@@ -67,12 +67,6 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             ShowWindow(hwnd, SW_HIDE);
             return 0;
         }
-        {
-            RECT cr;
-            GetClientRect(hwnd, &cr);
-            if (cr.bottom != client_height(*s))
-                resize_window(hwnd, *s);
-        }
         break;
     case WM_TRAYICON: {
         auto tray_restore = [&] {
@@ -115,34 +109,30 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         EndPaint(hwnd, &ps);
         return 0;
     }
-    case WM_SIZING: {
-        int want_h = client_height(*s) + nonclient_height(hwnd);
-        auto* r = (RECT*)lp;
-        if (wp == WMSZ_TOP || wp == WMSZ_TOPLEFT || wp == WMSZ_TOPRIGHT)
-            r->top = r->bottom - want_h;
-        else
-            r->bottom = r->top + want_h;
-        return TRUE;
+    case WM_WINDOWPOSCHANGING: {
+        // Enforce fixed height before any size change is applied.
+        auto* pos = (WINDOWPOS*)lp;
+        if (!(pos->flags & SWP_NOSIZE))
+            pos->cy = client_height(*s) + nonclient_height(hwnd);
+        break;
     }
     case WM_GETMINMAXINFO: {
+        // Only enforce minimum width; height is handled by WM_WINDOWPOSCHANGING.
         auto* m = (MINMAXINFO*)lp;
         DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
         RECT adj{0, 0, s->layout.bar_min_client_w(), 0};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         m->ptMinTrackSize.x = adj.right - adj.left;
-        RECT adj_h{0, 0, 0, client_height(*s)};
-        AdjustWindowRectEx(&adj_h, ws, FALSE, 0);
-        m->ptMinTrackSize.y = adj_h.bottom - adj_h.top;
-        m->ptMaxTrackSize.y = m->ptMinTrackSize.y;
         return 0;
     }
     case WM_DPICHANGED: {
         s->layout.update_for_dpi(HIWORD(wp));
         recreate_fonts(*s);
         auto* suggested = (RECT*)lp;
-        SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left,
-                     suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
-        resize_window(hwnd, *s);
+        // Apply suggested position and DPI-scaled width; WM_WINDOWPOSCHANGING enforces the correct height.
+        SetWindowPos(hwnd, nullptr, suggested->left, suggested->top,
+                     suggested->right - suggested->left, suggested->bottom - suggested->top,
+                     SWP_NOZORDER | SWP_NOACTIVATE);
         InvalidateRect(hwnd, nullptr, TRUE);
         return 0;
     }
