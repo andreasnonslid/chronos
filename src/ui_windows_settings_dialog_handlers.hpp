@@ -18,6 +18,11 @@ static void center_dialog_on_parent(HWND dlg) {
     SetWindowPos(dlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
+static void tab_appearance_init(HWND dlg, Params& p) {
+    CheckRadioButton(dlg, IDC_THEME_AUTO, IDC_THEME_DARK, IDC_THEME_AUTO + (int)p.theme_mode);
+    CheckDlgButton(dlg, IDC_SOUND, p.sound_on_expiry ? BST_CHECKED : BST_UNCHECKED);
+}
+
 static void tab_pomodoro_init(HWND dlg, Params& p) {
     SetDlgItemTextW(dlg, IDC_POMO_WORK,    std::format(L"{}", p.work_min).c_str());
     SetDlgItemTextW(dlg, IDC_POMO_SHORT,   std::format(L"{}", p.short_min).c_str());
@@ -27,6 +32,7 @@ static void tab_pomodoro_init(HWND dlg, Params& p) {
     SendDlgItemMessageW(dlg, IDC_POMO_SHORT,   EM_SETLIMITTEXT, 4, 0);
     SendDlgItemMessageW(dlg, IDC_POMO_LONG,    EM_SETLIMITTEXT, 4, 0);
     SendDlgItemMessageW(dlg, IDC_POMO_CADENCE, EM_SETLIMITTEXT, 2, 0);
+    CheckDlgButton(dlg, IDC_AUTO_START, p.auto_start ? BST_CHECKED : BST_UNCHECKED);
 }
 
 static void tab_timers_init(HWND dlg, Params& p) {
@@ -52,12 +58,14 @@ static void tab_clock_init(HWND dlg, Params& p) {
 }
 
 static void set_active_tab(HWND dlg, Params& p, int tab) {
+    set_appearance_visible(dlg, false);
     set_pomo_visible(dlg, false);
     set_presets_visible(dlg, false);
     set_clock_combo_visible(dlg, false);
 
     p.active_tab = tab;
 
+    set_appearance_visible(dlg, tab == TAB_APPEARANCE);
     set_pomo_visible(dlg, tab == TAB_POMODORO);
     set_presets_visible(dlg, tab == TAB_TIMERS);
     set_clock_combo_visible(dlg, tab == TAB_CLOCK);
@@ -66,9 +74,10 @@ static void set_active_tab(HWND dlg, Params& p, int tab) {
 }
 
 static void set_initial_tab_visibility(HWND dlg, Params& p) {
-    set_pomo_visible(dlg, false);
-    set_presets_visible(dlg, false);
-    set_clock_combo_visible(dlg, false);
+    set_appearance_visible(dlg, p.active_tab == TAB_APPEARANCE);
+    set_pomo_visible(dlg, p.active_tab == TAB_POMODORO);
+    set_presets_visible(dlg, p.active_tab == TAB_TIMERS);
+    set_clock_combo_visible(dlg, p.active_tab == TAB_CLOCK);
     update_content_scroll(dlg, &p);
 }
 
@@ -232,6 +241,7 @@ static INT_PTR on_init(HWND dlg, LPARAM lp) {
     p->rects = compute_rects(dlg);
     p->clock_combo_rc = map_dlu(dlg, 68, 40, 212, 80);
 
+    tab_appearance_init(dlg, *p);
     tab_pomodoro_init(dlg, *p);
     tab_timers_init(dlg, *p);
     tab_clock_init(dlg, *p);
@@ -294,33 +304,9 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
         lbl.top += sdy; lbl.bottom += sdy;
         s.draw_label(hdc, lbl, L"Theme");
 
-        const wchar_t* names[] = {L"Auto", L"Light", L"Dark"};
-        for (int i = 0; i < 3; ++i) {
-            RECT r = p->rects.theme[i];
-            r.top += sdy; r.bottom += sdy;
-            paint_option_btn(hdc, r, names[i], (int)p->theme_mode == i, s);
-        }
-
         RECT slbl = map_dlu(dlg, 70, 88, 80, 8);
         slbl.top += sdy; slbl.bottom += sdy;
         s.draw_label(hdc, slbl, L"Notifications");
-
-        RECT sndr = p->rects.sound;
-        sndr.top += sdy; sndr.bottom += sdy;
-        paint_option_btn(hdc, sndr,
-                         p->sound_on_expiry ? L"Sound: on" : L"Sound: off",
-                         p->sound_on_expiry, s);
-
-    } else if (p->active_tab == TAB_POMODORO) {
-        RECT aslbl = map_dlu(dlg, 70, 105, 80, 8);
-        aslbl.top += sdy; aslbl.bottom += sdy;
-        s.draw_label(hdc, aslbl, L"Auto-start");
-
-        RECT asr = p->rects.auto_start;
-        asr.top += sdy; asr.bottom += sdy;
-        paint_option_btn(hdc, asr,
-                         p->auto_start ? L"On" : L"Off",
-                         p->auto_start, s);
 
     } else if (p->active_tab == TAB_CLOCK) {
         RECT lbl = map_dlu(dlg, 70, 28, 80, 12);
@@ -488,21 +474,6 @@ static INT_PTR on_left_button_down(HWND dlg, LPARAM lp) {
 
     POINT spt = {pt.x, pt.y + p->scroll_y};
 
-    if (p->active_tab == TAB_APPEARANCE) {
-        for (int i = 0; i < 3; ++i) {
-            if (PtInRect(&p->rects.theme[i], spt)) {
-                p->theme_mode = (ThemeMode)i;
-                InvalidateRect(dlg, nullptr, TRUE);
-                return TRUE;
-            }
-        }
-        if (PtInRect(&p->rects.sound, spt)) {
-            p->sound_on_expiry = !p->sound_on_expiry;
-            InvalidateRect(dlg, nullptr, TRUE);
-            return TRUE;
-        }
-    }
-
     if (p->active_tab == TAB_CLOCK && p->clock_view == ClockView::Analog) {
         if (PtInRect(&p->rects.analog_min_ticks, spt)) {
             p->analog_style.show_minute_ticks = !p->analog_style.show_minute_ticks;
@@ -542,12 +513,6 @@ static INT_PTR on_left_button_down(HWND dlg, LPARAM lp) {
         }
     }
 
-    if (p->active_tab == TAB_POMODORO && PtInRect(&p->rects.auto_start, spt)) {
-        p->auto_start = !p->auto_start;
-        InvalidateRect(dlg, nullptr, TRUE);
-        return TRUE;
-    }
-
     return FALSE;
 }
 
@@ -584,6 +549,16 @@ static INT_PTR on_mouse_wheel(HWND dlg, WPARAM wp) {
     return TRUE;
 }
 
+static void tab_appearance_commit(HWND dlg, Params& p) {
+    for (int i = 0; i < 3; ++i) {
+        if (IsDlgButtonChecked(dlg, IDC_THEME_AUTO + i) == BST_CHECKED) {
+            p.theme_mode = (ThemeMode)i;
+            break;
+        }
+    }
+    p.sound_on_expiry = IsDlgButtonChecked(dlg, IDC_SOUND) == BST_CHECKED;
+}
+
 static bool tab_pomodoro_commit(HWND dlg, Params& p) {
     int w = 0, s = 0, l = 0, cad = 0;
     if (!read_field(dlg, IDC_POMO_WORK, w) ||
@@ -613,6 +588,7 @@ static bool tab_pomodoro_commit(HWND dlg, Params& p) {
     p.short_min = s;
     p.long_min = l;
     p.cadence = cad;
+    p.auto_start = IsDlgButtonChecked(dlg, IDC_AUTO_START) == BST_CHECKED;
     return true;
 }
 
@@ -634,6 +610,7 @@ static bool tab_timers_commit(HWND dlg, Params& p) {
 }
 
 static bool commit_all_tabs(HWND dlg, Params& p) {
+    tab_appearance_commit(dlg, p);
     return tab_pomodoro_commit(dlg, p) && tab_timers_commit(dlg, p);
 }
 

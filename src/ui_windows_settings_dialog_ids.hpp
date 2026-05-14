@@ -26,6 +26,12 @@ constexpr int IDC_PRESET_MIN3  = 328;
 constexpr int IDC_PRESET_MIN4  = 329;
 constexpr int IDC_CLOCK_COMBO  = 330;
 
+constexpr int IDC_THEME_AUTO  = 340;
+constexpr int IDC_THEME_LIGHT = 341;
+constexpr int IDC_THEME_DARK  = 342;
+constexpr int IDC_SOUND       = 343;
+constexpr int IDC_AUTO_START  = 344;
+
 constexpr WORD CLS_BUTTON   = 0x0080;
 constexpr WORD CLS_EDIT     = 0x0081;
 constexpr WORD CLS_STATIC   = 0x0082;

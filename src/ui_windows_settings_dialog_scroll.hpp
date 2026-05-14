@@ -18,12 +18,22 @@ static int content_area_bottom(HWND dlg) {
     return r.bottom;
 }
 
+static void set_appearance_visible(HWND dlg, bool show) {
+    int cmd = show ? SW_SHOW : SW_HIDE;
+    for (int id = IDC_THEME_AUTO; id <= IDC_SOUND; ++id) {
+        HWND h = GetDlgItem(dlg, id);
+        if (h) ShowWindow(h, cmd);
+    }
+}
+
 static void set_pomo_visible(HWND dlg, bool show) {
     int cmd = show ? SW_SHOW : SW_HIDE;
     for (int id = IDC_POMO_WORK; id <= IDC_MIN_CADENCE; ++id) {
         HWND h = GetDlgItem(dlg, id);
         if (h) ShowWindow(h, cmd);
     }
+    HWND h = GetDlgItem(dlg, IDC_AUTO_START);
+    if (h) ShowWindow(h, cmd);
 }
 
 static void set_presets_visible(HWND dlg, bool show) {
@@ -62,13 +72,6 @@ static int rect_bottom_after_scroll(const RECT& r, const Params& p) {
 
 static int tab_painted_content_bottom(HWND dlg, const Params& p) {
     switch (p.active_tab) {
-    case TAB_APPEARANCE:
-        return std::max({
-            rect_bottom_after_scroll(p.rects.theme[0], p),
-            rect_bottom_after_scroll(p.rects.theme[1], p),
-            rect_bottom_after_scroll(p.rects.theme[2], p),
-            rect_bottom_after_scroll(p.rects.sound, p),
-        });
     case TAB_CLOCK: {
         if (p.clock_view != ClockView::Analog) {
             return map_dlu(dlg, 70, 28, 80, 12).bottom;
@@ -86,8 +89,6 @@ static int tab_painted_content_bottom(HWND dlg, const Params& p) {
             bottom = std::max(bottom, rect_bottom_after_scroll(p.rects.analog_values[i], p));
         return bottom;
     }
-    case TAB_POMODORO:
-        return rect_bottom_after_scroll(p.rects.auto_start, p);
     case TAB_TIMERS:
         return map_dlu(dlg, 76, 104, 16, 12).bottom;
     default:
