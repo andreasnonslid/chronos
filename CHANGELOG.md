@@ -5,6 +5,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-05-14
+
+### Changed
+- Theme selector (Auto/Light/Dark), notification sound toggle, and Pomodoro auto-start are now native Win32 `BS_AUTORADIOBUTTON` / `BS_AUTOCHECKBOX` controls — keyboard navigation and focus handling come for free; the manual hit-test blocks, custom painting, and `HitRects` fields are removed (#341)
+
+## [1.15.0] — 2026-05-14
+
+### Changed
+- Right-click on a value button in analog clock settings decrements by step (wrapping to max at min); right-click on a colour button resets it to "auto" (−1), removing the custom colour without cycling through the full palette (#340)
+
+## [1.14.0] — 2026-05-14
+
+### Added
+- **Alarms** — named alarms with weekday-mask or specific-date schedules; Add Alarm dialog with per-alarm On/Off and Delete controls; alarm fires with audio, screen flash, and tray balloon notification; all alarms persisted to `config.ini` (#330)
+
+## [1.13.2] — 2026-05-14
+
+### Fixed
+- Clock config dialog is now wider (240→290 DLU) and taller (default 156→185 DLU), resizable via `WS_THICKFRAME`, and correctly draggable via the custom title bar; Apply/Cancel buttons reposition on resize; minimum size enforced via `WM_GETMINMAXINFO` (#329)
+
+## [1.13.1] — 2026-05-13
+
+### Fixed
+- Eliminated residual empty space below the bottom widget on monitors where the DPI scale does not round to a whole pixel (#321)
+- Updated analog arm-length clamp test to reflect the corrected 0–100 range
+
+## [1.13.0] — 2026-05-13
+
+### Changed
+- Analog clock settings panel: enhanced rendering options (hand colours, thickness, lengths), improved painting in `painting_analog.hpp`, additional config fields persisted to `config.ini`, and expanded config test coverage (#314)
+
+### Fixed
+- Clock settings scroll no longer loses track of the active switch when switching tabs (#314)
+
+## [1.12.0] — 2026-05-13
+
+### Added
+- X11 / Linux UI stub (`ui_linux.hpp`) — the codebase now compiles and runs core logic tests on Linux; Windows-specific UI code is isolated in `ui_windows*.hpp` headers (#303)
+
+### Changed
+- Monolithic `settings_dialog.hpp` split into focused headers: `ui_windows_settings_dialog_handlers.hpp`, `_ids.hpp`, `_paint.hpp`, `_scroll.hpp`, `_show.hpp`, `_state.hpp`, `_template.hpp` (#303)
+
+### Fixed
+- Win32 `RECT` field values now correctly cast when computing scroll bounds (#303)
+
+### Internal
+- CI: head branches are automatically deleted after a PR is merged
+
 ## [1.11.0] — 2026-05-12
 
 ### Added
@@ -236,7 +284,14 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/andreasnonslid/chronos/compare/v1.15.0...v1.16.0
+[1.15.0]: https://github.com/andreasnonslid/chronos/compare/v1.14.0...v1.15.0
+[1.14.0]: https://github.com/andreasnonslid/chronos/compare/v1.13.2...v1.14.0
+[1.13.2]: https://github.com/andreasnonslid/chronos/compare/v1.13.1...v1.13.2
+[1.13.1]: https://github.com/andreasnonslid/chronos/compare/v1.13.0...v1.13.1
+[1.13.0]: https://github.com/andreasnonslid/chronos/compare/v1.12.0...v1.13.0
+[1.12.0]: https://github.com/andreasnonslid/chronos/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/andreasnonslid/chronos/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/andreasnonslid/chronos/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/andreasnonslid/chronos/compare/v1.8.0...v1.9.0
