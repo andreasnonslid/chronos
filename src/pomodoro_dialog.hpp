@@ -91,9 +91,9 @@ inline std::vector<WORD> build_template() {
 struct Params {
     int work_min, short_min, long_min;
     DlgStyle style;
-    GdiObj brush_bg;
-    GdiObj brush_edit;
-    GdiObj brush_btn;
+    GdiObj brush_bg{};
+    GdiObj brush_edit{};
+    GdiObj brush_btn{};
 };
 
 inline bool read_field(HWND dlg, int id, int& out) {

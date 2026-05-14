@@ -37,9 +37,9 @@ struct Params {
     RECT rc_days_btn{};
     RECT rc_date_btn{};
     RECT rc_day[7]{};  // Mon-Sun painted toggles
-    GdiObj brush_bg;
-    GdiObj brush_edit;
-    GdiObj brush_btn;
+    GdiObj brush_bg{};
+    GdiObj brush_edit{};
+    GdiObj brush_btn{};
 };
 
 // ─── Template builder ─────────────────────────────────────────────────────────
