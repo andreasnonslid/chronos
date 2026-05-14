@@ -666,6 +666,39 @@ static INT_PTR on_command(HWND dlg, WPARAM wp) {
     return FALSE;
 }
 
+static INT_PTR on_right_button_down(HWND dlg, LPARAM lp) {
+    auto* p = dialog_params(dlg);
+    if (!p) return FALSE;
+    if (p->active_tab != TAB_CLOCK || p->clock_view != ClockView::Analog) return FALSE;
+
+    POINT spt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp) + p->scroll_y};
+
+    for (int i = 0; i < ANALOG_COLOR_COUNT; ++i) {
+        if (PtInRect(&p->rects.analog_colors[i], spt)) {
+            int* field = analog_color_field(p->analog_style, i);
+            if (field) {
+                *field = -1;
+                InvalidateRect(dlg, nullptr, TRUE);
+                return TRUE;
+            }
+        }
+    }
+    for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
+        if (PtInRect(&p->rects.analog_values[i], spt)) {
+            int* field = analog_value_field(p->analog_style, i);
+            if (field) {
+                int min_v, max_v, step;
+                analog_value_range(i, min_v, max_v, step);
+                *field -= step;
+                if (*field < min_v) *field = max_v;
+                InvalidateRect(dlg, nullptr, TRUE);
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
 static INT_PTR on_key_down(HWND dlg, WPARAM wp) {
     if (wp == VK_ESCAPE) {
         EndDialog(dlg, IDCANCEL);
@@ -692,6 +725,7 @@ static INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_NCHITTEST:        return on_nc_hit_test(dlg, lp);
     case WM_DRAWITEM:         return on_draw_item(dlg, lp);
     case WM_LBUTTONDOWN:      return on_left_button_down(dlg, lp);
+    case WM_RBUTTONDOWN:      return on_right_button_down(dlg, lp);
     case WM_VSCROLL:          return on_scroll(dlg, wp);
     case WM_MOUSEWHEEL:       return on_mouse_wheel(dlg, wp);
     case WM_COMMAND:          return on_command(dlg, wp);
