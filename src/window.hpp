@@ -134,6 +134,14 @@ inline LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         AdjustWindowRectEx(&adj_h, ws, FALSE, 0);
         m->ptMinTrackSize.y = adj_h.bottom - adj_h.top;
         m->ptMaxTrackSize.y = m->ptMinTrackSize.y;
+        m->ptMaxSize.y = m->ptMinTrackSize.y;
+        return 0;
+    }
+    case WM_WINDOWPOSCHANGED: {
+        RECT cr;
+        GetClientRect(hwnd, &cr);
+        if (cr.bottom != client_height(*s))
+            resize_window(hwnd, *s);
         return 0;
     }
     case WM_DPICHANGED: {
