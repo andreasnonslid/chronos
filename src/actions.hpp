@@ -148,6 +148,7 @@ inline HandleResult dispatch_timer_action(App& app, int idx, int off,
             ts.t.start(now);
     } else if (off == A_TMR_RST) {
         reset_timer_slot(ts, app);
+        r.save_config = true;
     } else if (off == A_TMR_ADD) {
         if ((int)app.timers.size() < Config::MAX_TIMERS) {
             TimerSlot ns;
