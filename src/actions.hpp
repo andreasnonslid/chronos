@@ -47,6 +47,7 @@ constexpr int A_TMR_DEL = 9;
 constexpr int A_TMR_POMO = 10;
 constexpr int A_TMR_SKIP = 11;
 
+/// Resets @p ts to its initial state, restoring pomodoro phase 0 if applicable.
 inline void reset_timer_slot(TimerSlot& ts, const App& app) {
     ts.notified = false;
     if (ts.pomodoro) {
@@ -130,6 +131,7 @@ struct HandleResult {
     bool open_alarm_dialog = false;
 };
 
+/// Handles a single timer-slot action (start/stop, adjust, add/del, pomodoro).
 inline HandleResult dispatch_timer_action(App& app, int idx, int off,
                                            std::chrono::steady_clock::time_point now) {
     using namespace std::chrono;

@@ -8,6 +8,7 @@
 
 // ─── Runtime DLGTEMPLATE builder ─────────────────────────────────────────────
 
+/// Word-stream buffer for building a DLGTEMPLATE at runtime.
 struct DlgBuf {
     std::vector<WORD> data;
     void align4() { while (data.size() % 2) data.push_back(0); }
@@ -17,6 +18,7 @@ struct DlgBuf {
     void push_wstr_empty() { data.push_back(0); }
 };
 
+/// Appends a DLGITEMTEMPLATE entry to @p b for a standard Win32 control class atom.
 inline void dlg_add_item(DlgBuf& b, DWORD style, short x, short y, short cx, short cy,
                           WORD id, WORD cls_atom, const wchar_t* title) {
     b.align4();
