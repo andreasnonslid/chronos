@@ -100,7 +100,7 @@ inline void check_alarms(HWND hwnd, WndState& s) {
         FlashWindowEx(&fi);
 
         if (s.tray_active) {
-            std::wstring name_w(a.name.begin(), a.name.end());
+            std::wstring name_w = utf8_to_wide(a.name);
             const wchar_t* title = L"Alarm";
             tray_notify(hwnd, title, name_w.empty() ? title : name_w.c_str());
         }

@@ -8,6 +8,7 @@
 #include <vector>
 #include "assert.hpp"
 #include "actions.hpp"
+#include "encoding.hpp"
 #include "app.hpp"
 #include "formatting.hpp"
 #include "layout.hpp"
@@ -142,15 +143,13 @@ inline int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
     int del_w = layout.dpi_scale(36);
     int tog_w = layout.dpi_scale(50);
 
+    HBRUSH stripe = CreateSolidBrush(th.bar);
     for (int i = 0; i < (int)ctx.app.alarms.size(); ++i) {
         const auto& a = ctx.app.alarms[i];
 
         RECT row_bg{0, row_y, cw, row_y + layout.alarm_row_h};
-        if (i % 2 == 1) {
-            HBRUSH stripe = CreateSolidBrush(th.bar);
+        if (i % 2 == 1)
             FillRect(hdc, &row_bg, stripe);
-            DeleteObject(stripe);
-        }
 
         // Build schedule string
         std::wstring sched;
@@ -167,7 +166,7 @@ inline int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
         }
         std::wstring label;
         {
-            std::wstring name_w(a.name.begin(), a.name.end());
+            std::wstring name_w = utf8_to_wide(a.name);
             if (!name_w.empty()) label = name_w + L"  ";
         }
         label += std::format(L"{:02}:{:02}  {}", a.hour, a.minute, sched);
@@ -191,12 +190,13 @@ inline int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
 
         row_y += layout.alarm_row_h;
     }
+    DeleteObject(stripe);
 
     if (ctx.app.alarms.empty()) {
         SetTextColor(hdc, th.dim);
-        RECT er{pad, row_y, cw - pad, row_y + layout.dpi_scale(28)};
+        RECT er{pad, row_y, cw - pad, row_y + layout.alarm_row_h};
         DrawTextW(hdc, L"No alarms set", -1, &er, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        row_y += layout.dpi_scale(28);
+        row_y += layout.alarm_row_h;
     }
 
     return row_y;

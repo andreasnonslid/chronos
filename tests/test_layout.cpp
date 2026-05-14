@@ -152,3 +152,18 @@ TEST_CASE("timer_index_at_y accounts for analog clock height", "[layout]") {
     REQUIRE(timer_index_at_y(l, s, top + 1) == 0);
     REQUIRE(timer_index_at_y(l, s, top - 1) == -1);
 }
+
+TEST_CASE("client_height_for: alarms visible with zero count reserves one row", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{false, false, false, true, 0, 0};
+    // bar_h + alarm_header_h + 1*alarm_row_h (empty-state row)
+    REQUIRE(client_height_for(l, s) == 36 + 42 + 32);
+}
+
+TEST_CASE("client_height_for: alarms visible with two alarms", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState s{false, false, false, true, 0, 2};
+    REQUIRE(client_height_for(l, s) == 36 + 42 + 2 * 32);
+}

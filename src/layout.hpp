@@ -111,7 +111,7 @@ inline int client_height_for(const Layout& layout, const LayoutState& state) {
     if (state.show_clk) h += effective_clk_h(layout, state.clock_view);
     if (state.show_sw) h += layout.sw_h;
     if (state.show_tmr) h += state.timer_count * layout.tmr_h;
-    if (state.show_alarms) h += layout.alarm_header_h + state.alarm_count * layout.alarm_row_h;
+    if (state.show_alarms) h += layout.alarm_header_h + (state.alarm_count > 0 ? state.alarm_count : 1) * layout.alarm_row_h;
     return h;
 }
 

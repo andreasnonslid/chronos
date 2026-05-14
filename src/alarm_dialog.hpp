@@ -5,6 +5,7 @@
 #include <string>
 #include "alarm.hpp"
 #include "dialog_style.hpp"
+#include "encoding.hpp"
 
 namespace alarm_dlg {
 
@@ -172,7 +173,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
         // Populate edits
         const auto& a = p->result;
-        std::wstring name_w(a.name.begin(), a.name.end());
+        std::wstring name_w = utf8_to_wide(a.name);
         SetDlgItemTextW(dlg, IDC_ALM_NAME, name_w.c_str());
         SendDlgItemMessageW(dlg, IDC_ALM_NAME, EM_SETLIMITTEXT, 40, 0);
         SetDlgItemTextW(dlg, IDC_ALM_HOUR, std::format(L"{:02}", a.hour).c_str());
@@ -332,7 +333,7 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             // Collect name
             wchar_t nbuf[48] = {};
             GetDlgItemTextW(dlg, IDC_ALM_NAME, nbuf, 47);
-            p->result.name = std::string(nbuf, nbuf + wcslen(nbuf));
+            p->result.name = wide_to_utf8(nbuf);
 
             // Hour
             wchar_t hbuf[4] = {};
@@ -368,6 +369,13 @@ inline INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
                 if (yr < 2000 || yr > 9999 || mo < 1 || mo > 12 || dy < 1 || dy > 31) {
                     MessageBeep(MB_ICONASTERISK);
                     SetFocus(GetDlgItem(dlg, IDC_ALM_YEAR));
+                    return TRUE;
+                }
+                SYSTEMTIME st_check{(WORD)yr, (WORD)mo, 0, (WORD)dy, 0, 0, 0, 0};
+                FILETIME ft_check;
+                if (!SystemTimeToFileTime(&st_check, &ft_check)) {
+                    MessageBeep(MB_ICONASTERISK);
+                    SetFocus(GetDlgItem(dlg, IDC_ALM_DAY));
                     return TRUE;
                 }
                 p->result.date_year  = (int)yr;

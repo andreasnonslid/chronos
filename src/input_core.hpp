@@ -66,6 +66,7 @@ inline void handle(HWND hwnd, int act, WndState& s) {
         }
     }
     if (r.open_alarm_dialog) {
+        if (s.app.alarms.size() >= (size_t)ALARM_MAX_COUNT) return;
         Alarm new_alarm;
         if (alarm_dlg::show_add_alarm_dialog(hwnd, new_alarm,
                 (HFONT)s.fontSm.h, s.active_theme, s.layout.dpi)) {
