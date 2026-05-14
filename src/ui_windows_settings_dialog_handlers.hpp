@@ -18,8 +18,15 @@ static void center_dialog_on_parent(HWND dlg) {
     SetWindowPos(dlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
+static constexpr struct { ThemeMode mode; int id; } kThemeMap[] = {
+    {ThemeMode::Auto,  IDC_THEME_AUTO},
+    {ThemeMode::Light, IDC_THEME_LIGHT},
+    {ThemeMode::Dark,  IDC_THEME_DARK},
+};
+
 static void tab_appearance_init(HWND dlg, Params& p) {
-    CheckRadioButton(dlg, IDC_THEME_AUTO, IDC_THEME_DARK, IDC_THEME_AUTO + (int)p.theme_mode);
+    for (auto& e : kThemeMap)
+        if (p.theme_mode == e.mode) { CheckRadioButton(dlg, IDC_THEME_AUTO, IDC_THEME_DARK, e.id); break; }
     CheckDlgButton(dlg, IDC_SOUND, p.sound_on_expiry ? BST_CHECKED : BST_UNCHECKED);
 }
 
@@ -246,6 +253,10 @@ static INT_PTR on_init(HWND dlg, LPARAM lp) {
     tab_timers_init(dlg, *p);
     tab_clock_init(dlg, *p);
     set_child_fonts(dlg, *p);
+    for (auto& e : kThemeMap)
+        if (HWND h = GetDlgItem(dlg, e.id)) SetWindowTheme(h, L"", L"");
+    for (int id : {IDC_SOUND, IDC_AUTO_START})
+        if (HWND h = GetDlgItem(dlg, id)) SetWindowTheme(h, L"", L"");
     set_initial_tab_visibility(dlg, *p);
     reposition_buttons(dlg);
     return FALSE;
@@ -414,6 +425,8 @@ static INT_PTR on_ctl_color(HWND dlg, UINT msg, HDC hdc) {
         return (INT_PTR)s_edit_bg;
     }
     case WM_CTLCOLORBTN: {
+        SetTextColor(hdc, p->style.theme->text);
+        SetBkMode(hdc, TRANSPARENT);
         static HBRUSH s_btn_bg = nullptr;
         if (s_btn_bg) DeleteObject(s_btn_bg);
         s_btn_bg = CreateSolidBrush(p->style.theme->bg);
@@ -550,9 +563,9 @@ static INT_PTR on_mouse_wheel(HWND dlg, WPARAM wp) {
 }
 
 static void tab_appearance_commit(HWND dlg, Params& p) {
-    for (int i = 0; i < 3; ++i) {
-        if (IsDlgButtonChecked(dlg, IDC_THEME_AUTO + i) == BST_CHECKED) {
-            p.theme_mode = (ThemeMode)i;
+    for (auto& e : kThemeMap) {
+        if (IsDlgButtonChecked(dlg, e.id) == BST_CHECKED) {
+            p.theme_mode = e.mode;
             break;
         }
     }
@@ -610,8 +623,10 @@ static bool tab_timers_commit(HWND dlg, Params& p) {
 }
 
 static bool commit_all_tabs(HWND dlg, Params& p) {
+    if (!tab_pomodoro_commit(dlg, p) || !tab_timers_commit(dlg, p))
+        return false;
     tab_appearance_commit(dlg, p);
-    return tab_pomodoro_commit(dlg, p) && tab_timers_commit(dlg, p);
+    return true;
 }
 
 static INT_PTR on_command(HWND dlg, WPARAM wp) {
