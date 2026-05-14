@@ -93,19 +93,19 @@ static std::vector<WORD> build_template() {
              68, 40, 212, 80, IDC_CLOCK_COMBO, CLS_COMBOBOX, L"");
 
     // Theme radio buttons (Appearance tab)
-    add_item(b, WS_GROUP | WS_TABSTOP | BS_AUTORADIOBUTTON, 0,
+    add_item(b, WS_GROUP | WS_TABSTOP | BS_OWNERDRAW, 0,
              70, 42, 54, 13, IDC_THEME_AUTO, CLS_BUTTON, L"Auto");
-    add_item(b, BS_AUTORADIOBUTTON, 0,
+    add_item(b, BS_OWNERDRAW, 0,
              70, 57, 54, 13, IDC_THEME_LIGHT, CLS_BUTTON, L"Light");
-    add_item(b, BS_AUTORADIOBUTTON, 0,
+    add_item(b, BS_OWNERDRAW, 0,
              70, 72, 54, 13, IDC_THEME_DARK, CLS_BUTTON, L"Dark");
 
     // Sound checkbox (Appearance tab)
-    add_item(b, WS_GROUP | WS_TABSTOP | BS_AUTOCHECKBOX, 0,
+    add_item(b, WS_GROUP | WS_TABSTOP | BS_OWNERDRAW, 0,
              70, 97, 100, 13, IDC_SOUND, CLS_BUTTON, L"Sound");
 
     // Auto-start checkbox (Pomodoro tab)
-    add_item(b, WS_GROUP | WS_TABSTOP | BS_AUTOCHECKBOX, 0,
+    add_item(b, WS_GROUP | WS_TABSTOP | BS_OWNERDRAW, 0,
              70, 115, 100, 13, IDC_AUTO_START, CLS_BUTTON, L"Auto-start");
 
     short btn_w = 44, btn_h = 16, btn_gap = 8;

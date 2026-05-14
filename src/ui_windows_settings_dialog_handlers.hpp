@@ -253,10 +253,6 @@ static INT_PTR on_init(HWND dlg, LPARAM lp) {
     tab_timers_init(dlg, *p);
     tab_clock_init(dlg, *p);
     set_child_fonts(dlg, *p);
-    for (auto& e : kThemeMap)
-        if (HWND h = GetDlgItem(dlg, e.id)) SetWindowTheme(h, L"", L"");
-    for (int id : {IDC_SOUND, IDC_AUTO_START})
-        if (HWND h = GetDlgItem(dlg, id)) SetWindowTheme(h, L"", L"");
     set_initial_tab_visibility(dlg, *p);
     reposition_buttons(dlg);
     return FALSE;
@@ -466,9 +462,18 @@ static INT_PTR on_draw_item(HWND dlg, LPARAM lp) {
     auto* di = reinterpret_cast<DRAWITEMSTRUCT*>(lp);
     if (di->CtlType != ODT_BUTTON) return FALSE;
 
-    const wchar_t* label = (di->CtlID == IDC_SET_OK) ? L"Apply" : L"Cancel";
-    bool focused = (di->itemState & ODS_FOCUS) != 0;
-    p->style.draw_button(di->hDC, di->rcItem, label, focused);
+    if (di->CtlID == IDC_SET_OK || di->CtlID == IDC_SET_CANCEL) {
+        const wchar_t* label = (di->CtlID == IDC_SET_OK) ? L"Apply" : L"Cancel";
+        bool focused = (di->itemState & ODS_FOCUS) != 0;
+        p->style.draw_button(di->hDC, di->rcItem, label, focused);
+        return TRUE;
+    }
+
+    bool is_radio = (di->CtlID == IDC_THEME_AUTO || di->CtlID == IDC_THEME_LIGHT || di->CtlID == IDC_THEME_DARK);
+    bool checked = (di->itemState & ODS_CHECKED) != 0;
+    wchar_t ctrl_label[64] = {};
+    GetWindowTextW(di->hwndItem, ctrl_label, 63);
+    p->style.draw_check_radio(di->hDC, di->rcItem, ctrl_label, checked, is_radio);
     return TRUE;
 }
 
@@ -642,6 +647,29 @@ static INT_PTR on_command(HWND dlg, WPARAM wp) {
                 update_content_scroll(dlg, p);
                 InvalidateRect(dlg, nullptr, TRUE);
             }
+        }
+        return TRUE;
+    case IDC_THEME_AUTO:
+    case IDC_THEME_LIGHT:
+    case IDC_THEME_DARK:
+        if (HIWORD(wp) == BN_CLICKED) {
+            CheckRadioButton(dlg, IDC_THEME_AUTO, IDC_THEME_DARK, LOWORD(wp));
+            for (auto& e : kThemeMap)
+                InvalidateRect(GetDlgItem(dlg, e.id), nullptr, FALSE);
+        }
+        return TRUE;
+    case IDC_SOUND:
+        if (HIWORD(wp) == BN_CLICKED) {
+            UINT cur = IsDlgButtonChecked(dlg, IDC_SOUND);
+            CheckDlgButton(dlg, IDC_SOUND, cur == BST_CHECKED ? BST_UNCHECKED : BST_CHECKED);
+            InvalidateRect(GetDlgItem(dlg, IDC_SOUND), nullptr, FALSE);
+        }
+        return TRUE;
+    case IDC_AUTO_START:
+        if (HIWORD(wp) == BN_CLICKED) {
+            UINT cur = IsDlgButtonChecked(dlg, IDC_AUTO_START);
+            CheckDlgButton(dlg, IDC_AUTO_START, cur == BST_CHECKED ? BST_UNCHECKED : BST_CHECKED);
+            InvalidateRect(GetDlgItem(dlg, IDC_AUTO_START), nullptr, FALSE);
         }
         return TRUE;
     case IDC_SET_OK: {

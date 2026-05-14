@@ -55,4 +55,52 @@ struct DlgStyle {
         RECT r = rc;
         DrawTextW(hdc, text, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
+
+    void draw_check_radio(HDC hdc, const RECT& rc, const wchar_t* text, bool checked, bool is_radio) const {
+        HBRUSH bg_br = CreateSolidBrush(theme->bg);
+        FillRect(hdc, &rc, bg_br);
+        DeleteObject(bg_br);
+
+        int h = rc.bottom - rc.top;
+        int gs = scale(10);
+        if (gs > h - 2) gs = h - 2;
+        int gy = rc.top + (h - gs) / 2;
+        RECT g = { rc.left + 2, gy, rc.left + 2 + gs, gy + gs };
+
+        HPEN pen = CreatePen(PS_SOLID, 1, theme->text);
+        HBRUSH fill = CreateSolidBrush(theme->bar);
+        auto* opn = (HPEN)SelectObject(hdc, pen);
+        auto* obr = (HBRUSH)SelectObject(hdc, fill);
+
+        if (is_radio) {
+            Ellipse(hdc, g.left, g.top, g.right, g.bottom);
+            if (checked) {
+                int margin = gs / 3;
+                HBRUSH dot = CreateSolidBrush(theme->text);
+                SelectObject(hdc, dot);
+                Ellipse(hdc, g.left + margin, g.top + margin, g.right - margin, g.bottom - margin);
+                SelectObject(hdc, obr);
+                DeleteObject(dot);
+            }
+        } else {
+            Rectangle(hdc, g.left, g.top, g.right, g.bottom);
+            if (checked) {
+                int m = gs / 5;
+                MoveToEx(hdc, g.left + m, g.top + gs / 2, nullptr);
+                LineTo(hdc, g.left + gs * 2 / 5, g.bottom - m - 1);
+                LineTo(hdc, g.right - m, g.top + m);
+            }
+        }
+
+        SelectObject(hdc, opn);
+        SelectObject(hdc, obr);
+        DeleteObject(pen);
+        DeleteObject(fill);
+
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, theme->text);
+        SelectObject(hdc, font);
+        RECT tr = { rc.left + gs + 6, rc.top, rc.right, rc.bottom };
+        DrawTextW(hdc, text, -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
 };
