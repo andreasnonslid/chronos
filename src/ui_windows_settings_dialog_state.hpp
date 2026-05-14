@@ -11,9 +11,6 @@ constexpr int ANALOG_VALUE_COUNT = 15;
 
 struct HitRects {
     RECT sidebar[TAB_COUNT];
-    RECT theme[3];
-    RECT sound;
-    RECT auto_start;
     RECT preset_row[5];
     RECT analog_preview;
     RECT analog_min_ticks;
@@ -29,10 +26,6 @@ static HitRects compute_rects(HWND dlg) {
     h.sidebar[2] = map_dlu(dlg, 3, 56, 56, 14);
     h.sidebar[3] = map_dlu(dlg, 3, 72, 56, 14);
 
-    h.theme[0] = map_dlu(dlg, 70, 42, 54, 13);
-    h.theme[1] = map_dlu(dlg, 70, 57, 54, 13);
-    h.theme[2] = map_dlu(dlg, 70, 72, 54, 13);
-
     // Analog settings sit below the format dropdown (which is at y=40, h=12).
     // Preview is fixed (sticky) at y=58; right column starts at x=158.
     h.analog_preview = map_dlu(dlg, 68, 58, 80, 80);
@@ -45,8 +38,6 @@ static HitRects compute_rects(HWND dlg) {
     for (int i = 0; i < ANALOG_VALUE_COUNT; ++i)
         h.analog_values[i] = map_dlu(dlg, 68, (short)(258 + i * 14), 214, 12);
 
-    h.sound      = map_dlu(dlg, 70,  97, 100, 13);
-    h.auto_start = map_dlu(dlg, 70, 115, 100, 13);
     for (int i = 0; i < 5; ++i)
         h.preset_row[i] = map_dlu(dlg, 96, (short)(40 + i * 16), 50, 12);
     return h;
