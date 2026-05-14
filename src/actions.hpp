@@ -26,7 +26,11 @@ enum Act {
     A_CLK_CYCLE,
     A_TMR_RST_ALL,
     A_SETTINGS,
-    A_TMR_BASE = 100,
+    A_SHOW_ALARMS,
+    A_ALARM_ADD,
+    A_TMR_BASE    = 100,
+    A_ALARM_DEL   = 500,  // A_ALARM_DEL + i to delete alarm i
+    A_ALARM_TOGGLE = 520, // A_ALARM_TOGGLE + i to enable/disable alarm i
 };
 
 constexpr int TMR_STRIDE = 12;
@@ -84,6 +88,8 @@ inline bool wants_blink(int act) {
     case A_SHOW_CLK:
     case A_SHOW_SW:
     case A_SHOW_TMR:
+    case A_SHOW_ALARMS:
+    case A_ALARM_ADD:
     case A_SW_START:
     case A_SW_COPY:
     case A_THEME:
@@ -91,7 +97,9 @@ inline bool wants_blink(int act) {
     case A_SETTINGS:
         return false;
     default:
-        if (act >= A_TMR_BASE) {
+        if (act >= A_ALARM_DEL && act < A_ALARM_DEL + ALARM_MAX_COUNT) return false;
+        if (act >= A_ALARM_TOGGLE && act < A_ALARM_TOGGLE + ALARM_MAX_COUNT) return false;
+        if (act >= A_TMR_BASE && act < A_ALARM_DEL) {
             int off = (act - A_TMR_BASE) % TMR_STRIDE;
             if (off == A_TMR_START || off == A_TMR_ADD || off == A_TMR_DEL) return false;
         }
@@ -107,6 +115,7 @@ struct HandleResult {
     bool copy_laps = false;
     bool apply_theme = false;
     bool open_settings = false;
+    bool open_alarm_dialog = false;
 };
 
 inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_point now,
@@ -200,6 +209,14 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
     case A_SETTINGS:
         r.open_settings = true;
         break;
+    case A_SHOW_ALARMS:
+        app.show_alarms = !app.show_alarms;
+        r.resize = true;
+        r.save_config = true;
+        break;
+    case A_ALARM_ADD:
+        r.open_alarm_dialog = true;
+        break;
     case A_TMR_RST_ALL:
         for (auto& ts : app.timers) {
             ts.notified = false;
@@ -215,7 +232,22 @@ inline HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock
         r.save_config = true;
         break;
     default:
-        if (act >= A_TMR_BASE) {
+        if (act >= A_ALARM_DEL && act < A_ALARM_DEL + ALARM_MAX_COUNT) {
+            int i = act - A_ALARM_DEL;
+            if (i >= 0 && i < (int)app.alarms.size()) {
+                app.alarms.erase(app.alarms.begin() + i);
+                if (i < (int)app.alarm_notified.size())
+                    app.alarm_notified.erase(app.alarm_notified.begin() + i);
+                r.resize = true;
+                r.save_config = true;
+            }
+        } else if (act >= A_ALARM_TOGGLE && act < A_ALARM_TOGGLE + ALARM_MAX_COUNT) {
+            int i = act - A_ALARM_TOGGLE;
+            if (i >= 0 && i < (int)app.alarms.size()) {
+                app.alarms[i].enabled = !app.alarms[i].enabled;
+                r.save_config = true;
+            }
+        } else if (act >= A_TMR_BASE) {
             int idx = (act - A_TMR_BASE) / TMR_STRIDE;
             int off = (act - A_TMR_BASE) % TMR_STRIDE;
             if (idx < 0 || idx >= (int)app.timers.size()) break;

@@ -14,6 +14,22 @@ inline bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark ? "dark" : c.theme_mode == ThemeMode::Light ? "light" : "auto";
     f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\nsound_on_expiry={}\ntheme={}\nclock_view={}\nnum_timers={}\n", c.show_clk ? 1 : 0,
                      c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0, c.topmost ? 1 : 0, c.sound_on_expiry ? 1 : 0, theme_str, (int)c.clock_view, c.num_timers);
+    if (c.show_alarms) f << "show_alarms=1\n";
+    if (!c.alarms.empty()) {
+        f << std::format("num_alarms={}\n", (int)c.alarms.size());
+        for (int i = 0; i < (int)c.alarms.size(); ++i) {
+            const auto& a = c.alarms[i];
+            if (!a.name.empty()) f << std::format("alarm{}_name={}\n", i, a.name);
+            f << std::format("alarm{}_schedule={}\nalarm{}_hour={}\nalarm{}_min={}\n",
+                             i, (int)a.schedule, i, a.hour, i, a.minute);
+            if (a.schedule == AlarmSchedule::Days)
+                f << std::format("alarm{}_days={}\n", i, a.days_mask);
+            else
+                f << std::format("alarm{}_year={}\nalarm{}_month={}\nalarm{}_day={}\n",
+                                 i, a.date_year, i, a.date_month, i, a.date_day);
+            if (!a.enabled) f << std::format("alarm{}_enabled=0\n", i);
+        }
+    }
     Config defaults;
     if (c.pomodoro_work_secs != defaults.pomodoro_work_secs ||
         c.pomodoro_short_secs != defaults.pomodoro_short_secs ||
@@ -118,6 +134,15 @@ inline bool config_read(Config& c, std::istream& f) {
                 c.timer_labels[i] = std::string(rest.substr(0, Config::MAX_LABEL_LEN));
                 handled_str = true;
             }
+        } else if (key.starts_with("alarm") && key.ends_with("_name")) {
+            auto num = key.substr(5, key.size() - 10);
+            int i;
+            auto [ptr, ec] = std::from_chars(num.data(), num.data() + num.size(), i);
+            if (ec == std::errc{} && ptr == num.data() + num.size() && i >= 0 && i < ALARM_MAX_COUNT) {
+                if (i >= (int)c.alarms.size()) c.alarms.resize(i + 1);
+                c.alarms[i].name = std::string(rest.substr(0, 40));
+                handled_str = true;
+            }
         }
         if (handled_str) continue;
         long long val;
@@ -125,7 +150,37 @@ inline bool config_read(Config& c, std::istream& f) {
         auto clamp_int = [](long long v, int lo, int hi) -> int {
             return (int)std::clamp(v, (long long)lo, (long long)hi);
         };
-        if (key == "clock_view") {
+        if (key == "show_alarms")
+            c.show_alarms = val != 0;
+        else if (key == "num_alarms") {
+            int n = clamp_int(val, 0, ALARM_MAX_COUNT);
+            if (n > (int)c.alarms.size()) c.alarms.resize(n);
+        } else if (key.starts_with("alarm") && key.size() > 5) {
+            auto rest2 = key.substr(5);
+            int i = -1;
+            auto [ptr, ec] = std::from_chars(rest2.data(), rest2.data() + rest2.size(), i);
+            if (ec == std::errc{} && i >= 0 && i < ALARM_MAX_COUNT) {
+                if (i >= (int)c.alarms.size()) c.alarms.resize(i + 1);
+                auto& a = c.alarms[i];
+                std::string_view field{ptr, rest2.data() + rest2.size()};
+                if (field == "_schedule")
+                    a.schedule = (AlarmSchedule)clamp_int(val, 0, 1);
+                else if (field == "_days")
+                    a.days_mask = clamp_int(val, 0, ALARM_ALL_DAYS);
+                else if (field == "_hour")
+                    a.hour = clamp_int(val, 0, 23);
+                else if (field == "_min")
+                    a.minute = clamp_int(val, 0, 59);
+                else if (field == "_year")
+                    a.date_year = clamp_int(val, 2000, 9999);
+                else if (field == "_month")
+                    a.date_month = clamp_int(val, 1, 12);
+                else if (field == "_day")
+                    a.date_day = clamp_int(val, 1, 31);
+                else if (field == "_enabled")
+                    a.enabled = val != 0;
+            }
+        } else if (key == "clock_view") {
             c.clock_view = (ClockView)clamp_int(val, 0, CLOCK_VIEW_COUNT - 1);
         } else if (key == "num_custom_presets") {
             c.num_custom_presets = clamp_int(val, 0, Config::MAX_CUSTOM_PRESETS);
