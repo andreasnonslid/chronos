@@ -1,5 +1,23 @@
 // Included by ui_windows.hpp inside namespace settings_dlg.
 
+// Returns the pixel y where the scrollable content area ends (top of button row).
+static int content_area_bottom(HWND dlg) {
+    HWND ok_btn = GetDlgItem(dlg, IDC_SET_OK);
+    if (ok_btn) {
+        RECT r{};
+        GetWindowRect(ok_btn, &r);
+        MapWindowPoints(HWND_DESKTOP, dlg, reinterpret_cast<POINT*>(&r), 2);
+        if (r.top > 0) {
+            RECT margin{0, 0, 0, 4};
+            MapDialogRect(dlg, &margin);
+            return r.top - margin.bottom;
+        }
+    }
+    RECT r{0, 0, 0, DLG_H - 24};
+    MapDialogRect(dlg, &r);
+    return r.bottom;
+}
+
 static void set_pomo_visible(HWND dlg, bool show) {
     int cmd = show ? SW_SHOW : SW_HIDE;
     for (int id = IDC_POMO_WORK; id <= IDC_MIN_CADENCE; ++id) {
@@ -55,8 +73,8 @@ static int tab_painted_content_bottom(HWND dlg, const Params& p) {
         if (p.clock_view != ClockView::Analog) {
             return map_dlu(dlg, 70, 28, 80, 12).bottom;
         }
+        // analog_preview is fixed/sticky and excluded from scroll content
         int bottom = std::max({
-            rect_bottom_after_scroll(p.rects.analog_preview, p),
             rect_bottom_after_scroll(p.rects.analog_min_ticks, p),
             rect_bottom_after_scroll(p.rects.analog_labels[0], p),
             rect_bottom_after_scroll(p.rects.analog_labels[1], p),
@@ -104,11 +122,9 @@ static void update_content_scroll(HWND dlg, Params* p) {
     position_scrollable_controls(dlg, *p);
 
     RECT div_top = {0, 0, 0, TITLE_H + 2};
-    RECT div_bot = {0, 0, 0, 132};
     MapDialogRect(dlg, &div_top);
-    MapDialogRect(dlg, &div_bot);
 
-    int view_h = div_bot.bottom - div_top.bottom;
+    int view_h = content_area_bottom(dlg) - div_top.bottom;
     int content_bottom = std::max(visible_child_content_bottom(dlg), tab_painted_content_bottom(dlg, *p));
     int content_h = std::max(0, content_bottom - (int)div_top.bottom);
     int max_scroll = std::max(0, content_h - view_h);

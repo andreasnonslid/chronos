@@ -31,7 +31,7 @@ constexpr WORD CLS_EDIT     = 0x0081;
 constexpr WORD CLS_STATIC   = 0x0082;
 constexpr WORD CLS_COMBOBOX = 0x0085;
 
-constexpr short DLG_W = 240, DLG_H = 156;
+constexpr short DLG_W = 290, DLG_H = 185;
 constexpr short SIDEBAR_W = 62;
 constexpr short TITLE_H = 18;
 

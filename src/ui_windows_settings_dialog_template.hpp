@@ -27,7 +27,7 @@ constexpr WORD CTRL_COUNT = 25;
 
 static std::vector<WORD> build_template() {
     Buf b;
-    b.push_dword(WS_POPUP | WS_BORDER | WS_VSCROLL);
+    b.push_dword(WS_POPUP | WS_THICKFRAME | WS_VSCROLL);
     b.push_dword(0);
     b.push_word(CTRL_COUNT);
     b.push_word(0); b.push_word(0);
@@ -90,13 +90,13 @@ static std::vector<WORD> build_template() {
 
     // Clock format dropdown — height includes dropdown list space for 5 items
     add_item(b, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 0,
-             68, 40, 162, 80, IDC_CLOCK_COMBO, CLS_COMBOBOX, L"");
+             68, 40, 212, 80, IDC_CLOCK_COMBO, CLS_COMBOBOX, L"");
 
     short btn_w = 44, btn_h = 16, btn_gap = 8;
     short content_cx = DLG_W - SIDEBAR_W - 4;
     short total_bw = 2 * btn_w + btn_gap;
     short btn_x0 = SIDEBAR_W + 2 + (content_cx - total_bw) / 2;
-    short btn_y = 138;
+    short btn_y = DLG_H - 24;
     add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
              btn_x0, btn_y, btn_w, btn_h, IDC_SET_OK, CLS_BUTTON, L"Apply");
     add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,

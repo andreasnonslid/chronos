@@ -171,6 +171,58 @@ static int analog_palette_index(int color) {
     return 0;
 }
 
+static void reposition_buttons(HWND dlg) {
+    HWND ok_btn = GetDlgItem(dlg, IDC_SET_OK);
+    HWND cancel_btn = GetDlgItem(dlg, IDC_SET_CANCEL);
+    if (!ok_btn || !cancel_btn) return;
+
+    RECT rc{};
+    GetClientRect(dlg, &rc);
+
+    RECT ok_wr{}, cancel_wr{};
+    GetWindowRect(ok_btn, &ok_wr);
+    GetWindowRect(cancel_btn, &cancel_wr);
+    int bw = ok_wr.right - ok_wr.left;
+    int bh = ok_wr.bottom - ok_wr.top;
+    int cw = cancel_wr.right - cancel_wr.left;
+
+    RECT gaps{0, 0, 8, 4};
+    MapDialogRect(dlg, &gaps);
+    int gap = gaps.right;
+    int bot_margin = gaps.bottom;
+
+    RECT sb{0, 0, SIDEBAR_W, 0};
+    MapDialogRect(dlg, &sb);
+    int content_left = sb.right;
+    int content_w = rc.right - content_left;
+    int total_bw = bw + gap + cw;
+    int btn_x0 = content_left + (content_w - total_bw) / 2;
+    int btn_y = rc.bottom - bh - bot_margin;
+
+    SetWindowPos(ok_btn,     nullptr, btn_x0,            btn_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+    SetWindowPos(cancel_btn, nullptr, btn_x0 + bw + gap, btn_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+static INT_PTR on_resize(HWND dlg, WPARAM wp) {
+    if (wp == SIZE_MINIMIZED) return FALSE;
+    auto* p = dialog_params(dlg);
+    if (!p) return FALSE;
+    reposition_buttons(dlg);
+    update_content_scroll(dlg, p);
+    InvalidateRect(dlg, nullptr, TRUE);
+    return TRUE;
+}
+
+static INT_PTR on_get_min_max_info(HWND dlg, LPARAM lp) {
+    auto* mm = reinterpret_cast<MINMAXINFO*>(lp);
+    RECT r{0, 0, DLG_W, DLG_H};
+    MapDialogRect(dlg, &r);
+    int frame_x = GetSystemMetrics(SM_CXSIZEFRAME);
+    int frame_y = GetSystemMetrics(SM_CYSIZEFRAME);
+    mm->ptMinTrackSize = {r.right + 2 * frame_x, r.bottom + 2 * frame_y};
+    return TRUE;
+}
+
 static INT_PTR on_init(HWND dlg, LPARAM lp) {
     auto* p = reinterpret_cast<Params*>(lp);
     SetWindowLongPtrW(dlg, DWLP_USER, (LONG_PTR)p);
@@ -178,13 +230,14 @@ static INT_PTR on_init(HWND dlg, LPARAM lp) {
     center_dialog_on_parent(dlg);
 
     p->rects = compute_rects(dlg);
-    p->clock_combo_rc = map_dlu(dlg, 68, 40, 162, 80);
+    p->clock_combo_rc = map_dlu(dlg, 68, 40, 212, 80);
 
     tab_pomodoro_init(dlg, *p);
     tab_timers_init(dlg, *p);
     tab_clock_init(dlg, *p);
     set_child_fonts(dlg, *p);
     set_initial_tab_visibility(dlg, *p);
+    reposition_buttons(dlg);
     return FALSE;
 }
 
@@ -220,10 +273,9 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
     MoveToEx(hdc, sb.right, div_y.bottom, nullptr);
     LineTo(hdc, sb.right, rc.bottom);
 
-    RECT btn_div = {0, 0, 0, 132};
-    MapDialogRect(dlg, &btn_div);
-    MoveToEx(hdc, sb.right, btn_div.bottom, nullptr);
-    LineTo(hdc, rc.right, btn_div.bottom);
+    int btn_area_top = content_area_bottom(dlg);
+    MoveToEx(hdc, sb.right, btn_area_top, nullptr);
+    LineTo(hdc, rc.right, btn_area_top);
 
     SelectObject(hdc, old_pen);
     DeleteObject(div_pen);
@@ -233,7 +285,7 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
         paint_option_btn(hdc, p->rects.sidebar[i], tab_names[i], i == p->active_tab, s);
 
     int save_dc = SaveDC(hdc);
-    IntersectClipRect(hdc, sb.right + 1, div_y.bottom + 1, rc.right, btn_div.bottom);
+    IntersectClipRect(hdc, sb.right + 1, div_y.bottom + 1, rc.right, btn_area_top);
 
     int sdy = -p->scroll_y;
 
@@ -276,58 +328,65 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
         s.draw_label(hdc, lbl, L"Format");
 
         if (p->clock_view == ClockView::Analog) {
-            RECT aslbl = map_dlu(dlg, 70, 58, 70, 10);
-            aslbl.top += sdy; aslbl.bottom += sdy;
-            s.draw_label(hdc, aslbl, L"Live preview");
-
             RECT preview = p->rects.analog_preview;
-            preview.top += sdy; preview.bottom += sdy;
+
+            // Draw scrollable settings clipped to exclude the sticky preview region
+            {
+                int sdc2 = SaveDC(hdc);
+                ExcludeClipRect(hdc, preview.left, preview.top, preview.right, preview.bottom);
+
+                RECT min_r = p->rects.analog_min_ticks;
+                min_r.top += sdy; min_r.bottom += sdy;
+                paint_option_btn(hdc, min_r,
+                                 p->analog_style.show_minute_ticks ? L"Min ticks: on" : L"Min ticks: off",
+                                 p->analog_style.show_minute_ticks, s);
+
+                RECT hrlbl = map_dlu(dlg, 158, 82, 80, 8);
+                hrlbl.top += sdy; hrlbl.bottom += sdy;
+                s.draw_label(hdc, hrlbl, L"Hour labels");
+
+                const wchar_t* lbl_names[] = {L"None", L"Sparse", L"Full"};
+                for (int i = 0; i < 3; ++i) {
+                    RECT ar = p->rects.analog_labels[i];
+                    ar.top += sdy; ar.bottom += sdy;
+                    paint_option_btn(hdc, ar, lbl_names[i],
+                                     (int)p->analog_style.hour_labels == i, s);
+                }
+
+                RECT color_lbl = map_dlu(dlg, 158, 112, 80, 8);
+                color_lbl.top += sdy; color_lbl.bottom += sdy;
+                s.draw_label(hdc, color_lbl, L"Colors");
+                for (int i = 0; i < ANALOG_COLOR_COUNT; ++i) {
+                    RECT r = p->rects.analog_colors[i];
+                    r.top += sdy; r.bottom += sdy;
+                    int* field = analog_color_field(p->analog_style, i);
+                    bool custom = field && *field >= 0;
+                    paint_option_btn(hdc, r, analog_color_label(i), custom, s);
+                    RECT sw = {r.right - s.scale(14), r.top + s.scale(2), r.right - s.scale(3), r.bottom - s.scale(2)};
+                    COLORREF sw_color = custom ? (COLORREF)*field : s.theme->dim;
+                    GdiObj br{CreateSolidBrush(sw_color)};
+                    FillRect(hdc, &sw, (HBRUSH)br.h);
+                }
+
+                RECT value_lbl = map_dlu(dlg, 68, 248, 200, 8);
+                value_lbl.top += sdy; value_lbl.bottom += sdy;
+                s.draw_label(hdc, value_lbl, L"Size and opacity");
+                for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
+                    RECT r = p->rects.analog_values[i];
+                    r.top += sdy; r.bottom += sdy;
+                    int* field = analog_value_field(p->analog_style, i);
+                    wchar_t buf[96];
+                    wsprintfW(buf, L"%s: %d", analog_value_label(i), field ? *field : 0);
+                    paint_option_btn(hdc, r, buf, false, s);
+                }
+
+                RestoreDC(hdc, sdc2);
+            }
+
+            // Fixed preview drawn on top — no sdy offset
+            RECT prev_lbl = map_dlu(dlg, 68, 48, 80, 8);
+            s.draw_label(hdc, prev_lbl, L"Live preview");
             draw_analog_clock(hdc, preview, p->analog_style, *s.theme, s.dpi, 10, 10, 30);
-
-            RECT min_r = p->rects.analog_min_ticks;
-            min_r.top += sdy; min_r.bottom += sdy;
-            paint_option_btn(hdc, min_r,
-                             p->analog_style.show_minute_ticks ? L"Min ticks: on" : L"Min ticks: off",
-                             p->analog_style.show_minute_ticks, s);
-
-            RECT hrlbl = map_dlu(dlg, 154, 84, 70, 8);
-            hrlbl.top += sdy; hrlbl.bottom += sdy;
-            s.draw_label(hdc, hrlbl, L"Hour labels");
-
-            const wchar_t* lbl_names[] = {L"None", L"Sparse", L"Full"};
-            for (int i = 0; i < 3; ++i) {
-                RECT ar = p->rects.analog_labels[i];
-                ar.top += sdy; ar.bottom += sdy;
-                paint_option_btn(hdc, ar, lbl_names[i],
-                                 (int)p->analog_style.hour_labels == i, s);
-            }
-
-            RECT color_lbl = map_dlu(dlg, 154, 114, 70, 8);
-            color_lbl.top += sdy; color_lbl.bottom += sdy;
-            s.draw_label(hdc, color_lbl, L"Colors");
-            for (int i = 0; i < ANALOG_COLOR_COUNT; ++i) {
-                RECT r = p->rects.analog_colors[i];
-                r.top += sdy; r.bottom += sdy;
-                int* field = analog_color_field(p->analog_style, i);
-                bool custom = field && *field >= 0;
-                paint_option_btn(hdc, r, analog_color_label(i), custom, s);
-                RECT sw = {r.right - s.scale(14), r.top + s.scale(2), r.right - s.scale(3), r.bottom - s.scale(2)};
-                COLORREF sw_color = custom ? (COLORREF)*field : s.theme->dim;
-                GdiObj br{CreateSolidBrush(sw_color)};
-                FillRect(hdc, &sw, (HBRUSH)br.h);
-            }
-
-            RECT value_lbl = map_dlu(dlg, 72, 246, 90, 8);
-            value_lbl.top += sdy; value_lbl.bottom += sdy;
-            s.draw_label(hdc, value_lbl, L"Size and opacity");
-            for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
-                RECT r = p->rects.analog_values[i];
-                r.top += sdy; r.bottom += sdy;
-                int* field = analog_value_field(p->analog_style, i);
-                wchar_t buf[96];
-                wsprintfW(buf, L"%s: %d", analog_value_label(i), field ? *field : 0);
-                paint_option_btn(hdc, r, buf, false, s);
-            }
         }
 
     } else if (p->active_tab == TAB_TIMERS) {
@@ -388,11 +447,17 @@ static INT_PTR on_ctl_color(HWND dlg, UINT msg, HDC hdc) {
 }
 
 static INT_PTR on_nc_hit_test(HWND dlg, LPARAM lp) {
-    RECT title_rc = {0, 0, DLG_W, TITLE_H + 2};
-    MapDialogRect(dlg, &title_rc);
+    RECT rc{};
+    GetClientRect(dlg, &rc);
+    RECT title_h{0, 0, 0, TITLE_H + 2};
+    MapDialogRect(dlg, &title_h);
     POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
     ScreenToClient(dlg, &pt);
-    return (pt.y >= 0 && pt.y < title_rc.bottom) ? HTCAPTION : FALSE;
+    if (pt.x >= 0 && pt.x < rc.right && pt.y >= 0 && pt.y < title_h.bottom) {
+        SetWindowLongPtrW(dlg, DWLP_MSGRESULT, HTCAPTION);
+        return TRUE;
+    }
+    return FALSE;
 }
 
 static INT_PTR on_draw_item(HWND dlg, LPARAM lp) {
@@ -616,6 +681,8 @@ static INT_PTR on_key_down(HWND dlg, WPARAM wp) {
 static INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_INITDIALOG:       return on_init(dlg, lp);
+    case WM_SIZE:             return on_resize(dlg, wp);
+    case WM_GETMINMAXINFO:    return on_get_min_max_info(dlg, lp);
     case WM_ERASEBKGND:       return on_erase_background(dlg, (HDC)wp);
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLOREDIT:
