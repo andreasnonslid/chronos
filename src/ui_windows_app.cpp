@@ -5,6 +5,7 @@
 #include "layout.hpp"
 #include "window.hpp"
 #include "wndstate.hpp"
+#include <shellapi.h>
 #include <cstdio>
 #include <filesystem>
 #include <cwchar>

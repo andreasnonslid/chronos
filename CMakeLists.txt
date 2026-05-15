@@ -37,14 +37,6 @@ if(WIN32)
     )
     add_executable(chronos WIN32 ${CHRONOS_SOURCES})
 
-    # Copy compile_commands.json to repo root after configure so editors find it automatically
-    add_custom_target(copy_compile_commands ALL
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_BINARY_DIR}/compile_commands.json
-            ${CMAKE_SOURCE_DIR}/compile_commands.json
-        COMMENT "Copying compile_commands.json to repo root"
-    )
-
     target_include_directories(chronos PRIVATE src)
     set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 
@@ -82,6 +74,14 @@ elseif(UNIX AND NOT APPLE)
     )
     target_link_libraries(chronos PRIVATE X11::X11)
 endif()
+
+# Copy compile_commands.json to repo root after build so all editors find it
+add_custom_target(copy_compile_commands ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_BINARY_DIR}/compile_commands.json
+        ${CMAKE_SOURCE_DIR}/compile_commands.json
+    COMMENT "Copying compile_commands.json to repo root"
+)
 
 option(BUILD_TESTS "Build unit tests" OFF)
 if(BUILD_TESTS)

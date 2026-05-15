@@ -10,10 +10,6 @@
 #include "tray.hpp"
 #include "wndstate.hpp"
 
-constexpr int POLL_STOPWATCH_MS = 20;
-constexpr int POLL_TIMER_MS = 100;
-constexpr int POLL_IDLE_MS = 1000;
-
 void sync_timer(HWND hwnd, WndState& s) {
     bool any_timer_running = false;
     for (auto& ts : s.app.timers)

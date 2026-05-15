@@ -135,7 +135,7 @@ void load_config(HWND hwnd, WndState& s) {
     s.app.custom_preset_secs.clear();
     for (int i = 0; i < cfg.num_custom_presets; ++i)
         s.app.custom_preset_secs.push_back(cfg.custom_preset_secs[i]);
-    int n = std::min(cfg.num_timers, Config::MAX_TIMERS);
+    int n = std::clamp(cfg.num_timers, 1, Config::MAX_TIMERS);
     s.app.timers.resize(n);
     for (int i = 0; i < n; ++i) {
         s.app.timers[i].dur = seconds{cfg.timer_secs[i]};

@@ -15,7 +15,7 @@ debug:
     {{cmake}} --build build
 
 clean:
-    rm -rf build
+    rm -rf build compile_commands.json
 
 run: build
     build/chronos.exe

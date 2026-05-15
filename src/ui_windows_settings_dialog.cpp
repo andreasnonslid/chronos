@@ -1074,6 +1074,7 @@ static INT_PTR on_command(HWND dlg, WPARAM wp) {
         }
         return TRUE;
     case IDC_SET_OK: {
+        if (HIWORD(wp) != BN_CLICKED) return FALSE;
         auto* p = dialog_params(dlg);
         if (!p) return FALSE;
         if (!commit_all_tabs(dlg, *p)) return TRUE;
@@ -1081,6 +1082,7 @@ static INT_PTR on_command(HWND dlg, WPARAM wp) {
         return TRUE;
     }
     case IDC_SET_CANCEL:
+        if (HIWORD(wp) != BN_CLICKED) return FALSE;
         EndDialog(dlg, IDCANCEL);
         return TRUE;
     }
@@ -1159,8 +1161,8 @@ static INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
-                                 const Theme* theme = nullptr, int dpi = 0) {
+bool show_settings_dialog(HWND parent, App& app, HFONT font,
+                          const Theme* theme, int dpi) {
     using namespace settings_dlg;
     if (!theme) theme = &dark_theme;
     if (dpi <= 0) dpi = STANDARD_DPI;

@@ -6,8 +6,6 @@
 #include "input_core.hpp"
 #include "wndstate.hpp"
 
-constexpr int HOTKEY_GLOBAL = 1;
-
 bool plain_key() {
     return GetKeyState(VK_CONTROL) >= 0
         && GetKeyState(VK_MENU) >= 0

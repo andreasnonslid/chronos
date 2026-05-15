@@ -4,4 +4,4 @@
 #include "theme.hpp"
 
 bool show_pomodoro_interval_dialog(HWND parent, App& app, HFONT font,
-                                   const Theme* theme, int dpi);
+                                   const Theme* theme = nullptr, int dpi = 0);

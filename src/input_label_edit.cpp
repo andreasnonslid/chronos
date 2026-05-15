@@ -4,10 +4,9 @@
 #include "geometry.hpp"
 #include "wndstate.hpp"
 
-constexpr int EDIT_ID_BASE = 9000;
-
 LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* s = (WndState*)GetWindowLongPtr(GetParent(hwnd), GWLP_USERDATA);
+    if (!s) return DefWindowProcW(hwnd, msg, wp, lp);
     if (msg == WM_KEYDOWN) {
         if (wp == VK_RETURN) {
             SetFocus(GetParent(hwnd));

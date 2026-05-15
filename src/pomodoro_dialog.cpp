@@ -214,6 +214,7 @@ INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         case IDC_BTN_OK: {
+            if (HIWORD(wp) != BN_CLICKED) break;
             auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
             int w = 0, s = 0, l = 0;
             if (!read_field(dlg, IDC_POMO_WORK,  w)) { MessageBeep(MB_ICONASTERISK); SetFocus(GetDlgItem(dlg, IDC_POMO_WORK));  return TRUE; }
@@ -224,6 +225,7 @@ INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             return TRUE;
         }
         case IDC_BTN_CANCEL:
+            if (HIWORD(wp) != BN_CLICKED) break;
             EndDialog(dlg, IDCANCEL);
             return TRUE;
         }
@@ -241,7 +243,7 @@ INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 bool show_pomodoro_interval_dialog(HWND parent, App& app, HFONT font,
-                                          const Theme* theme = nullptr, int dpi = 0) {
+                                          const Theme* theme, int dpi) {
     using namespace pomo_dlg_detail;
 
     if (!theme) theme = &dark_theme;
