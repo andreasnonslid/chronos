@@ -11,18 +11,6 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-struct AnalogResolvedColors {
-    COLORREF hour;
-    COLORREF minute;
-    COLORREF second;
-    COLORREF background;
-    COLORREF face_fill;
-    COLORREF face_outline;
-    COLORREF tick;
-    COLORREF hour_label;
-    COLORREF center_dot;
-};
-
 COLORREF analog_pick_color(int configured, COLORREF fallback) {
     return configured >= 0 ? (COLORREF)configured : fallback;
 }
