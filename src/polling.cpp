@@ -4,6 +4,7 @@
 #include <format>
 #include <string>
 #include "app.hpp"
+#include "encoding.hpp"
 #include "config_io.hpp"
 #include "formatting.hpp"
 #include "pomodoro.hpp"

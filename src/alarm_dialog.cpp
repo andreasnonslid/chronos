@@ -22,7 +22,6 @@ constexpr WORD IDC_ALM_CANCEL = 408;
 
 constexpr WORD CLS_BUTTON  = 0x0080;
 constexpr WORD CLS_EDIT    = 0x0081;
-constexpr WORD CLS_STATIC  = 0x0082;
 
 // Dialog dimensions (DLU)
 constexpr short DLG_W = 200, DLG_H = 138;

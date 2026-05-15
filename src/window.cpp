@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <memory>
+#include "debug.hpp"
 #include "dwm_fwd.hpp"
 #include "config.hpp"
 #include "config_io.hpp"
