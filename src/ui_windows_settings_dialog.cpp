@@ -834,7 +834,6 @@ static INT_PTR on_ctl_color(HWND dlg, UINT msg, HDC hdc) {
         SetBkMode(hdc, TRANSPARENT);
         return (INT_PTR)p->brush_btn.h;
     case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLORCOMBOBOX:
         SetTextColor(hdc, p->style.theme->text);
         SetBkColor(hdc, p->style.theme->bar);
         return (INT_PTR)p->brush_combo.h;
@@ -1143,8 +1142,7 @@ static INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORBTN:
-    case WM_CTLCOLORLISTBOX:
-    case WM_CTLCOLORCOMBOBOX: return on_ctl_color(dlg, msg, (HDC)wp);
+    case WM_CTLCOLORLISTBOX:  return on_ctl_color(dlg, msg, (HDC)wp);
     case WM_NCHITTEST:        return on_nc_hit_test(dlg, lp);
     case WM_DRAWITEM:         return on_draw_item(dlg, lp);
     case WM_LBUTTONDOWN:      return on_left_button_down(dlg, lp);
