@@ -14,6 +14,14 @@
 #include "app.hpp"
 #include "dialog_style.hpp"
 #include "painting_analog.hpp"
+
+namespace ui {
+using WindowHandle = HWND;
+using FontHandle = HFONT;
+using ThemeHandle = const Theme*;
+using InstanceHandle = HINSTANCE;
+} // namespace ui
+
 #include "ui_windows_settings_dialog.hpp"
 
 #include "debug.hpp"
@@ -23,9 +31,5 @@
 #include "window.hpp"
 
 namespace ui {
-using WindowHandle = HWND;
-using FontHandle = HFONT;
-using ThemeHandle = const Theme*;
-using InstanceHandle = HINSTANCE;
 #include "ui_windows_app.hpp"
 } // namespace ui
