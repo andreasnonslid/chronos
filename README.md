@@ -89,6 +89,13 @@ Other presets for development:
 |--------|---------|
 | `debug` | Debug build with tests |
 | `sanitize` | Debug + AddressSanitizer / UndefinedBehaviorSanitizer |
+| `coverage` | Coverage instrumentation |
+
+Or with Just: `just test`, `just debug`, `just clean`.
+
+### Editor setup
+
+Any editor using clangd (Neovim, VS Code with clangd extension, etc.) gets full autocomplete and go-to-definition automatically. Run any CMake preset first to generate `compile_commands.json` at the repo root, then open the project — the `.clangd` file points clangd at it with no extra configuration needed.
 
 ### Platform notes
 

@@ -4,11 +4,46 @@ project(chronos LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_program(LLD NAMES ld.lld ld.lld.exe)
 
+# Shared (platform-independent) sources
+set(CHRONOS_SOURCES
+    src/main.cpp
+    src/actions.cpp
+    src/config_serial.cpp
+    src/config_io.cpp
+    src/dialog_style.cpp
+    src/encoding.cpp
+    src/formatting.cpp
+    src/input_core.cpp
+    src/input_keyboard.cpp
+    src/input_label_edit.cpp
+    src/input_mouse.cpp
+    src/painting.cpp
+    src/painting_analog.cpp
+    src/painting_timer.cpp
+    src/polling.cpp
+    src/window.cpp
+)
+
 if(WIN32)
-    add_executable(chronos WIN32 src/main.cpp)
+    list(APPEND CHRONOS_SOURCES
+        src/alarm_dialog.cpp
+        src/pomodoro_dialog.cpp
+        src/ui_windows_app.cpp
+        src/ui_windows_settings_dialog.cpp
+    )
+    add_executable(chronos WIN32 ${CHRONOS_SOURCES})
+
+    # Copy compile_commands.json to repo root after configure so editors find it automatically
+    add_custom_target(copy_compile_commands ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_BINARY_DIR}/compile_commands.json
+            ${CMAKE_SOURCE_DIR}/compile_commands.json
+        COMMENT "Copying compile_commands.json to repo root"
+    )
 
     target_include_directories(chronos PRIVATE src)
     set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
@@ -38,7 +73,8 @@ if(WIN32)
     )
 elseif(UNIX AND NOT APPLE)
     find_package(X11 REQUIRED)
-    add_executable(chronos src/main.cpp)
+    list(APPEND CHRONOS_SOURCES src/ui_linux.cpp)
+    add_executable(chronos ${CHRONOS_SOURCES})
     target_include_directories(chronos PRIVATE src)
     set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     target_compile_options(chronos PRIVATE
@@ -69,6 +105,10 @@ if(BUILD_TESTS)
         tests/test_actions_timer.cpp
         tests/test_actions_adjust.cpp
         tests/test_pomodoro.cpp
+        src/actions.cpp
+        src/config_serial.cpp
+        src/encoding.cpp
+        src/formatting.cpp
     )
     target_include_directories(chronos_tests PRIVATE src)
     set_target_properties(chronos_tests PROPERTIES CXX_SCAN_FOR_MODULES OFF)
