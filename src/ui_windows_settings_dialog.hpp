@@ -1,4 +1,440 @@
-// Included by ui_windows.hpp inside namespace settings_dlg.
+#pragma once
+// Settings dialog — full implementation. Public entry point: ui::show_settings_dialog().
+#include <windows.h>
+#include <windowsx.h>
+#include <algorithm>
+#include <format>
+#include <vector>
+#include "app.hpp"
+#include "dialog_style.hpp"
+#include "painting_analog.hpp"
+
+namespace ui {
+
+namespace settings_dlg {
+
+// ─── IDs & constants ──────────────────────────────────────────────────────────
+
+constexpr int IDC_POMO_WORK    = 301;
+constexpr int IDC_POMO_SHORT   = 302;
+constexpr int IDC_POMO_LONG    = 303;
+constexpr int IDC_LBL_WORK     = 304;
+constexpr int IDC_LBL_SHORT    = 305;
+constexpr int IDC_LBL_LONG     = 306;
+constexpr int IDC_MIN_WORK     = 307;
+constexpr int IDC_MIN_SHORT    = 308;
+constexpr int IDC_MIN_LONG     = 309;
+constexpr int IDC_POMO_CADENCE = 310;
+constexpr int IDC_LBL_CADENCE  = 311;
+constexpr int IDC_MIN_CADENCE  = 312;
+constexpr int IDC_SET_OK       = 313;
+constexpr int IDC_SET_CANCEL   = 314;
+constexpr int IDC_PRESET_ED0   = 320;
+constexpr int IDC_PRESET_ED1   = 321;
+constexpr int IDC_PRESET_ED2   = 322;
+constexpr int IDC_PRESET_ED3   = 323;
+constexpr int IDC_PRESET_ED4   = 324;
+constexpr int IDC_PRESET_MIN0  = 325;
+constexpr int IDC_PRESET_MIN1  = 326;
+constexpr int IDC_PRESET_MIN2  = 327;
+constexpr int IDC_PRESET_MIN3  = 328;
+constexpr int IDC_PRESET_MIN4  = 329;
+constexpr int IDC_CLOCK_COMBO  = 330;
+
+constexpr int IDC_THEME_AUTO  = 340;
+constexpr int IDC_THEME_LIGHT = 341;
+constexpr int IDC_THEME_DARK  = 342;
+constexpr int IDC_SOUND       = 343;
+constexpr int IDC_AUTO_START  = 344;
+
+constexpr WORD CLS_BUTTON   = 0x0080;
+constexpr WORD CLS_EDIT     = 0x0081;
+constexpr WORD CLS_STATIC   = 0x0082;
+constexpr WORD CLS_COMBOBOX = 0x0085;
+
+constexpr short DLG_W = 290, DLG_H = 185;
+constexpr short SIDEBAR_W = 62;
+constexpr short TITLE_H = 18;
+
+constexpr int TAB_APPEARANCE = 0;
+constexpr int TAB_CLOCK      = 1;
+constexpr int TAB_POMODORO   = 2;
+constexpr int TAB_TIMERS     = 3;
+constexpr int TAB_COUNT      = 4;
+
+// ─── Dialog template builder ──────────────────────────────────────────────────
+
+struct Buf {
+    std::vector<WORD> data;
+    void align4() { while (data.size() % 2) data.push_back(0); }
+    void push_word(WORD w)   { data.push_back(w); }
+    void push_dword(DWORD d) { data.push_back(LOWORD(d)); data.push_back(HIWORD(d)); }
+    void push_wstr(const wchar_t* s) { while (*s) data.push_back((WORD)*s++); data.push_back(0); }
+    void push_wstr_empty() { data.push_back(0); }
+};
+
+static void add_item(Buf& b, DWORD style, DWORD exStyle,
+                     short x, short y, short cx, short cy,
+                     WORD id, WORD cls_atom, const wchar_t* title) {
+    b.align4();
+    b.push_dword(WS_CHILD | WS_VISIBLE | style);
+    b.push_dword(exStyle);
+    b.push_word((WORD)x); b.push_word((WORD)y);
+    b.push_word((WORD)cx); b.push_word((WORD)cy);
+    b.push_word(id);
+    b.push_word(0xFFFF); b.push_word(cls_atom);
+    b.push_wstr(title);
+    b.push_word(0);
+}
+
+constexpr WORD CTRL_COUNT = 30;
+
+static std::vector<WORD> build_template() {
+    Buf b;
+    b.push_dword(WS_POPUP | WS_THICKFRAME | WS_VSCROLL);
+    b.push_dword(0);
+    b.push_word(CTRL_COUNT);
+    b.push_word(0); b.push_word(0);
+    b.push_word(DLG_W); b.push_word(DLG_H);
+    b.push_wstr_empty();
+    b.push_wstr_empty();
+    b.push_wstr_empty();
+
+    short lbl_x = 72, lbl_w = 50;
+    short ed_x = 126, ed_w = 28;
+    short min_x = 158, min_w = 18;
+    short row_h = 10;
+    short y0 = 40, sp = 18;
+
+    add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
+             lbl_x, y0, lbl_w, row_h, IDC_LBL_WORK, CLS_STATIC, L"Work");
+    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+             ed_x, y0, ed_w, row_h, IDC_POMO_WORK, CLS_EDIT, L"");
+    add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
+             min_x, y0, min_w, row_h, IDC_MIN_WORK, CLS_STATIC, L"min");
+
+    short r1 = y0 + sp;
+    add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
+             lbl_x, r1, lbl_w, row_h, IDC_LBL_SHORT, CLS_STATIC, L"Short break");
+    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+             ed_x, r1, ed_w, row_h, IDC_POMO_SHORT, CLS_EDIT, L"");
+    add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
+             min_x, r1, min_w, row_h, IDC_MIN_SHORT, CLS_STATIC, L"min");
+
+    short r2 = y0 + 2 * sp;
+    add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
+             lbl_x, r2, lbl_w, row_h, IDC_LBL_LONG, CLS_STATIC, L"Long break");
+    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+             ed_x, r2, ed_w, row_h, IDC_POMO_LONG, CLS_EDIT, L"");
+    add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
+             min_x, r2, min_w, row_h, IDC_MIN_LONG, CLS_STATIC, L"min");
+
+    short r3 = y0 + 3 * sp;
+    add_item(b, SS_RIGHT | SS_CENTERIMAGE, 0,
+             lbl_x, r3, lbl_w, row_h, IDC_LBL_CADENCE, CLS_STATIC, L"Long every");
+    add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+             ed_x, r3, ed_w, row_h, IDC_POMO_CADENCE, CLS_EDIT, L"");
+    add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
+             min_x, r3, min_w + 20, row_h, IDC_MIN_CADENCE, CLS_STATIC, L"sessions");
+
+    short pr_ed_x = 96, pr_ed_w = 28;
+    short pr_min_x = 128, pr_min_w = 18;
+    short pr_y0 = 40, pr_sp = 16;
+    int pr_edit_ids[] = {IDC_PRESET_ED0, IDC_PRESET_ED1, IDC_PRESET_ED2,
+                         IDC_PRESET_ED3, IDC_PRESET_ED4};
+    int pr_min_ids[]  = {IDC_PRESET_MIN0, IDC_PRESET_MIN1, IDC_PRESET_MIN2,
+                         IDC_PRESET_MIN3, IDC_PRESET_MIN4};
+    for (int i = 0; i < 5; ++i) {
+        short py = pr_y0 + (short)(i * pr_sp);
+        add_item(b, ES_NUMBER | ES_CENTER | WS_TABSTOP, 0,
+                 pr_ed_x, py, pr_ed_w, row_h, (WORD)pr_edit_ids[i], CLS_EDIT, L"");
+        add_item(b, SS_LEFT | SS_CENTERIMAGE, 0,
+                 pr_min_x, py, pr_min_w, row_h, (WORD)pr_min_ids[i], CLS_STATIC, L"min");
+    }
+
+    // Clock format dropdown — height includes dropdown list space for 5 items
+    add_item(b, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 0,
+             68, 40, 212, 80, IDC_CLOCK_COMBO, CLS_COMBOBOX, L"");
+
+    // Theme radio buttons (Appearance tab)
+    add_item(b, WS_GROUP | WS_TABSTOP | BS_OWNERDRAW, 0,
+             70, 42, 54, 13, IDC_THEME_AUTO, CLS_BUTTON, L"Auto");
+    add_item(b, BS_OWNERDRAW, 0,
+             70, 57, 54, 13, IDC_THEME_LIGHT, CLS_BUTTON, L"Light");
+    add_item(b, BS_OWNERDRAW, 0,
+             70, 72, 54, 13, IDC_THEME_DARK, CLS_BUTTON, L"Dark");
+
+    // Sound checkbox (Appearance tab)
+    add_item(b, WS_GROUP | WS_TABSTOP | BS_OWNERDRAW, 0,
+             70, 97, 100, 13, IDC_SOUND, CLS_BUTTON, L"Sound");
+
+    // Auto-start checkbox (Pomodoro tab)
+    add_item(b, WS_GROUP | WS_TABSTOP | BS_OWNERDRAW, 0,
+             70, 115, 100, 13, IDC_AUTO_START, CLS_BUTTON, L"Auto-start");
+
+    short btn_w = 44, btn_h = 16, btn_gap = 8;
+    short content_cx = DLG_W - SIDEBAR_W - 4;
+    short total_bw = 2 * btn_w + btn_gap;
+    short btn_x0 = SIDEBAR_W + 2 + (content_cx - total_bw) / 2;
+    short btn_y = DLG_H - 24;
+    add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
+             btn_x0, btn_y, btn_w, btn_h, IDC_SET_OK, CLS_BUTTON, L"Apply");
+    add_item(b, BS_OWNERDRAW | WS_TABSTOP, 0,
+             btn_x0 + btn_w + btn_gap, btn_y, btn_w, btn_h, IDC_SET_CANCEL, CLS_BUTTON, L"Cancel");
+
+    return b.data;
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+static RECT map_dlu(HWND dlg, short x, short y, short cx, short cy) {
+    RECT r = {x, y, x + cx, y + cy};
+    MapDialogRect(dlg, &r);
+    return r;
+}
+
+constexpr int ANALOG_COLOR_COUNT = 9;
+constexpr int ANALOG_VALUE_COUNT = 15;
+
+struct HitRects {
+    RECT sidebar[TAB_COUNT];
+    RECT preset_row[5];
+    RECT analog_preview;
+    RECT analog_min_ticks;
+    RECT analog_labels[3];
+    RECT analog_colors[ANALOG_COLOR_COUNT];
+    RECT analog_values[ANALOG_VALUE_COUNT];
+};
+
+static HitRects compute_rects(HWND dlg) {
+    HitRects h{};
+    h.sidebar[0] = map_dlu(dlg, 3, 24, 56, 14);
+    h.sidebar[1] = map_dlu(dlg, 3, 40, 56, 14);
+    h.sidebar[2] = map_dlu(dlg, 3, 56, 56, 14);
+    h.sidebar[3] = map_dlu(dlg, 3, 72, 56, 14);
+
+    // Analog settings sit below the format dropdown (which is at y=40, h=12).
+    // "Live preview" label at y=64 (h=8), preview fixed (sticky) at y=76; right column starts at x=158.
+    h.analog_preview = map_dlu(dlg, 68, 76, 80, 80);
+    h.analog_min_ticks = map_dlu(dlg, 158,  64, 122, 12);
+    h.analog_labels[0] = map_dlu(dlg, 158,  92,  40, 12);
+    h.analog_labels[1] = map_dlu(dlg, 202,  92,  40, 12);
+    h.analog_labels[2] = map_dlu(dlg, 246,  92,  40, 12);
+    for (int i = 0; i < ANALOG_COLOR_COUNT; ++i)
+        h.analog_colors[i] = map_dlu(dlg, 158, (short)(122 + i * 14), 122, 12);
+    for (int i = 0; i < ANALOG_VALUE_COUNT; ++i)
+        h.analog_values[i] = map_dlu(dlg, 68, (short)(258 + i * 14), 214, 12);
+
+    for (int i = 0; i < 5; ++i)
+        h.preset_row[i] = map_dlu(dlg, 96, (short)(40 + i * 16), 50, 12);
+    return h;
+}
+
+struct Params {
+    int active_tab = TAB_APPEARANCE;
+    ThemeMode theme_mode;
+    ClockView clock_view;
+    AnalogClockStyle analog_style;
+    bool sound_on_expiry;
+    int work_min, short_min, long_min;
+    int cadence;
+    bool auto_start;
+    int preset_min[5]{};
+    DlgStyle style;
+    HitRects rects{};
+    int scroll_y = 0;       // current scroll offset in pixels
+    RECT clock_combo_rc{};  // base pixel rect of the combobox (unscrolled)
+    GdiObj brush_bg{};
+    GdiObj brush_edit{};
+    GdiObj brush_btn{};
+    GdiObj brush_combo{};
+};
+
+// ─── Scroll & visibility ──────────────────────────────────────────────────────
+
+// Returns the pixel y where the scrollable content area ends (top of button row).
+static int content_area_bottom(HWND dlg) {
+    HWND ok_btn = GetDlgItem(dlg, IDC_SET_OK);
+    if (ok_btn) {
+        RECT r{};
+        GetWindowRect(ok_btn, &r);
+        MapWindowPoints(HWND_DESKTOP, dlg, reinterpret_cast<POINT*>(&r), 2);
+        if (r.top > 0) {
+            RECT margin{0, 0, 0, 4};
+            MapDialogRect(dlg, &margin);
+            return r.top - margin.bottom;
+        }
+    }
+    RECT r{0, 0, 0, DLG_H - 24};
+    MapDialogRect(dlg, &r);
+    return r.bottom;
+}
+
+static void set_appearance_visible(HWND dlg, bool show) {
+    int cmd = show ? SW_SHOW : SW_HIDE;
+    for (int id = IDC_THEME_AUTO; id <= IDC_SOUND; ++id) {
+        HWND h = GetDlgItem(dlg, id);
+        if (h) ShowWindow(h, cmd);
+    }
+}
+
+static void set_pomo_visible(HWND dlg, bool show) {
+    int cmd = show ? SW_SHOW : SW_HIDE;
+    for (int id = IDC_POMO_WORK; id <= IDC_MIN_CADENCE; ++id) {
+        HWND h = GetDlgItem(dlg, id);
+        if (h) ShowWindow(h, cmd);
+    }
+    HWND h = GetDlgItem(dlg, IDC_AUTO_START);
+    if (h) ShowWindow(h, cmd);
+}
+
+static void set_presets_visible(HWND dlg, bool show) {
+    int cmd = show ? SW_SHOW : SW_HIDE;
+    int ids[] = {IDC_PRESET_ED0, IDC_PRESET_ED1, IDC_PRESET_ED2, IDC_PRESET_ED3, IDC_PRESET_ED4,
+                 IDC_PRESET_MIN0, IDC_PRESET_MIN1, IDC_PRESET_MIN2, IDC_PRESET_MIN3, IDC_PRESET_MIN4};
+    for (int id : ids) {
+        HWND h = GetDlgItem(dlg, id);
+        if (h) ShowWindow(h, cmd);
+    }
+}
+
+static void set_clock_combo_visible(HWND dlg, bool show) {
+    HWND h = GetDlgItem(dlg, IDC_CLOCK_COMBO);
+    if (h) ShowWindow(h, show ? SW_SHOW : SW_HIDE);
+}
+
+static void position_scrollable_controls(HWND dlg, const Params& p) {
+    if (p.active_tab != TAB_CLOCK) return;
+
+    HWND combo = GetDlgItem(dlg, IDC_CLOCK_COMBO);
+    if (!combo || !IsWindowVisible(combo)) return;
+
+    SetWindowPos(combo, nullptr,
+                 p.clock_combo_rc.left,
+                 p.clock_combo_rc.top - p.scroll_y,
+                 0, 0,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
+}
+
+static int rect_bottom_after_scroll(const RECT& r, const Params& p) {
+    return r.bottom - p.scroll_y;
+}
+
+static int tab_painted_content_bottom(HWND dlg, const Params& p) {
+    switch (p.active_tab) {
+    case TAB_CLOCK: {
+        if (p.clock_view != ClockView::Analog) {
+            return map_dlu(dlg, 70, 28, 80, 12).bottom;
+        }
+        // analog_preview is fixed/sticky and excluded from scroll content
+        int bottom = std::max({
+            rect_bottom_after_scroll(p.rects.analog_min_ticks, p),
+            rect_bottom_after_scroll(p.rects.analog_labels[0], p),
+            rect_bottom_after_scroll(p.rects.analog_labels[1], p),
+            rect_bottom_after_scroll(p.rects.analog_labels[2], p),
+        });
+        for (int i = 0; i < ANALOG_COLOR_COUNT; ++i)
+            bottom = std::max(bottom, rect_bottom_after_scroll(p.rects.analog_colors[i], p));
+        for (int i = 0; i < ANALOG_VALUE_COUNT; ++i)
+            bottom = std::max(bottom, rect_bottom_after_scroll(p.rects.analog_values[i], p));
+        return bottom;
+    }
+    case TAB_TIMERS:
+        return map_dlu(dlg, 76, 104, 16, 12).bottom;
+    default:
+        return 0;
+    }
+}
+
+static bool control_counts_as_scroll_content(int id) {
+    return id != IDC_SET_OK && id != IDC_SET_CANCEL;
+}
+
+static int visible_child_content_bottom(HWND dlg) {
+    int content_end = 0;
+    EnumChildWindows(dlg, [](HWND child, LPARAM lp) -> BOOL {
+        if (!IsWindowVisible(child)) return TRUE;
+        int id = GetDlgCtrlID(child);
+        if (!control_counts_as_scroll_content(id)) return TRUE;
+
+        RECT r{};
+        GetWindowRect(child, &r);
+        MapWindowPoints(HWND_DESKTOP, GetParent(child), reinterpret_cast<POINT*>(&r), 2);
+        auto* end = reinterpret_cast<int*>(lp);
+        *end = std::max(*end, (int)r.bottom);
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&content_end));
+    return content_end;
+}
+
+// Recompute scrollbar range from the actual visible controls plus painted tab content.
+static void update_content_scroll(HWND dlg, Params* p) {
+    p->scroll_y = 0;
+    position_scrollable_controls(dlg, *p);
+
+    RECT div_top = {0, 0, 0, TITLE_H + 2};
+    MapDialogRect(dlg, &div_top);
+
+    int view_h = content_area_bottom(dlg) - div_top.bottom;
+    int content_bottom = std::max(visible_child_content_bottom(dlg), tab_painted_content_bottom(dlg, *p));
+    int content_h = std::max(0, content_bottom - (int)div_top.bottom);
+    int max_scroll = std::max(0, content_h - view_h);
+
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(SCROLLINFO);
+    si.fMask  = SIF_RANGE | SIF_PAGE | SIF_POS;
+    si.nMin   = 0;
+    si.nMax   = content_h;
+    si.nPage  = (UINT)view_h;
+    si.nPos   = 0;
+    SetScrollInfo(dlg, SB_VERT, &si, TRUE);
+    EnableScrollBar(dlg, SB_VERT, max_scroll > 0 ? ESB_ENABLE_BOTH : ESB_DISABLE_BOTH);
+}
+
+// Apply scroll delta and reposition the combobox if on the clock tab.
+static void apply_scroll(HWND dlg, Params* p, int new_pos) {
+    SCROLLINFO si = {sizeof(SCROLLINFO), SIF_POS, 0, 0, 0, 0, 0};
+    si.nPos = new_pos;
+    SetScrollInfo(dlg, SB_VERT, &si, TRUE);
+    GetScrollInfo(dlg, SB_VERT, &si);
+    p->scroll_y = si.nPos;
+
+    position_scrollable_controls(dlg, *p);
+    InvalidateRect(dlg, nullptr, TRUE);
+}
+
+// ─── Paint helpers ────────────────────────────────────────────────────────────
+
+static void paint_option_btn(HDC hdc, const RECT& rc, const wchar_t* text, bool selected,
+                              const DlgStyle& s) {
+    int rr = s.scale(4);
+    HBRUSH br = CreateSolidBrush(selected ? s.theme->active : s.theme->btn);
+    HPEN pen = CreatePen(PS_NULL, 0, 0);
+    auto* obr = (HBRUSH)SelectObject(hdc, br);
+    auto* opn = (HPEN)SelectObject(hdc, pen);
+    RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, rr, rr);
+    SelectObject(hdc, obr);
+    SelectObject(hdc, opn);
+    DeleteObject(br);
+    DeleteObject(pen);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, s.theme->text);
+    SelectObject(hdc, s.font);
+    RECT r = rc;
+    DrawTextW(hdc, text, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+}
+
+static bool read_field(HWND dlg, int id, int& out) {
+    wchar_t buf[8] = {};
+    GetDlgItemTextW(dlg, id, buf, 7);
+    wchar_t* end = nullptr;
+    long v = std::wcstol(buf, &end, 10);
+    if (!end || *end != L'\0' || v < 1 || v > 1440) return false;
+    out = (int)v;
+    return true;
+}
+
+// ─── Handlers & DlgProc ───────────────────────────────────────────────────────
 
 static Params* dialog_params(HWND dlg) {
     return reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
@@ -95,7 +531,6 @@ static void set_child_fonts(HWND dlg, Params& p) {
         return TRUE;
     }, (LPARAM)&p);
 }
-
 
 static int* analog_color_field(AnalogClockStyle& a, int i) {
     switch (i) {
@@ -742,3 +1177,56 @@ static INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     }
     return FALSE;
 }
+
+} // namespace settings_dlg
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+inline bool show_settings_dialog(HWND parent, App& app, HFONT font,
+                                 const Theme* theme = nullptr, int dpi = 0) {
+    using namespace settings_dlg;
+    if (!theme) theme = &dark_theme;
+    if (dpi <= 0) dpi = STANDARD_DPI;
+
+    Params p{
+        .active_tab    = TAB_APPEARANCE,
+        .theme_mode    = app.theme_mode,
+        .clock_view    = app.clock_view,
+        .analog_style  = app.analog_style,
+        .sound_on_expiry = app.sound_on_expiry,
+        .work_min  = app.pomodoro_work_secs / 60,
+        .short_min = app.pomodoro_short_secs / 60,
+        .long_min  = app.pomodoro_long_secs / 60,
+        .cadence   = app.pomodoro_cadence,
+        .auto_start = app.pomodoro_auto_start,
+        .preset_min = {},
+        .style = {.theme = theme, .font = font, .dpi = dpi},
+    };
+    for (int i = 0; i < (int)app.custom_preset_secs.size() && i < 5; ++i)
+        p.preset_min[i] = app.custom_preset_secs[i] / 60;
+
+    auto tmpl = build_template();
+    HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrW(parent, GWLP_HINSTANCE);
+    INT_PTR result = DialogBoxIndirectParamW(
+        hInst, reinterpret_cast<DLGTEMPLATE*>(tmpl.data()),
+        parent, DlgProc, (LPARAM)&p
+    );
+
+    if (result != IDOK) return false;
+    app.theme_mode       = p.theme_mode;
+    app.clock_view       = p.clock_view;
+    app.analog_style     = p.analog_style;
+    app.sound_on_expiry  = p.sound_on_expiry;
+    app.pomodoro_work_secs  = p.work_min * 60;
+    app.pomodoro_short_secs = p.short_min * 60;
+    app.pomodoro_long_secs  = p.long_min * 60;
+    app.pomodoro_cadence    = p.cadence;
+    app.pomodoro_auto_start = p.auto_start;
+    app.custom_preset_secs.clear();
+    for (int i = 0; i < 5; ++i)
+        if (p.preset_min[i] > 0)
+            app.custom_preset_secs.push_back(p.preset_min[i] * 60);
+    return true;
+}
+
+} // namespace ui
