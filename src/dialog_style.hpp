@@ -37,3 +37,36 @@ struct DlgStyle {
     void draw_check_radio(HDC hdc, const RECT& rc, const wchar_t* text,
                           bool checked, bool is_radio) const;
 };
+
+// ─── Shared dialog helpers ──────────────────────────────────────────────────
+
+// Brush set used by every owner-drawn dialog: bg = window background,
+// edit = edit/listbox background, btn = button background.
+struct DialogBrushes {
+    GdiObj bg;
+    GdiObj edit;
+    GdiObj btn;
+    static DialogBrushes create(const Theme& theme);
+};
+
+// Center `dlg` over its owner; no-op if there is no parent.
+void dialog_center_on_parent(HWND dlg);
+
+// Send WM_SETFONT to every child of `dlg`.
+void dialog_apply_font_to_children(HWND dlg, HFONT font);
+
+// Handle WM_CTLCOLOR{STATIC,EDIT,BTN,LISTBOX}. Returns the brush
+// handle as INT_PTR for use as the dialog-proc return value, or 0 if `msg`
+// is not one of the four.
+INT_PTR dialog_handle_ctl_color(UINT msg, HDC hdc, const Theme& theme,
+                                const DialogBrushes& brushes);
+
+// Handle WM_NCHITTEST for a dialog with a painted caption: drag by the
+// top `title_h_dlu` dialog units. Returns HTCAPTION inside the title strip,
+// 0 (i.e. fall through) otherwise.
+INT_PTR dialog_handle_caption_hittest(HWND dlg, LPARAM lp, short title_h_dlu);
+
+// Inside WM_ERASEBKGND, paint `title` centred in the top `title_h_dlu`
+// dialog units and a horizontal divider line at the bottom edge.
+void dialog_paint_title(HDC hdc, HWND dlg, const DlgStyle& style,
+                        const wchar_t* title, short title_h_dlu);

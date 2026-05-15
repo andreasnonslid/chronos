@@ -18,25 +18,44 @@
 #include "theme.hpp"
 
 // ─── Paint sub-functions ──────────────────────────────────────────────────────
+namespace {
+
+struct BarBtn {
+    int Layout::*width;
+    const wchar_t* label;
+    int act;
+    bool App::*active;  // nullptr = never active
+};
+
+constexpr BarBtn kBarBtns[] = {
+    {&Layout::w_pin, L"Pin",       A_TOPMOST,     &App::topmost},
+    {&Layout::w_clk, L"Clock",     A_SHOW_CLK,    &App::show_clk},
+    {&Layout::w_sw,  L"Stopwatch", A_SHOW_SW,     &App::show_sw},
+    {&Layout::w_tmr, L"Timers",    A_SHOW_TMR,    &App::show_tmr},
+    {&Layout::w_alm, L"Alarms",    A_SHOW_ALARMS, &App::show_alarms},
+    {&Layout::w_set, L"\u2699",    A_SETTINGS,    nullptr},
+};
+constexpr int kBarBtnCount = (int)(sizeof(kBarBtns) / sizeof(kBarBtns[0]));
+
+} // namespace
+
 int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     RECT bar{0, 0, cw, layout.bar_h};
     FillRect(hdc, &bar, ctx.res.brBar);
 
     SelectObject(hdc, ctx.res.fontSm);
+    int total_w = (kBarBtnCount - 1) * layout.bar_gap;
+    for (const auto& b : kBarBtns) total_w += layout.*b.width;
+
     int by = (layout.bar_h - layout.btn_h) / 2;
-    int bx = (cw - (layout.w_pin + layout.w_clk + layout.w_sw + layout.w_tmr + layout.w_alm + layout.w_set + 5 * layout.bar_gap)) / 2;
-    btn(hdc, {bx, by, bx + layout.w_pin, by + layout.btn_h}, ctx.app.topmost, L"Pin", A_TOPMOST, ctx);
-    bx += layout.w_pin + layout.bar_gap;
-    btn(hdc, {bx, by, bx + layout.w_clk, by + layout.btn_h}, ctx.app.show_clk, L"Clock", A_SHOW_CLK, ctx);
-    bx += layout.w_clk + layout.bar_gap;
-    btn(hdc, {bx, by, bx + layout.w_sw, by + layout.btn_h}, ctx.app.show_sw, L"Stopwatch", A_SHOW_SW, ctx);
-    bx += layout.w_sw + layout.bar_gap;
-    btn(hdc, {bx, by, bx + layout.w_tmr, by + layout.btn_h}, ctx.app.show_tmr, L"Timers", A_SHOW_TMR, ctx);
-    bx += layout.w_tmr + layout.bar_gap;
-    btn(hdc, {bx, by, bx + layout.w_alm, by + layout.btn_h}, ctx.app.show_alarms, L"Alarms", A_SHOW_ALARMS, ctx);
-    bx += layout.w_alm + layout.bar_gap;
-    btn(hdc, {bx, by, bx + layout.w_set, by + layout.btn_h}, false, L"\u2699", A_SETTINGS, ctx);
+    int bx = (cw - total_w) / 2;
+    for (const auto& b : kBarBtns) {
+        int w = layout.*b.width;
+        bool active = b.active ? ctx.app.*b.active : false;
+        btn(hdc, {bx, by, bx + w, by + layout.btn_h}, active, b.label, b.act, ctx);
+        bx += w + layout.bar_gap;
+    }
     return layout.bar_h;
 }
 

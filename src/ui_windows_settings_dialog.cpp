@@ -221,10 +221,7 @@ struct Params {
     HitRects rects{};
     int scroll_y = 0;       // current scroll offset in pixels
     RECT clock_combo_rc{};  // base pixel rect of the combobox (unscrolled)
-    GdiObj brush_bg{};
-    GdiObj brush_edit{};
-    GdiObj brush_btn{};
-    GdiObj brush_combo{};
+    DialogBrushes brushes{};
 };
 
 // ─── Scroll & visibility ──────────────────────────────────────────────────────
@@ -417,20 +414,6 @@ static Params* dialog_params(HWND dlg) {
     return reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
 }
 
-static void center_dialog_on_parent(HWND dlg) {
-    HWND parent = GetParent(dlg);
-    if (!parent) return;
-
-    RECT pr{}, dr{};
-    GetWindowRect(parent, &pr);
-    GetWindowRect(dlg, &dr);
-    int dw = dr.right - dr.left;
-    int dh = dr.bottom - dr.top;
-    int x = pr.left + (pr.right - pr.left - dw) / 2;
-    int y = pr.top + (pr.bottom - pr.top - dh) / 2;
-    SetWindowPos(dlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-}
-
 static constexpr struct { ThemeMode mode; int id; } kThemeMap[] = {
     {ThemeMode::Auto,  IDC_THEME_AUTO},
     {ThemeMode::Light, IDC_THEME_LIGHT},
@@ -499,14 +482,6 @@ static void set_initial_tab_visibility(HWND dlg, Params& p) {
     set_presets_visible(dlg, p.active_tab == TAB_TIMERS);
     set_clock_combo_visible(dlg, p.active_tab == TAB_CLOCK);
     update_content_scroll(dlg, &p);
-}
-
-static void set_child_fonts(HWND dlg, Params& p) {
-    EnumChildWindows(dlg, [](HWND child, LPARAM param) -> BOOL {
-        auto* params = reinterpret_cast<Params*>(param);
-        SendMessageW(child, WM_SETFONT, (WPARAM)params->style.font, FALSE);
-        return TRUE;
-    }, (LPARAM)&p);
 }
 
 static int* analog_color_field(AnalogClockStyle& a, int i) {
@@ -655,21 +630,17 @@ static INT_PTR on_init(HWND dlg, LPARAM lp) {
     auto* p = reinterpret_cast<Params*>(lp);
     SetWindowLongPtrW(dlg, DWLP_USER, (LONG_PTR)p);
     p->style.apply_dark_mode(dlg);
-    center_dialog_on_parent(dlg);
+    dialog_center_on_parent(dlg);
 
     p->rects = compute_rects(dlg);
     p->clock_combo_rc = map_dlu(dlg, 68, 40, 212, 80);
-
-    p->brush_bg    = GdiObj{CreateSolidBrush(p->style.theme->bg)};
-    p->brush_edit  = GdiObj{CreateSolidBrush(p->style.theme->bar)};
-    p->brush_btn   = GdiObj{CreateSolidBrush(p->style.theme->bg)};
-    p->brush_combo = GdiObj{CreateSolidBrush(p->style.theme->bar)};
+    p->brushes = DialogBrushes::create(*p->style.theme);
 
     tab_appearance_init(dlg, *p);
     tab_pomodoro_init(dlg, *p);
     tab_timers_init(dlg, *p);
     tab_clock_init(dlg, *p);
-    set_child_fonts(dlg, *p);
+    dialog_apply_font_to_children(dlg, p->style.font);
     set_initial_tab_visibility(dlg, *p);
     reposition_buttons(dlg);
     return FALSE;
@@ -820,36 +791,12 @@ static INT_PTR on_ctl_color(HWND dlg, UINT msg, HDC hdc) {
     auto* p = dialog_params(dlg);
     if (!p) return FALSE;
 
-    switch (msg) {
-    case WM_CTLCOLORSTATIC:
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkMode(hdc, TRANSPARENT);
-        return (INT_PTR)p->brush_bg.h;
-    case WM_CTLCOLOREDIT:
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkColor(hdc, p->style.theme->bar);
-        return (INT_PTR)p->brush_edit.h;
-    case WM_CTLCOLORBTN:
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkMode(hdc, TRANSPARENT);
-        return (INT_PTR)p->brush_btn.h;
-    case WM_CTLCOLORLISTBOX:
-        SetTextColor(hdc, p->style.theme->text);
-        SetBkColor(hdc, p->style.theme->bar);
-        return (INT_PTR)p->brush_combo.h;
-    }
-    return FALSE;
+    return dialog_handle_ctl_color(msg, hdc, *p->style.theme, p->brushes);
 }
 
 static INT_PTR on_nc_hit_test(HWND dlg, LPARAM lp) {
-    RECT rc{};
-    GetClientRect(dlg, &rc);
-    RECT title_h{0, 0, 0, TITLE_H + 2};
-    MapDialogRect(dlg, &title_h);
-    POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-    ScreenToClient(dlg, &pt);
-    if (pt.x >= 0 && pt.x < rc.right && pt.y >= 0 && pt.y < title_h.bottom) {
-        SetWindowLongPtrW(dlg, DWLP_MSGRESULT, HTCAPTION);
+    if (auto r = dialog_handle_caption_hittest(dlg, lp, TITLE_H + 2)) {
+        SetWindowLongPtrW(dlg, DWLP_MSGRESULT, r);
         return TRUE;
     }
     return FALSE;

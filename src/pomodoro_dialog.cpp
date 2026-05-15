@@ -91,9 +91,7 @@ std::vector<WORD> build_template() {
 struct Params {
     int work_min, short_min, long_min;
     DlgStyle style;
-    GdiObj brush_bg{};
-    GdiObj brush_edit{};
-    GdiObj brush_btn{};
+    DialogBrushes brushes{};
 };
 
 bool read_field(HWND dlg, int id, int& out) {
@@ -113,17 +111,7 @@ INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         SetWindowLongPtrW(dlg, DWLP_USER, (LONG_PTR)p);
 
         p->style.apply_dark_mode(dlg);
-
-        HWND parent = GetParent(dlg);
-        if (parent) {
-            RECT pr, dr;
-            GetWindowRect(parent, &pr);
-            GetWindowRect(dlg, &dr);
-            int dw = dr.right - dr.left, dh = dr.bottom - dr.top;
-            int x = pr.left + (pr.right - pr.left - dw) / 2;
-            int y = pr.top + (pr.bottom - pr.top - dh) / 2;
-            SetWindowPos(dlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        }
+        dialog_center_on_parent(dlg);
 
         SetDlgItemTextW(dlg, IDC_POMO_WORK,  std::format(L"{}", p->work_min).c_str());
         SetDlgItemTextW(dlg, IDC_POMO_SHORT, std::format(L"{}", p->short_min).c_str());
@@ -132,15 +120,8 @@ INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         SendDlgItemMessageW(dlg, IDC_POMO_SHORT, EM_SETLIMITTEXT, 4, 0);
         SendDlgItemMessageW(dlg, IDC_POMO_LONG,  EM_SETLIMITTEXT, 4, 0);
 
-        EnumChildWindows(dlg, [](HWND child, LPARAM param) -> BOOL {
-            auto* params = reinterpret_cast<Params*>(param);
-            SendMessageW(child, WM_SETFONT, (WPARAM)params->style.font, FALSE);
-            return TRUE;
-        }, (LPARAM)p);
-
-        p->brush_bg   = GdiObj{CreateSolidBrush(p->style.theme->bg)};
-        p->brush_edit = GdiObj{CreateSolidBrush(p->style.theme->bar)};
-        p->brush_btn  = GdiObj{CreateSolidBrush(p->style.theme->bg)};
+        dialog_apply_font_to_children(dlg, p->style.font);
+        p->brushes = DialogBrushes::create(*p->style.theme);
 
         SetFocus(GetDlgItem(dlg, IDC_POMO_WORK));
         SendDlgItemMessageW(dlg, IDC_POMO_WORK, EM_SETSEL, 0, -1);
@@ -152,55 +133,19 @@ INT_PTR CALLBACK PomoDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         RECT rc;
         GetClientRect(dlg, &rc);
         p->style.fill_background((HDC)wp, rc);
-
-        // Draw title
-        RECT title_rc = {0, 0, DLG_W, 20};
-        MapDialogRect(dlg, &title_rc);
-        title_rc.left = 0;
-        title_rc.right = rc.right;
-        p->style.draw_label((HDC)wp, title_rc, L"Pomodoro Intervals",
-                           DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-        // Draw divider under title
-        HPEN pen = CreatePen(PS_SOLID, 1, p->style.theme->divider);
-        auto* old = (HPEN)SelectObject((HDC)wp, pen);
-        RECT map_rc = {0, 0, DLG_W, 22};
-        MapDialogRect(dlg, &map_rc);
-        MoveToEx((HDC)wp, 0, map_rc.bottom, nullptr);
-        LineTo((HDC)wp, rc.right, map_rc.bottom);
-        SelectObject((HDC)wp, old);
-        DeleteObject(pen);
-
+        dialog_paint_title((HDC)wp, dlg, p->style, L"Pomodoro Intervals", 22);
         return 1;
     }
-    case WM_CTLCOLORSTATIC: {
-        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
-        if (!p) break;
-        SetTextColor((HDC)wp, p->style.theme->text);
-        SetBkMode((HDC)wp, TRANSPARENT);
-        return (INT_PTR)p->brush_bg.h;
-    }
-    case WM_CTLCOLOREDIT: {
-        auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
-        if (!p) break;
-        SetTextColor((HDC)wp, p->style.theme->text);
-        SetBkColor((HDC)wp, p->style.theme->bar);
-        return (INT_PTR)p->brush_edit.h;
-    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLOREDIT:
     case WM_CTLCOLORBTN: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
-        return (INT_PTR)p->brush_btn.h;
+        return dialog_handle_ctl_color(msg, (HDC)wp, *p->style.theme, p->brushes);
     }
-    case WM_NCHITTEST: {
-        RECT title_rc = {0, 0, DLG_W, 22};
-        MapDialogRect(dlg, &title_rc);
-        POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        ScreenToClient(dlg, &pt);
-        if (pt.y >= 0 && pt.y < title_rc.bottom)
-            return HTCAPTION;
+    case WM_NCHITTEST:
+        if (auto r = dialog_handle_caption_hittest(dlg, lp, 22)) return r;
         break;
-    }
     case WM_DRAWITEM: {
         auto* p = reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
         if (!p) break;
