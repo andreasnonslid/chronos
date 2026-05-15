@@ -48,7 +48,7 @@ if(WIN32)
     )
 
     target_compile_options(chronos PRIVATE
-        -Wall -Wextra -Werror -Wno-unused-command-line-argument
+        -Wall -Wextra -Werror $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-command-line-argument>
     )
 
     target_link_options(chronos PRIVATE
@@ -70,7 +70,7 @@ elseif(UNIX AND NOT APPLE)
     target_include_directories(chronos PRIVATE src)
     set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     target_compile_options(chronos PRIVATE
-        -Wall -Wextra -Werror -Wno-unused-command-line-argument
+        -Wall -Wextra -Werror $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-command-line-argument>
     )
     target_link_libraries(chronos PRIVATE X11::X11)
 endif()
@@ -114,7 +114,7 @@ if(BUILD_TESTS)
     set_target_properties(chronos_tests PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     target_link_libraries(chronos_tests PRIVATE Catch2::Catch2WithMain)
     target_compile_options(chronos_tests PRIVATE
-        -Wall -Wextra -Werror -Wno-unused-command-line-argument
+        -Wall -Wextra -Werror $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-command-line-argument>
     )
     if(LLD)
         target_link_options(chronos_tests PRIVATE "--ld-path=${LLD}")

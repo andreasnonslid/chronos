@@ -12,6 +12,35 @@
 #include "pomodoro.hpp"
 #include "timer.hpp"
 
+namespace {
+
+// Cycle `v` by ±1, wrapping at the [0, max_inclusive] boundaries.
+int cycle(int v, int max_inclusive, bool up) {
+    if (up) return v >= max_inclusive ? 0             : v + 1;
+    else    return v <= 0             ? max_inclusive : v - 1;
+}
+
+// Advance a running pomodoro timer to the next phase (work → break → work …),
+// crediting the elapsed-time bucket if leaving a work phase.
+void advance_pomodoro_phase(TimerSlot& ts, const App& app,
+                            std::chrono::steady_clock::time_point now) {
+    using namespace std::chrono;
+    if (pomodoro_is_work(ts.pomodoro_phase))
+        ts.pomodoro_work_elapsed += duration_cast<seconds>(ts.t.total_elapsed(now));
+    ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase, app.pomodoro_cadence);
+    auto secs = seconds{pomodoro_phase_secs(ts.pomodoro_phase,
+        app.pomodoro_work_secs, app.pomodoro_short_secs, app.pomodoro_long_secs,
+        app.pomodoro_cadence)};
+    ts.dur = secs;
+    ts.notified = false;
+    ts.t.reset();
+    ts.t.set(secs);
+    ts.t.start(now);
+    ts.label = pomodoro_phase_label(ts.pomodoro_phase, app.pomodoro_cadence);
+}
+
+} // namespace
+
 /// Resets @p ts to its initial state, restoring pomodoro phase 0 if applicable.
 void reset_timer_slot(TimerSlot& ts, const App& app) {
     ts.notified = false;
@@ -30,29 +59,24 @@ bool apply_timer_hms_adjust(TimerSlot& ts, int off) {
     int h = (int)(total / 3600);
     int m = (int)((total / 60) % 60);
     int sec = (int)(total % 60);
-    struct Adj { int off; int* field; int max_val; bool up; };
-    Adj adjustments[] = {
-        {A_TMR_HUP, &h, 24, true},  {A_TMR_HDN, &h, 24, false},
-        {A_TMR_MUP, &m, 59, true},  {A_TMR_MDN, &m, 59, false},
-        {A_TMR_SUP, &sec, 59, true}, {A_TMR_SDN, &sec, 59, false},
+
+    struct Adj { int off; int* field; int max_inclusive; bool up; };
+    const Adj adjustments[] = {
+        {A_TMR_HUP, &h,   24, true},  {A_TMR_HDN, &h,   24, false},
+        {A_TMR_MUP, &m,   59, true},  {A_TMR_MDN, &m,   59, false},
+        {A_TMR_SUP, &sec, 59, true},  {A_TMR_SDN, &sec, 59, false},
     };
-    bool changed = false;
-    for (auto& [a_off, field, max_val, up] : adjustments) {
-        if (off == a_off) {
-            *field = up ? (*field >= max_val ? 0 : *field + 1)
-                        : (*field <= 0 ? max_val : *field - 1);
-            changed = true;
-            break;
-        }
-    }
-    if (changed) {
+    for (const auto& [a_off, field, max_inclusive, up] : adjustments) {
+        if (off != a_off) continue;
+        *field = cycle(*field, max_inclusive, up);
         if (h == 24) { m = 0; sec = 0; }
         auto clamped = std::clamp(h * 3600 + m * 60 + sec, 0, Config::TIMER_MAX_SECS);
         ts.dur = std::chrono::seconds{clamped};
         ts.t.reset();
         ts.t.set(ts.dur);
+        return true;
     }
-    return changed;
+    return false;
 }
 
 int tmr_act(int i, int off) {
@@ -130,20 +154,7 @@ HandleResult dispatch_timer_action(App& app, int idx, int off,
         }
     } else if (off == A_TMR_SKIP) {
         if (ts.pomodoro && ts.t.touched()) {
-            if (pomodoro_is_work(ts.pomodoro_phase)) {
-                auto elapsed = duration_cast<seconds>(ts.t.total_elapsed(now));
-                ts.pomodoro_work_elapsed += elapsed;
-            }
-            ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase, app.pomodoro_cadence);
-            auto secs = seconds{pomodoro_phase_secs(ts.pomodoro_phase,
-                app.pomodoro_work_secs, app.pomodoro_short_secs, app.pomodoro_long_secs,
-                app.pomodoro_cadence)};
-            ts.dur = secs;
-            ts.notified = false;
-            ts.t.reset();
-            ts.t.set(secs);
-            ts.t.start(now);
-            ts.label = pomodoro_phase_label(ts.pomodoro_phase, app.pomodoro_cadence);
+            advance_pomodoro_phase(ts, app, now);
             r.save_config = true;
         }
     } else if (!ts.t.touched() && apply_timer_hms_adjust(ts, off)) {

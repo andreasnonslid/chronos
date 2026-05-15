@@ -36,9 +36,7 @@ struct Params {
     RECT rc_days_btn{};
     RECT rc_date_btn{};
     RECT rc_day[7]{};  // Mon-Sun painted toggles
-    GdiObj brush_bg{};
-    GdiObj brush_edit{};
-    GdiObj brush_btn{};
+    DialogBrushes brushes;
 };
 
 // ─── Template builder ─────────────────────────────────────────────────────────
@@ -131,28 +129,11 @@ INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         p = reinterpret_cast<Params*>(lp);
         SetWindowLongPtrW(dlg, DWLP_USER, (LONG_PTR)p);
         p->style.apply_dark_mode(dlg);
-
-        // Centre on parent
-        if (HWND par = GetParent(dlg)) {
-            RECT pr, dr;
-            GetWindowRect(par, &pr); GetWindowRect(dlg, &dr);
-            int dw = dr.right - dr.left, dh = dr.bottom - dr.top;
-            SetWindowPos(dlg, nullptr,
-                         pr.left + (pr.right - pr.left - dw) / 2,
-                         pr.top  + (pr.bottom - pr.top  - dh) / 2,
-                         0, 0, SWP_NOSIZE | SWP_NOZORDER);
-        }
+        dialog_center_on_parent(dlg);
 
         init_painted_rects(dlg, *p);
-        p->brush_bg   = GdiObj{CreateSolidBrush(p->style.theme->bg)};
-        p->brush_edit = GdiObj{CreateSolidBrush(p->style.theme->bar)};
-        p->brush_btn  = GdiObj{CreateSolidBrush(p->style.theme->bg)};
-
-        // Set fonts on all children
-        EnumChildWindows(dlg, [](HWND ch, LPARAM par) -> BOOL {
-            SendMessageW(ch, WM_SETFONT, (WPARAM)((Params*)par)->style.font, FALSE);
-            return TRUE;
-        }, (LPARAM)p);
+        p->brushes = DialogBrushes::create(*p->style.theme);
+        dialog_apply_font_to_children(dlg, p->style.font);
 
         // Populate edits
         const auto& a = p->result;
@@ -184,20 +165,7 @@ INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         HDC hdc = (HDC)wp;
         RECT rc; GetClientRect(dlg, &rc);
         p->style.fill_background(hdc, rc);
-
-        // Title
-        RECT title_dlu = {0, 0, DLG_W, 20};
-        MapDialogRect(dlg, &title_dlu);
-        title_dlu.right = rc.right;
-        p->style.draw_label(hdc, title_dlu, L"Add Alarm", DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-        // Divider under title
-        HPEN pen = CreatePen(PS_SOLID, 1, p->style.theme->divider);
-        auto* op = (HPEN)SelectObject(hdc, pen);
-        RECT div = {0, 0, 0, 21}; MapDialogRect(dlg, &div);
-        MoveToEx(hdc, 0, div.bottom, nullptr);
-        LineTo(hdc, rc.right, div.bottom);
-        SelectObject(hdc, op); DeleteObject(pen);
+        dialog_paint_title(hdc, dlg, p->style, L"Add Alarm", 21);
 
         // Field labels
         auto lbl = [&](short x, short y, short cx, short cy, const wchar_t* t) {
@@ -234,30 +202,15 @@ INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         return 1;
     }
 
-    case WM_CTLCOLORSTATIC: {
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORBTN:
         if (!p) break;
-        SetTextColor((HDC)wp, p->style.theme->text);
-        SetBkMode((HDC)wp, TRANSPARENT);
-        return (INT_PTR)p->brush_bg.h;
-    }
-    case WM_CTLCOLOREDIT: {
-        if (!p) break;
-        SetTextColor((HDC)wp, p->style.theme->text);
-        SetBkColor((HDC)wp, p->style.theme->bar);
-        return (INT_PTR)p->brush_edit.h;
-    }
-    case WM_CTLCOLORBTN: {
-        if (!p) break;
-        return (INT_PTR)p->brush_btn.h;
-    }
+        return dialog_handle_ctl_color(msg, (HDC)wp, *p->style.theme, p->brushes);
 
-    case WM_NCHITTEST: {
-        RECT title = {0, 0, DLG_W, 21}; MapDialogRect(dlg, &title);
-        POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-        ScreenToClient(dlg, &pt);
-        if (pt.y >= 0 && pt.y < title.bottom) return HTCAPTION;
+    case WM_NCHITTEST:
+        if (auto r = dialog_handle_caption_hittest(dlg, lp, 21)) return r;
         break;
-    }
 
     case WM_LBUTTONDOWN: {
         if (!p) break;
@@ -390,8 +343,8 @@ bool show_add_alarm_dialog(HWND parent, Alarm& out, HFONT font,
     Params p{
         .result = defaults,
         .style  = {.theme = theme, .font = font, .dpi = dpi},
+        .brushes = {},
     };
-
     auto tmpl = build_template();
     HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrW(parent, GWLP_HINSTANCE);
     INT_PTR res = DialogBoxIndirectParamW(

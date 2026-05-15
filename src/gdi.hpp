@@ -4,7 +4,8 @@
 // ─── RAII wrapper for GDI objects ────────────────────────────────────────────
 struct GdiObj {
     HGDIOBJ h;
-    explicit GdiObj(HGDIOBJ h = nullptr) : h(h) {}
+    GdiObj() : h(nullptr) {}
+    explicit GdiObj(HGDIOBJ h) : h(h) {}
     ~GdiObj() {
         if (h) DeleteObject(h);
     }
