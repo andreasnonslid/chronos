@@ -12,41 +12,6 @@
 #include "pomodoro.hpp"
 #include "timer.hpp"
 
-enum Act {
-    A_TOPMOST = 1,
-    A_SHOW_CLK,
-    A_SHOW_SW,
-    A_SHOW_TMR,
-    A_SW_START,
-    A_SW_LAP,
-    A_SW_RESET,
-    A_SW_GET,
-    A_SW_COPY,
-    A_THEME,
-    A_CLK_CYCLE,
-    A_TMR_RST_ALL,
-    A_SETTINGS,
-    A_SHOW_ALARMS,
-    A_ALARM_ADD,
-    A_TMR_BASE    = 100,
-    A_ALARM_DEL   = 500,  // A_ALARM_DEL + i to delete alarm i
-    A_ALARM_TOGGLE = 520, // A_ALARM_TOGGLE + i to enable/disable alarm i
-};
-
-constexpr int TMR_STRIDE = 12;
-constexpr int A_TMR_HUP = 0;
-constexpr int A_TMR_HDN = 1;
-constexpr int A_TMR_MUP = 2;
-constexpr int A_TMR_MDN = 3;
-constexpr int A_TMR_SUP = 4;
-constexpr int A_TMR_SDN = 5;
-constexpr int A_TMR_START = 6;
-constexpr int A_TMR_RST = 7;
-constexpr int A_TMR_ADD = 8;
-constexpr int A_TMR_DEL = 9;
-constexpr int A_TMR_POMO = 10;
-constexpr int A_TMR_SKIP = 11;
-
 /// Resets @p ts to its initial state, restoring pomodoro phase 0 if applicable.
 void reset_timer_slot(TimerSlot& ts, const App& app) {
     ts.notified = false;
@@ -119,17 +84,6 @@ bool wants_blink(int act) {
         return true;
     }
 }
-
-struct HandleResult {
-    bool save_config = false;
-    bool resize = false;
-    bool set_topmost = false;
-    bool open_file = false;
-    bool copy_laps = false;
-    bool apply_theme = false;
-    bool open_settings = false;
-    bool open_alarm_dialog = false;
-};
 
 /// Handles a single timer-slot action (start/stop, adjust, add/del, pomodoro).
 HandleResult dispatch_timer_action(App& app, int idx, int off,

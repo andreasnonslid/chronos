@@ -8,28 +8,28 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_program(LLD NAMES ld.lld ld.lld.exe)
 
-# Shared (platform-independent) sources
+# Cross-platform sources (no Windows.h dependency)
 set(CHRONOS_SOURCES
     src/main.cpp
     src/actions.cpp
     src/config_serial.cpp
-    src/config_io.cpp
-    src/dialog_style.cpp
     src/encoding.cpp
     src/formatting.cpp
-    src/input_core.cpp
-    src/input_keyboard.cpp
-    src/input_label_edit.cpp
-    src/input_mouse.cpp
-    src/painting.cpp
-    src/painting_analog.cpp
-    src/painting_timer.cpp
-    src/polling.cpp
-    src/window.cpp
 )
 
 if(WIN32)
     list(APPEND CHRONOS_SOURCES
+        src/config_io.cpp
+        src/dialog_style.cpp
+        src/input_core.cpp
+        src/input_keyboard.cpp
+        src/input_label_edit.cpp
+        src/input_mouse.cpp
+        src/painting.cpp
+        src/painting_analog.cpp
+        src/painting_timer.cpp
+        src/polling.cpp
+        src/window.cpp
         src/alarm_dialog.cpp
         src/pomodoro_dialog.cpp
         src/ui_windows_app.cpp
