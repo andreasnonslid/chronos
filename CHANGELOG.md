@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-05-16
+
+### Changed
+- Extracted shared dialog boilerplate (`DialogBrushes`, center-on-parent, child-font setter, `WM_CTLCOLOR*` dispatch, caption hit-test, title paint) into `dialog_style` helpers; Settings, Alarm, and Pomodoro dialogs now delegate instead of re-implementing the same Win32 sequence inline
+- `config_serial.cpp`: replaced 26 hand-written if/else chains for `AnalogClockStyle`, timer-slot, and alarm fields with constexpr field tables and per-domain read helpers — INI keys and clamp ranges unchanged
+- `actions.cpp`: extracted `advance_pomodoro_phase()` to flatten the SKIP branch; replaced wrap-around ternary in `apply_timer_hms_adjust` with a named `cycle()` helper
+- `painting.cpp`: `paint_bar` now drives the six top-bar buttons from a `constexpr BarBtn[]` table instead of six near-identical open-coded calls
+
 ## [1.16.0] — 2026-05-14
 
 ### Changed
