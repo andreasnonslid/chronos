@@ -20,18 +20,9 @@ using WindowHandle = HWND;
 using FontHandle = HFONT;
 using ThemeHandle = const Theme*;
 using InstanceHandle = HINSTANCE;
-
-namespace settings_dlg {
-#include "ui_windows_settings_dialog_ids.hpp"
-#include "ui_windows_settings_dialog_template.hpp"
-#include "ui_windows_settings_dialog_state.hpp"
-#include "ui_windows_settings_dialog_scroll.hpp"
-#include "ui_windows_settings_dialog_paint.hpp"
-#include "ui_windows_settings_dialog_handlers.hpp"
-} // namespace settings_dlg
-
-#include "ui_windows_settings_dialog_show.hpp"
 } // namespace ui
+
+#include "ui_windows_settings_dialog.hpp"
 
 #include "debug.hpp"
 #include "dpi.hpp"
