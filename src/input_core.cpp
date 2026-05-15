@@ -3,6 +3,7 @@
 #include <shellapi.h>
 #include <chrono>
 #include "actions.hpp"
+#include "formatting.hpp"
 #include "alarm_dialog.hpp"
 #include "config_io.hpp"
 #include "geometry.hpp"
