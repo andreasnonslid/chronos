@@ -58,6 +58,12 @@ just build
 just run
 ```
 
+The Justfile picks up `cmake` and `clang++` from `PATH` by default. Override via environment variables if your toolchain lives elsewhere:
+
+```
+CMAKE=C:/msys64/mingw64/bin/cmake.exe CXX=C:/msys64/mingw64/bin/clang++.exe just build
+```
+
 Or directly with CMake (using [presets](CMakePresets.json)):
 
 ```

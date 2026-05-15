@@ -1,5 +1,5 @@
-cmake := "C:/msys64/mingw64/bin/cmake.exe"
-cxx   := "C:/msys64/mingw64/bin/clang++.exe"
+cmake := env("CMAKE", "cmake")
+cxx   := env("CXX", "clang++")
 
 build:
     {{cmake}} --preset release -DCMAKE_CXX_COMPILER={{cxx}}
