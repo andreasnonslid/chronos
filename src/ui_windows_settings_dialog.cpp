@@ -221,7 +221,7 @@ struct Params {
     HitRects rects{};
     int scroll_y = 0;       // current scroll offset in pixels
     RECT clock_combo_rc{};  // base pixel rect of the combobox (unscrolled)
-    DialogBrushes brushes{};
+    DialogBrushes brushes;
 };
 
 // ─── Scroll & visibility ──────────────────────────────────────────────────────
@@ -1125,6 +1125,7 @@ bool show_settings_dialog(HWND parent, App& app, HFONT font,
         .auto_start = app.pomodoro_auto_start,
         .preset_min = {},
         .style = {.theme = theme, .font = font, .dpi = dpi},
+        .brushes = {},
     };
     for (int i = 0; i < (int)app.custom_preset_secs.size() && i < 5; ++i)
         p.preset_min[i] = app.custom_preset_secs[i] / 60;

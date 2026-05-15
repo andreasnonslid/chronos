@@ -91,7 +91,7 @@ std::vector<WORD> build_template() {
 struct Params {
     int work_min, short_min, long_min;
     DlgStyle style;
-    DialogBrushes brushes{};
+    DialogBrushes brushes;
 };
 
 bool read_field(HWND dlg, int id, int& out) {
@@ -199,6 +199,7 @@ bool show_pomodoro_interval_dialog(HWND parent, App& app, HFONT font,
         .short_min = app.pomodoro_short_secs / 60,
         .long_min  = app.pomodoro_long_secs  / 60,
         .style = {.theme = theme, .font = font, .dpi = dpi},
+        .brushes = {},
     };
 
     auto tmpl = build_template();

@@ -36,7 +36,7 @@ struct Params {
     RECT rc_days_btn{};
     RECT rc_date_btn{};
     RECT rc_day[7]{};  // Mon-Sun painted toggles
-    DialogBrushes brushes{};
+    DialogBrushes brushes;
 };
 
 // ─── Template builder ─────────────────────────────────────────────────────────
@@ -343,8 +343,8 @@ bool show_add_alarm_dialog(HWND parent, Alarm& out, HFONT font,
     Params p{
         .result = defaults,
         .style  = {.theme = theme, .font = font, .dpi = dpi},
+        .brushes = {},
     };
-
     auto tmpl = build_template();
     HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrW(parent, GWLP_HINSTANCE);
     INT_PTR res = DialogBoxIndirectParamW(

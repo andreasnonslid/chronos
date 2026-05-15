@@ -13,9 +13,10 @@ struct Dpi {
     void load() {
         HMODULE user32 = GetModuleHandleW(L"user32.dll");
         if (user32) {
-            GetDpiForWindow = (GetDpiForWindow_t)GetProcAddress(user32, "GetDpiForWindow");
-            SetProcessDpiAwarenessContext =
-                (SetProcessDpiAwarenessContext_t)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+            GetDpiForWindow = reinterpret_cast<GetDpiForWindow_t>(
+                reinterpret_cast<void*>(GetProcAddress(user32, "GetDpiForWindow")));
+            SetProcessDpiAwarenessContext = reinterpret_cast<SetProcessDpiAwarenessContext_t>(
+                reinterpret_cast<void*>(GetProcAddress(user32, "SetProcessDpiAwarenessContext")));
         }
     }
 };
