@@ -1,35 +1,13 @@
 #pragma once
 #include <windows.h>
-#include <windowsx.h>
-#ifndef WM_CTLCOLORCOMBOBOX
-#define WM_CTLCOLORCOMBOBOX 0x0109
-#endif
-#include <algorithm>
-#include <cstdio>
-#include <filesystem>
-#include <cwchar>
-#include <format>
-#include <vector>
-
-#include "app.hpp"
-#include "dialog_style.hpp"
-#include "painting_analog.hpp"
-
-namespace ui {
-using WindowHandle = HWND;
-using FontHandle = HFONT;
-using ThemeHandle = const Theme*;
-using InstanceHandle = HINSTANCE;
-} // namespace ui
-
+#include "theme.hpp"
 #include "ui_windows_settings_dialog.hpp"
 
-#include "debug.hpp"
-#include "dpi.hpp"
-#include "icon.hpp"
-#include "layout.hpp"
-#include "window.hpp"
-
 namespace ui {
-#include "ui_windows_app.hpp"
+using WindowHandle   = HWND;
+using FontHandle     = HFONT;
+using ThemeHandle    = const Theme*;
+using InstanceHandle = HINSTANCE;
+
+int run_app(InstanceHandle hInst, int nShow);
 } // namespace ui

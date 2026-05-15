@@ -1,6 +1,6 @@
 # Architecture
 
-Chronos is a single-binary Win32 desktop app built with C++26 and raw GDI. The entire codebase compiles as a single translation unit (`main.cpp`) with 28 headers organized into clear layers.
+Chronos is a single-binary Win32 desktop app built with C++26 and raw GDI. The codebase is split across 20+ translation units with headers organized into clear layers.
 
 ## Message Flow
 
@@ -46,39 +46,55 @@ block-beta
     block:entry["Entry"]
         mainCpp["main.cpp"]
     end
+    block:uiAbstraction["UI Abstraction"]
+        uiHpp["ui.hpp"]
+        uiWin["ui_windows.hpp / ui_windows_app.cpp"]
+        uiLinux["ui_linux.hpp / ui_linux.cpp"]
+    end
+    block:dialogs["Dialogs"]
+        settingsDlg["ui_windows_settings_dialog"]
+        alarmDlg["alarm_dialog"]
+        pomoDlg["pomodoro_dialog"]
+        dlgStyle["dialog_style"]
+    end
     block:window["Window"]
-        windowHpp["window.hpp"]
+        windowHpp["window.hpp / window.cpp"]
     end
     block:inputLayer["Input"]
         inputHpp["input.hpp"]
-        inputKbd["input_keyboard.hpp"]
-        inputMouse["input_mouse.hpp"]
-        inputCore["input_core.hpp"]
+        inputKbd["input_keyboard.hpp / .cpp"]
+        inputMouse["input_mouse.hpp / .cpp"]
+        inputCore["input_core.hpp / .cpp"]
+        inputLabel["input_label_edit.hpp / .cpp"]
     end
     block:actionsLayer["Actions"]
-        actionsHpp["actions.hpp"]
+        actionsHpp["actions.hpp / actions.cpp"]
     end
     block:renderLayer["Rendering"]
-        paintingHpp["painting.hpp"]
-        paintingTimer["painting_timer.hpp"]
+        paintingHpp["painting.hpp / painting.cpp"]
+        paintingTimer["painting_timer.hpp / .cpp"]
+        paintingAnalog["painting_analog.hpp / .cpp"]
         paintCtx["paint_ctx.hpp"]
     end
     block:pollingLayer["Polling"]
-        pollingHpp["polling.hpp"]
+        pollingHpp["polling.hpp / polling.cpp"]
     end
     block:dataLayer["Data Model"]
         appHpp["app.hpp"]
         timerHpp["timer.hpp"]
         stopwatchHpp["stopwatch.hpp"]
         pomodoroHpp["pomodoro.hpp"]
+        alarmHpp["alarm.hpp"]
     end
     block:configLayer["Config"]
         configHpp["config.hpp"]
-        configIo["config_io.hpp"]
+        configSerial["config_serial.hpp / .cpp"]
+        configIo["config_io.hpp / .cpp"]
     end
     block:uiLayer["UI Support"]
         layoutHpp["layout.hpp"]
         geometryHpp["geometry.hpp"]
+        wndstateHpp["wndstate.hpp"]
         themeHpp["theme.hpp"]
         trayHpp["tray.hpp"]
         iconHpp["icon.hpp"]
@@ -87,7 +103,8 @@ block-beta
         gdiHpp["gdi.hpp"]
         dpiHpp["dpi.hpp"]
         dwmFwd["dwm_fwd.hpp"]
-        encodingHpp["encoding.hpp"]
+        encodingHpp["encoding.hpp / .cpp"]
+        formattingHpp["formatting.hpp / .cpp"]
         debugHpp["debug.hpp"]
     end
 ```
@@ -106,7 +123,7 @@ block-beta
 
 ## Design Decisions
 
-**Single translation unit** -- `main.cpp` is the only `.cpp` file in the app. All other code lives in headers. This keeps the build trivial (one compilation) and avoids link-time concerns for a project of this size.
+**Multi-translation-unit build** -- Each logical module has a `.hpp` (declarations) and a `.cpp` (definitions), compiled in parallel. `main.cpp` is the entry point; platform-specific sources (`ui_windows_app.cpp`, `ui_linux.cpp`, dialogs) are gated by CMake platform conditions.
 
 **No UI framework** -- Direct Win32 + GDI. The app is ~2800 lines total; a framework would add more complexity than it removes. GDI objects are managed with RAII wrappers (`GdiObj`, `DcObj`, `IconObj` in `gdi.hpp`).
 

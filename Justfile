@@ -5,5 +5,17 @@ build:
     {{cmake}} --preset release -DCMAKE_CXX_COMPILER={{cxx}}
     {{cmake}} --build build
 
+test:
+    {{cmake}} --preset test -DCMAKE_CXX_COMPILER={{cxx}}
+    {{cmake}} --build build
+    cd build && ctest --output-on-failure
+
+debug:
+    {{cmake}} --preset debug -DCMAKE_CXX_COMPILER={{cxx}}
+    {{cmake}} --build build
+
+clean:
+    rm -rf build compile_commands.json
+
 run: build
     build/chronos.exe

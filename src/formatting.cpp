@@ -1,0 +1,77 @@
+#include "formatting.hpp"
+#include <chrono>
+#include <format>
+#include <string>
+
+std::wstring format_stopwatch_short(std::chrono::steady_clock::duration d) {
+    auto total_ms = std::max(std::chrono::milliseconds::rep{0}, std::chrono::duration_cast<std::chrono::milliseconds>(d).count());
+    auto ms = total_ms % 1000;
+    auto total_s = total_ms / 1000;
+    auto s = total_s % 60;
+    auto m = total_s / 60;
+    return std::format(L"{:02}:{:02}.{:03}", m, s, ms);
+}
+
+std::wstring format_stopwatch_long(std::chrono::steady_clock::duration d) {
+    auto total_ms = std::max(std::chrono::milliseconds::rep{0}, std::chrono::duration_cast<std::chrono::milliseconds>(d).count());
+    auto ms = total_ms % 1000;
+    auto total_s = total_ms / 1000;
+    auto s = total_s % 60;
+    auto m = (total_s / 60) % 60;
+    auto h = total_s / 3600;
+    return std::format(L"{:02}:{:02}:{:02}.{:03}", h, m, s, ms);
+}
+
+std::wstring format_stopwatch_display(std::chrono::steady_clock::duration d) {
+    return d >= std::chrono::hours{1} ? format_stopwatch_long(d) : format_stopwatch_short(d);
+}
+
+std::wstring format_timer_display(std::chrono::steady_clock::duration d) {
+    auto total_s = std::max(std::chrono::seconds::rep{0}, std::chrono::duration_cast<std::chrono::seconds>(d).count());
+    if (total_s >= 3600) {
+        auto h = total_s / 3600;
+        auto m = (total_s / 60) % 60;
+        auto s = total_s % 60;
+        return std::format(L"{:02}:{:02}:{:02}", h, m, s);
+    }
+    auto s = total_s % 60;
+    auto m = total_s / 60;
+    return std::format(L"{:02}:{:02}", m, s);
+}
+
+// Always shows H:MM:SS format for timer editing UI
+std::wstring format_timer_edit(std::chrono::steady_clock::duration d) {
+    auto total_s = std::max(std::chrono::seconds::rep{0}, std::chrono::duration_cast<std::chrono::seconds>(d).count());
+    auto h = total_s / 3600;
+    auto m = (total_s / 60) % 60;
+    auto s = total_s % 60;
+    return std::format(L"{}:{:02}:{:02}", h, m, s);
+}
+
+std::wstring format_worked_time(std::chrono::seconds s) {
+    auto total = s.count();
+    auto h = total / 3600;
+    auto m = (total / 60) % 60;
+    if (h > 0) return std::format(L"Worked: {}h {:02}m", h, m);
+    return std::format(L"Worked: {}m", m);
+}
+
+std::wstring format_lap_row(std::size_t lap_number, std::chrono::steady_clock::duration split,
+                                    std::chrono::steady_clock::duration total) {
+    return std::format(L"Lap {:<3}   split {:<14}   total {}", lap_number, format_stopwatch_short(split),
+                       format_stopwatch_display(total));
+}
+
+std::wstring format_timer_title(const std::wstring& label, int index, int total,
+                                        const std::wstring& time_str, bool expired) {
+    if (total <= 1)
+        return expired ? L"EXPIRED " + time_str : time_str;
+    auto name = label.empty() ? std::format(L"Timer {}", index + 1) : std::wstring(label);
+    auto slot = std::format(L"{} ({}/{})", name, index + 1, total);
+    return expired ? std::format(L"EXPIRED · {}", slot) : std::format(L"{} {}", slot, time_str);
+}
+
+std::wstring format_tray_title(int index, int total) {
+    if (total <= 1) return L"Timer expired";
+    return std::format(L"Timer {} expired", index + 1);
+}
