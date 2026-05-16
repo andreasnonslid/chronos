@@ -14,94 +14,34 @@
 #include "layout.hpp"
 #include "paint_ctx.hpp"
 #include "painting_analog.hpp"
+#include "painting_scene.hpp"
 #include "painting_timer.hpp"
 #include "theme.hpp"
+#include "ui_scene.hpp"
 
-// ─── Paint sub-functions ──────────────────────────────────────────────────────
 namespace {
 
-struct BarBtn {
-    int Layout::*width;
-    const wchar_t* label;
-    int act;
-    bool App::*active;  // nullptr = never active
-};
-
-constexpr BarBtn kBarBtns[] = {
-    {&Layout::w_pin, L"Pin",       A_TOPMOST,     &App::topmost},
-    {&Layout::w_clk, L"Clock",     A_SHOW_CLK,    &App::show_clk},
-    {&Layout::w_sw,  L"Stopwatch", A_SHOW_SW,     &App::show_sw},
-    {&Layout::w_tmr, L"Timers",    A_SHOW_TMR,    &App::show_tmr},
-    {&Layout::w_alm, L"Alarms",    A_SHOW_ALARMS, &App::show_alarms},
-    {&Layout::w_set, L"\u2699",    A_SETTINGS,    nullptr},
-};
-constexpr int kBarBtnCount = (int)(sizeof(kBarBtns) / sizeof(kBarBtns[0]));
-
-} // namespace
-
-int paint_bar(HDC hdc, int cw, PaintCtx& ctx) {
-    auto& layout = ctx.layout;
-    RECT bar{0, 0, cw, layout.bar_h};
-    FillRect(hdc, &bar, ctx.res.brBar);
-
-    SelectObject(hdc, ctx.res.fontSm);
-    int total_w = (kBarBtnCount - 1) * layout.bar_gap;
-    for (const auto& b : kBarBtns) total_w += layout.*b.width;
-
-    int by = (layout.bar_h - layout.btn_h) / 2;
-    int bx = (cw - total_w) / 2;
-    for (const auto& b : kBarBtns) {
-        int w = layout.*b.width;
-        bool active = b.active ? ctx.app.*b.active : false;
-        btn(hdc, {bx, by, bx + w, by + layout.btn_h}, active, b.label, b.act, ctx);
-        bx += w + layout.bar_gap;
-    }
-    return layout.bar_h;
+// Wall-clock string for the digital views. The Scene renderer paints this; the
+// analog face is drawn by paint_analog_panel because it's not yet a Scene Op.
+std::string current_clock_text(ClockView view) {
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    return format_clock_text(view, st.wHour, st.wMinute, st.wSecond);
 }
 
-int paint_clock(HDC hdc, int cw, int y, PaintCtx& ctx) {
+int paint_analog_panel(HDC hdc, int cw, int y, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     divider(hdc, y, cw, ctx);
     SYSTEMTIME st;
     GetLocalTime(&st);
-
-    if (ctx.app.clock_view == ClockView::Analog) {
-        RECT area{0, y, cw, y + layout.analog_clk_h};
-        draw_analog_clock(hdc, area, ctx.app.analog_style, ctx.theme,
-                          layout.dpi, st.wHour, st.wMinute, st.wSecond);
-        ctx.btns.push_back({area, A_CLK_CYCLE});
-        return y + layout.analog_clk_h;
-    }
-
-    std::wstring buf;
-    switch (ctx.app.clock_view) {
-    case ClockView::H24_HMS:
-        buf = std::format(L"{:02}:{:02}:{:02}", st.wHour, st.wMinute, st.wSecond);
-        break;
-    case ClockView::H24_HM:
-        buf = std::format(L"{:02}:{:02}", st.wHour, st.wMinute);
-        break;
-    case ClockView::H12_HMS: {
-        int h = st.wHour % 12;
-        if (h == 0) h = 12;
-        buf = std::format(L"{}:{:02}:{:02} {}", h, st.wMinute, st.wSecond, st.wHour < 12 ? L"AM" : L"PM");
-        break;
-    }
-    case ClockView::H12_HM: {
-        int h = st.wHour % 12;
-        if (h == 0) h = 12;
-        buf = std::format(L"{}:{:02} {}", h, st.wMinute, st.wHour < 12 ? L"AM" : L"PM");
-        break;
-    }
-    default: CHRONOS_UNREACHABLE();
-    }
-    SelectObject(hdc, ctx.res.fontBig);
-    SetTextColor(hdc, ctx.theme.text);
-    RECT tr{0, y, cw, y + layout.clk_h};
-    DrawTextW(hdc, buf.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    ctx.btns.push_back({tr, A_CLK_CYCLE});
-    return y + layout.clk_h;
+    RECT area{0, y, cw, y + layout.analog_clk_h};
+    draw_analog_clock(hdc, area, ctx.app.analog_style, ctx.theme,
+                      layout.dpi, st.wHour, st.wMinute, st.wSecond);
+    ctx.btns.push_back({area, A_CLK_CYCLE});
+    return y + layout.analog_clk_h;
 }
+
+} // namespace
 
 int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::steady_clock::time_point now) {
     auto& layout = ctx.layout;
@@ -125,8 +65,8 @@ int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::steady_c
     btn(hdc, {bx0 + 2 * (bw + gap), by0, bx0 + 3 * bw + 2 * gap, by0 + bh}, false, L"Reset", A_SW_RESET, ctx);
 
     auto& laps = ctx.app.sw.laps();
-    auto info = laps.empty() ? std::wstring(L"\u2014")
-                             : std::format(L"Lap {}  \u2014  {}", laps.size(), format_stopwatch_short(laps.back()));
+    auto info = laps.empty() ? std::wstring(L"—")
+                             : std::format(L"Lap {}  —  {}", laps.size(), format_stopwatch_short(laps.back()));
     SetTextColor(hdc, th.dim);
     RECT ir{0, by0 + bh + layout.dpi_scale(4), cw, by0 + bh + layout.dpi_scale(22)};
     DrawTextW(hdc, info.c_str(), -1, &ir, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -170,7 +110,6 @@ int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
         if (i % 2 == 1)
             FillRect(hdc, &row_bg, stripe);
 
-        // Build schedule string
         std::wstring sched;
         if (a.schedule == AlarmSchedule::Days) {
             const wchar_t* day_names[] = {L"Mo", L"Tu", L"We", L"Th", L"Fr", L"Sa", L"Su"};
@@ -241,7 +180,7 @@ void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
         {L"P", L"Toggle Pomodoro on first timer"},
         {L"N", L"Skip to next Pomodoro phase"},
         {L"T", L"Toggle always-on-top"},
-        {L"D", L"Cycle theme: Auto \u2192 Dark \u2192 Light"},
+        {L"D", L"Cycle theme: Auto → Dark → Light"},
         {L"1-9", L"Start/Stop timer 1-9"},
         {L"Shift+1-9", L"Reset timer 1-9"},
         {L"Shift+R", L"Reset all timers"},
@@ -261,14 +200,13 @@ void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
     int pad = layout.dpi_scale(12);
     int sy = layout.bar_h + pad;
     for (auto& [key, desc] : shortcuts) {
-        auto line = std::format(L"  {}  \u2014  {}", key, desc);
+        auto line = std::format(L"  {}  —  {}", key, desc);
         RECT lr{pad, sy, cw - pad, sy + line_h};
         DrawTextW(hdc, line.c_str(), -1, &lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         sy += line_h;
     }
 }
 
-// ─── Paint dispatcher ─────────────────────────────────────────────────────────
 void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     ctx.btns.clear();
     SetBkMode(hdc, TRANSPARENT);
@@ -278,8 +216,21 @@ void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
 
     ctx.now = std::chrono::steady_clock::now();
     auto now = ctx.now;
-    int y = paint_bar(hdc, cw, ctx);
-    if (ctx.app.show_clk) y = paint_clock(hdc, cw, y, ctx);
+
+    // Build a partial Scene for the parts that are already modelled: the
+    // toolbar, and the digital clock readout. Everything else is still painted
+    // by the per-module functions below; subsequent commits migrate them.
+    UiMakers ui = make_ui(ctx.theme.palette);
+    auto scene_state = ui_scene::main_scene_state_from_app(ctx.app, now, current_clock_text(ctx.app.clock_view));
+    ui_scene::Scene scene;
+    add_toolbar(scene, ctx.layout, cw, scene_state, ui);
+    int y = ctx.layout.bar_h;
+    bool digital_clock = ctx.app.show_clk && ctx.app.clock_view != ClockView::Analog;
+    if (digital_clock) add_clock(scene, ctx.layout, cw, y, scene_state, ui);
+    paint_scene(hdc, scene, ctx);
+
+    if (ctx.app.show_clk && ctx.app.clock_view == ClockView::Analog)
+        y = paint_analog_panel(hdc, cw, y, ctx);
     if (ctx.app.show_sw) y = paint_stopwatch(hdc, cw, y, ctx, now);
     if (ctx.app.show_tmr) y = paint_timers(hdc, cw, y, ctx, now);
     if (ctx.app.show_alarms) y = paint_alarms(hdc, cw, y, ctx);

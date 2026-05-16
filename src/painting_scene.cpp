@@ -10,6 +10,15 @@ RECT to_rect(const ui_scene::RectI& r) {
     return RECT{r.left, r.top, r.right, r.bottom};
 }
 
+HFONT font_for(ui_scene::TextStyle style, const PaintCtx& ctx) {
+    switch (style) {
+    case ui_scene::TextStyle::Big:   return ctx.res.fontBig;
+    case ui_scene::TextStyle::Large: return ctx.res.fontLarge;
+    case ui_scene::TextStyle::Small: return ctx.res.fontSm;
+    }
+    return ctx.res.fontSm;
+}
+
 UINT text_format(ui_scene::Align align) {
     switch (align) {
     case ui_scene::Align::Left:   return DT_LEFT   | DT_VCENTER | DT_SINGLELINE;
@@ -34,7 +43,8 @@ void render_op(HDC hdc, const ui_scene::Op& op, PaintCtx& ctx) {
         break;
     case OpKind::Text: {
         std::wstring w = utf8_to_wide(op.text);
-        win_paint_text(hdc, rc, w.c_str(), ctx.res.fontSm, TextPaint{.color = op.text_color}, text_format(op.align));
+        win_paint_text(hdc, rc, w.c_str(), font_for(op.text_style, ctx), TextPaint{.color = op.text_color},
+                       text_format(op.align));
         break;
     }
     case OpKind::Button: {
@@ -45,7 +55,7 @@ void render_op(HDC hdc, const ui_scene::Op& op, PaintCtx& ctx) {
             .border = op.stroke,
             .radius_px = op.radius_px,
         };
-        win_paint_button(hdc, rc, w.c_str(), ctx.res.fontSm, paint, text_format(op.align));
+        win_paint_button(hdc, rc, w.c_str(), font_for(op.text_style, ctx), paint, text_format(op.align));
         break;
     }
     }

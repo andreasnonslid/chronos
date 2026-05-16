@@ -23,6 +23,11 @@ struct RectI {
 
 enum class Align { Left, Center, Right };
 
+// Logical text style — backends pick a concrete font. Small is the default
+// (matches the toolbar / labels); Large/Big are used for the timer running
+// readout and the digital clock respectively.
+enum class TextStyle { Small, Large, Big };
+
 enum class OpKind { FillRect, Divider, Text, Button, Progress };
 
 struct Op {
@@ -34,6 +39,7 @@ struct Op {
     UiColor text_color{};
     int radius_px = 0;
     Align align = Align::Left;
+    TextStyle text_style = TextStyle::Small;
     int id = 0;
 };
 
@@ -65,6 +71,8 @@ struct MainSceneState {
     ClockView clock_view = ClockView::H24_HMS;
     std::string clock_text = "00:00:00";
     std::string stopwatch_text = "00:00.000";
+    // Action id of the button currently flashing as click feedback (0 = none).
+    int blink_act = 0;
     std::vector<TimerSceneState> timers{{}};
     std::vector<AlarmSceneState> alarms{};
 };
@@ -82,13 +90,14 @@ inline void add_fill(Scene& scene, RectI rect, SurfacePaint paint) {
 }
 
 inline void add_text(Scene& scene, RectI rect, std::string text, TextPaint paint, Align align = Align::Left,
-                     int id = 0) {
+                     int id = 0, TextStyle style = TextStyle::Small) {
     Op op{};
     op.kind = OpKind::Text;
     op.rect = rect;
     op.text = std::move(text);
     op.text_color = paint.color;
     op.align = align;
+    op.text_style = style;
     op.id = id;
     scene.ops.push_back(std::move(op));
 }
@@ -139,7 +148,7 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
         {layout.w_sw, "Stopwatch", state.show_stopwatch, A_SHOW_SW},
         {layout.w_tmr, "Timers", state.show_timers, A_SHOW_TMR},
         {layout.w_alm, "Alarms", state.show_alarms, A_SHOW_ALARMS},
-        {layout.w_set, "Settings", false, A_SETTINGS},
+        {layout.w_set, "⚙", false, A_SETTINGS}, // U+2699 gear
     };
 
     int total_w = (static_cast<int>(std::size(buttons)) - 1) * layout.bar_gap;
@@ -147,8 +156,14 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
     int x = (client_w - total_w) / 2;
     int y = (layout.bar_h - layout.btn_h) / 2;
     for (const auto& b : buttons) {
+        bool blinking = state.blink_act != 0 && state.blink_act == b.action;
         add_button(scene, {x, y, x + b.width, y + layout.btn_h}, b.label,
-                   ui.button(ButtonConfig{.active = b.active, .radius_px = layout.dpi_scale(6)}), b.action);
+                   ui.button(ButtonConfig{
+                       .active = b.active,
+                       .blinking = blinking,
+                       .radius_px = layout.dpi_scale(6),
+                   }),
+                   b.action);
         x += b.width + layout.bar_gap;
     }
 }
@@ -158,7 +173,7 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
     if (!state.show_clock) return;
     int h = effective_clk_h(layout, state.clock_view);
     add_divider(scene, 0, client_w, y, ui.divider());
-    add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE);
+    add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE, TextStyle::Big);
     y += h;
 }
 
@@ -167,7 +182,7 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
     if (!state.show_stopwatch) return;
     add_divider(scene, 0, client_w, y, ui.divider());
     add_text(scene, {0, y + layout.dpi_scale(4), client_w, y + layout.dpi_scale(44)}, state.stopwatch_text, ui.text(),
-             Align::Center);
+             Align::Center, 0, TextStyle::Big);
 
     int bw = layout.dpi_scale(76);
     int gap = layout.dpi_scale(6);
@@ -295,6 +310,8 @@ inline MainSceneState main_scene_state_from_app(const App& app, std::chrono::ste
         .clock_view = app.clock_view,
         .clock_text = std::move(clock_text),
         .stopwatch_text = wide_to_utf8(format_stopwatch_display(app.sw.elapsed(now))),
+        // Mirror theme.hpp's BLINK_DUR (kept inline to keep this header platform-neutral).
+        .blink_act = (app.blink_act != 0 && (now - app.blink_t) < std::chrono::milliseconds{120}) ? app.blink_act : 0,
         .timers = {},
         .alarms = {},
     };
