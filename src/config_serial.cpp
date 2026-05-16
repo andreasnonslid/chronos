@@ -73,6 +73,23 @@ constexpr std::array<TimerSlotBool, 3> kTimerBool = {{
     {"_pomodoro", &Config::timer_pomodoro},
 }};
 
+// Top-level scalar fields always written and read. Skip-if-default fields are
+// handled separately so the writer can omit them.
+struct BoolField { std::string_view key; bool Config::*field; };
+struct IntField  { std::string_view key; int  Config::*field; int lo, hi; };
+
+constexpr std::array<BoolField, 5> kAlwaysBools = {{
+    {"show_clk",         &Config::show_clk},
+    {"show_sw",          &Config::show_sw},
+    {"show_tmr",         &Config::show_tmr},
+    {"topmost",          &Config::topmost},
+    {"sound_on_expiry",  &Config::sound_on_expiry},
+}};
+
+constexpr std::array<IntField, 1> kAlwaysInts = {{
+    {"num_timers", &Config::num_timers, 1, Config::MAX_TIMERS},
+}};
+
 // Per-alarm int fields with clamp range.
 struct AlarmIntField { std::string_view suffix; int Alarm::*field; int lo, hi; };
 constexpr std::array<AlarmIntField, 6> kAlarmInts = {{
@@ -101,10 +118,11 @@ bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark    ? "dark"
                             : c.theme_mode == ThemeMode::Light ? "light"
                                                                : "auto";
-    f << std::format("show_clk={}\nshow_sw={}\nshow_tmr={}\ntopmost={}\nsound_on_expiry={}\ntheme={}\nclock_view={}\nnum_timers={}\n",
-                     c.show_clk ? 1 : 0, c.show_sw ? 1 : 0, c.show_tmr ? 1 : 0,
-                     c.topmost ? 1 : 0, c.sound_on_expiry ? 1 : 0,
-                     theme_str, (int)c.clock_view, c.num_timers);
+    for (const auto& fld : kAlwaysBools)
+        f << std::format("{}={}\n", fld.key, c.*fld.field ? 1 : 0);
+    for (const auto& fld : kAlwaysInts)
+        f << std::format("{}={}\n", fld.key, c.*fld.field);
+    f << std::format("theme={}\nclock_view={}\n", theme_str, (int)c.clock_view);
     if (c.show_alarms) f << "show_alarms=1\n";
     if (!c.alarms.empty()) {
         f << std::format("num_alarms={}\n", (int)c.alarms.size());
@@ -269,13 +287,15 @@ bool config_read(Config& c, std::istream& f) {
         if (read_timer_key(c, key, val)) continue; // also handles bare "timer<i>="
         if (read_alarm_key(c, key, val)) continue;
 
-        if      (key == "show_clk")            c.show_clk = val != 0;
-        else if (key == "show_sw")             c.show_sw = val != 0;
-        else if (key == "show_tmr")            c.show_tmr = val != 0;
-        else if (key == "show_alarms")         c.show_alarms = val != 0;
-        else if (key == "topmost")             c.topmost = val != 0;
-        else if (key == "sound_on_expiry")     c.sound_on_expiry = val != 0;
-        else if (key == "num_timers")          c.num_timers = clamp_int(val, 1, Config::MAX_TIMERS);
+        bool matched_table = false;
+        for (const auto& fld : kAlwaysBools)
+            if (key == fld.key) { c.*fld.field = val != 0; matched_table = true; break; }
+        if (matched_table) continue;
+        for (const auto& fld : kAlwaysInts)
+            if (key == fld.key) { c.*fld.field = clamp_int(val, fld.lo, fld.hi); matched_table = true; break; }
+        if (matched_table) continue;
+
+        if      (key == "show_alarms")         c.show_alarms = val != 0;
         else if (key == "num_alarms") {
             int n = clamp_int(val, 0, ALARM_MAX_COUNT);
             if (n > (int)c.alarms.size()) c.alarms.resize(n);
