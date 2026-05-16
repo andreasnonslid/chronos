@@ -636,7 +636,7 @@ static INT_PTR on_init(HWND dlg, LPARAM lp) {
     return FALSE;
 }
 
-static void paint_chrome(HWND dlg, HDC hdc, const RECT& rc, Params& p,
+static void paint_chrome(HDC hdc, const RECT& rc, Params& p,
                           const RECT& div_y, const RECT& sb, int btn_area_top) {
     auto& s = p.style;
     s.fill_background(hdc, rc);
@@ -746,7 +746,7 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
     sb.bottom = rc.bottom;
     int btn_area_top = content_area_bottom(dlg);
 
-    paint_chrome(dlg, hdc, rc, *p, div_y, sb, btn_area_top);
+    paint_chrome(hdc, rc, *p, div_y, sb, btn_area_top);
 
     int save_dc = SaveDC(hdc);
     IntersectClipRect(hdc, sb.right + 1, div_y.bottom + 1, rc.right, btn_area_top);
