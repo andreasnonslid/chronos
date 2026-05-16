@@ -2,6 +2,8 @@
 #include <windows.h>
 #include <string>
 #include "encoding.hpp"
+#include "painting_analog.hpp"
+#include "theme.hpp"
 #include "ui_windows_painter.hpp"
 
 namespace {
@@ -67,4 +69,10 @@ void render_op(HDC hdc, const ui_scene::Op& op, PaintCtx& ctx) {
 
 void paint_scene(HDC hdc, const ui_scene::Scene& scene, PaintCtx& ctx) {
     for (const auto& op : scene.ops) render_op(hdc, op, ctx);
+    if (scene.analog_clock) {
+        const auto& ac = *scene.analog_clock;
+        RECT rc = to_rect(ac.rect);
+        draw_analog_clock(hdc, rc, ac.style, ctx.theme, ctx.layout.dpi, ac.hour, ac.minute, ac.second);
+        if (ac.id != 0) ctx.btns.push_back({rc, ac.id});
+    }
 }

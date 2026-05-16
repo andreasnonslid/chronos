@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <chrono>
 #include <format>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,8 +47,21 @@ struct Op {
     int id = 0;
 };
 
+// Analog clock face: a self-contained widget that platform renderers draw with
+// their own (anti-aliased) primitives. Lives outside the Op stream because its
+// payload is large and only one instance ever appears per scene.
+struct AnalogClockOp {
+    RectI rect;
+    AnalogClockStyle style;
+    int hour = 0;
+    int minute = 0;
+    int second = 0;
+    int id = 0;  // action id for hit-testing the face
+};
+
 struct Scene {
     std::vector<Op> ops;
+    std::optional<AnalogClockOp> analog_clock;
 };
 
 struct TimerSceneState {
@@ -83,6 +97,7 @@ struct MainSceneState {
     bool show_stopwatch = true;
     bool show_timers = true;
     bool show_alarms = false;
+    bool show_help = false;
     bool stopwatch_running = false;
     bool stopwatch_has_lap_file = false;
     bool stopwatch_lap_write_failed = false;
@@ -92,6 +107,14 @@ struct MainSceneState {
     // Single-line lap summary shown below the stopwatch buttons.
     // Empty string is rendered as a dim em-dash placeholder.
     std::string stopwatch_lap_info;
+    // Wall-clock parts in 24h form, used by the analog clock face.
+    int wall_hour = 0;
+    int wall_minute = 0;
+    int wall_second = 0;
+    // Analog clock visual style. Only meaningful when clock_view == Analog.
+    AnalogClockStyle analog_style;
+    // Help-overlay shortcuts (key, description). Filled when show_help is true.
+    std::vector<std::pair<std::string, std::string>> help_shortcuts;
     // Action id of the button currently flashing as click feedback (0 = none).
     int blink_act = 0;
     std::vector<TimerSceneState> timers{{}};
@@ -199,7 +222,19 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
     if (!state.show_clock) return;
     int h = effective_clk_h(layout, state.clock_view);
     add_divider(scene, 0, client_w, y, ui.divider());
-    add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE, TextStyle::Big);
+    if (state.clock_view == ClockView::Analog) {
+        scene.analog_clock = AnalogClockOp{
+            .rect = {0, y, client_w, y + h},
+            .style = state.analog_style,
+            .hour = state.wall_hour,
+            .minute = state.wall_minute,
+            .second = state.wall_second,
+            .id = A_CLK_CYCLE,
+        };
+    } else {
+        add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE,
+                 TextStyle::Big);
+    }
     y += h;
 }
 
@@ -344,6 +379,27 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
     y += layout.tmr_h;
 }
 
+// Draws an overlay panel from below the toolbar down to bottom_y, listing
+// keyboard shortcuts. The caller decides whether to invoke based on
+// state.show_help; this helper just emits the fill + text Ops.
+inline void add_help_overlay(Scene& scene, const Layout& layout, int client_w, int bottom_y,
+                             const MainSceneState& state, const UiMakers& ui) {
+    if (!state.show_help) return;
+    int top = layout.bar_h;
+    int bot = std::max(bottom_y, top + layout.dpi_scale(200));
+    add_fill(scene, {0, top, client_w, bot},
+             SurfacePaint{.background = ui.palette.help_bg, .border = ui.palette.divider});
+
+    int line_h = layout.dpi_scale(20);
+    int pad = layout.dpi_scale(12);
+    int sy = top + pad;
+    for (const auto& [key, desc] : state.help_shortcuts) {
+        std::string line = "  " + key + "  —  " + desc;
+        add_text(scene, {pad, sy, client_w - pad, sy + line_h}, line, ui.text(), Align::Left);
+        sy += line_h;
+    }
+}
+
 inline int main_scene_height(const Layout& layout, const MainSceneState& state) {
     int h = layout.bar_h;
     if (state.show_clock) h += effective_clk_h(layout, state.clock_view);
@@ -419,6 +475,7 @@ inline Scene build_main_scene(const Layout& layout, int client_w, const MainScen
             add_timer(scene, layout, client_w, y, i, state.timers[i], ui, state.blink_act);
     }
     add_alarms(scene, layout, client_w, y, state, ui);
+    add_help_overlay(scene, layout, client_w, y, state, ui);
     return scene;
 }
 
@@ -433,8 +490,39 @@ inline int hit_test(const Scene& scene, int x, int y) {
     return 0;
 }
 
+// Compiled-in help-overlay shortcut list. Most rows are static; the
+// global-hotkey row toggles based on whether the hotkey successfully
+// registered at startup.
+inline std::vector<std::pair<std::string, std::string>> build_help_shortcuts(bool global_hotkey_ok) {
+    return {
+        {"Space", "Start/Stop stopwatch or first timer"},
+        {"L", "Record lap"},
+        {"E", "Open exported laps file"},
+        {"C", "Copy laps to clipboard"},
+        {"R", "Reset stopwatch or first timer"},
+        {"P", "Toggle Pomodoro on first timer"},
+        {"N", "Skip to next Pomodoro phase"},
+        {"T", "Toggle always-on-top"},
+        {"D", "Cycle theme: Auto → Dark → Light"},
+        {"1-9", "Start/Stop timer 1-9"},
+        {"Shift+1-9", "Reset timer 1-9"},
+        {"Shift+R", "Reset all timers"},
+        {"+ / =", "Add a timer slot"},
+        {"-", "Remove last timer slot"},
+        {"H / ?", "Toggle this help"},
+        {"Ctrl+Shift+Space",
+         global_hotkey_ok ? "Global start/stop (any app)" : "Global start/stop (unavailable)"},
+        {"", ""},
+        {"Scroll", "Adjust timer value (H/M/S)"},
+        {"Click clock", "Cycle clock format"},
+        {"Dbl-click", "Edit timer label"},
+        {"Right-click", "Timer presets / Pomodoro (untouched)"},
+    };
+}
+
 inline MainSceneState main_scene_state_from_app(const App& app, std::chrono::steady_clock::time_point now,
-                                                std::string clock_text) {
+                                                int wall_hour, int wall_minute, int wall_second,
+                                                bool global_hotkey_ok = true) {
     using namespace std::chrono;
     const auto& laps = app.sw.laps();
     std::string lap_info;
@@ -448,13 +536,20 @@ inline MainSceneState main_scene_state_from_app(const App& app, std::chrono::ste
         .show_stopwatch = app.show_sw,
         .show_timers = app.show_tmr,
         .show_alarms = app.show_alarms,
+        .show_help = app.show_help,
         .stopwatch_running = app.sw.is_running(),
         .stopwatch_has_lap_file = !app.sw_lap_file.empty(),
         .stopwatch_lap_write_failed = app.lap_write_failed,
         .clock_view = app.clock_view,
-        .clock_text = std::move(clock_text),
+        .clock_text = format_clock_text(app.clock_view, wall_hour, wall_minute, wall_second),
         .stopwatch_text = wide_to_utf8(format_stopwatch_display(app.sw.elapsed(now))),
         .stopwatch_lap_info = std::move(lap_info),
+        .wall_hour = wall_hour,
+        .wall_minute = wall_minute,
+        .wall_second = wall_second,
+        .analog_style = app.analog_style,
+        .help_shortcuts = app.show_help ? build_help_shortcuts(global_hotkey_ok)
+                                        : std::vector<std::pair<std::string, std::string>>{},
         // Mirror theme.hpp's BLINK_DUR (kept inline to keep this header platform-neutral).
         .blink_act = (app.blink_act != 0 && (now - app.blink_t) < std::chrono::milliseconds{120}) ? app.blink_act : 0,
         .timers = {},
