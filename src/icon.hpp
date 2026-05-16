@@ -177,7 +177,7 @@ inline HICON create_app_icon(int size, bool dark = true) {
     ii.fIcon = TRUE;
     ii.hbmMask = (HBITMAP)mask_bmp.h;
     ii.hbmColor = dib;
-    HICON icon = CreateIconIndirect(&ii);
+    HICON hicon = CreateIconIndirect(&ii);
     DeleteObject(dib);
-    return icon;
+    return hicon;
 }
