@@ -49,6 +49,12 @@ struct TimerSceneState {
     std::string label = "Timer 1";
 };
 
+struct AlarmSceneState {
+    std::string label;
+    std::string time_text;
+    bool enabled = true;
+};
+
 struct MainSceneState {
     bool topmost = false;
     bool show_clock = true;
@@ -56,9 +62,11 @@ struct MainSceneState {
     bool show_timers = true;
     bool show_alarms = false;
     bool stopwatch_running = false;
+    ClockView clock_view = ClockView::H24_HMS;
     std::string clock_text = "00:00:00";
     std::string stopwatch_text = "00:00.000";
     std::vector<TimerSceneState> timers{{}};
+    std::vector<AlarmSceneState> alarms{};
 };
 
 inline int width(const RectI& r) { return r.right - r.left; }
@@ -148,9 +156,10 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
 inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, const MainSceneState& state,
                       const UiMakers& ui) {
     if (!state.show_clock) return;
+    int h = effective_clk_h(layout, state.clock_view);
     add_divider(scene, 0, client_w, y, ui.divider());
-    add_text(scene, {0, y, client_w, y + layout.clk_h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE);
-    y += layout.clk_h;
+    add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE);
+    y += h;
 }
 
 inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int& y, const MainSceneState& state,
@@ -205,10 +214,46 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
 
 inline int main_scene_height(const Layout& layout, const MainSceneState& state) {
     int h = layout.bar_h;
-    if (state.show_clock) h += layout.clk_h;
+    if (state.show_clock) h += effective_clk_h(layout, state.clock_view);
     if (state.show_stopwatch) h += layout.sw_h;
     if (state.show_timers) h += (int)state.timers.size() * layout.tmr_h;
+    if (state.show_alarms)
+        h += layout.alarm_header_h + std::max(1, (int)state.alarms.size()) * layout.alarm_row_h;
     return h;
+}
+
+inline void add_alarms(Scene& scene, const Layout& layout, int client_w, int& y, const MainSceneState& state,
+                       const UiMakers& ui) {
+    if (!state.show_alarms) return;
+    add_divider(scene, 0, client_w, y, ui.divider());
+    int header_bottom = y + layout.alarm_header_h;
+    add_text(scene, {0, y, client_w / 2, header_bottom}, "Alarms", ui.text(), Align::Left);
+    int bw = layout.dpi_scale(40);
+    add_button(scene, {client_w - bw - layout.dpi_scale(4), y + layout.dpi_scale(7), client_w - layout.dpi_scale(4),
+                       header_bottom - layout.dpi_scale(7)},
+               "Add", ui.button(ButtonConfig{.radius_px = layout.dpi_scale(4)}), A_ALARM_ADD);
+    y = header_bottom;
+    if (state.alarms.empty()) {
+        add_text(scene, {0, y, client_w, y + layout.alarm_row_h}, "No alarms", ui.text(TextConfig{.tone = TextTone::Dim}),
+                 Align::Center);
+        y += layout.alarm_row_h;
+    } else {
+        for (int i = 0; i < (int)state.alarms.size(); ++i) {
+            const auto& alarm = state.alarms[i];
+            int row_bottom = y + layout.alarm_row_h;
+            add_text(scene, {layout.dpi_scale(4), y, client_w / 2, row_bottom}, alarm.time_text, ui.text(), Align::Left);
+            add_text(scene, {client_w / 2, y, client_w - bw - layout.dpi_scale(8), row_bottom},
+                     alarm.label.empty() ? "Alarm" : alarm.label,
+                     ui.text(alarm.enabled ? TextConfig{} : TextConfig{.tone = TextTone::Dim}), Align::Left);
+            add_button(scene,
+                       {client_w - bw - layout.dpi_scale(4), y + layout.dpi_scale(4), client_w - layout.dpi_scale(4),
+                        row_bottom - layout.dpi_scale(4)},
+                       alarm.enabled ? "On" : "Off",
+                       ui.button(ButtonConfig{.active = alarm.enabled, .radius_px = layout.dpi_scale(4)}),
+                       A_ALARM_TOGGLE + i);
+            y = row_bottom;
+        }
+    }
 }
 
 inline Scene build_main_scene(const Layout& layout, int client_w, const MainSceneState& state, const UiMakers& ui) {
@@ -222,6 +267,7 @@ inline Scene build_main_scene(const Layout& layout, int client_w, const MainScen
         for (int i = 0; i < (int)state.timers.size(); ++i)
             add_timer(scene, layout, client_w, y, i, state.timers[i], ui);
     }
+    add_alarms(scene, layout, client_w, y, state, ui);
     return scene;
 }
 
@@ -246,10 +292,22 @@ inline MainSceneState main_scene_state_from_app(const App& app, std::chrono::ste
         .show_timers = app.show_tmr,
         .show_alarms = app.show_alarms,
         .stopwatch_running = app.sw.is_running(),
+        .clock_view = app.clock_view,
         .clock_text = std::move(clock_text),
         .stopwatch_text = wide_to_utf8(format_stopwatch_display(app.sw.elapsed(now))),
         .timers = {},
+        .alarms = {},
     };
+
+    for (const auto& alarm : app.alarms) {
+        char buf[8] = {};
+        std::snprintf(buf, sizeof(buf), "%02d:%02d", alarm.hour, alarm.minute);
+        state.alarms.push_back(AlarmSceneState{
+            .label = alarm.name,
+            .time_text = buf,
+            .enabled = alarm.enabled,
+        });
+    }
 
     for (int i = 0; i < (int)app.timers.size(); ++i) {
         const auto& timer = app.timers[i];

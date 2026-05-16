@@ -15,7 +15,11 @@ target_compile_options(chronos_project_options INTERFACE
 
 function(chronos_use_lld target)
     if(LLD)
-        target_link_options(${target} PRIVATE "--ld-path=${LLD}")
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            target_link_options(${target} PRIVATE "--ld-path=${LLD}")
+        elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            target_link_options(${target} PRIVATE "-fuse-ld=lld")
+        endif()
     endif()
 endfunction()
 

@@ -38,7 +38,6 @@ void DlgStyle::draw_button(HDC hdc, const RECT& rc, const wchar_t* text, bool fo
     GdiObj bg_br = win_brush(theme->palette.bg);
     FillRect(hdc, &rc, (HBRUSH)bg_br.h);
     WidgetPaint button = make_button(theme->palette, ButtonConfig{
-                                                         .active = focused,
                                                          .focused = focused,
                                                          .radius_px = scale(6),
                                                      });

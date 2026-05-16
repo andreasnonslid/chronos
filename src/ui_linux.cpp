@@ -167,10 +167,11 @@ static int action_for_key(KeySym key, const App& app) {
     }
 }
 
-static void handle_action(Display* display, Window window, GC gc, int width, int& height, App& app, int act) {
+static void handle_action(Display* display, Window window, GC gc, int width, int& height, App& app, int act,
+                          const std::filesystem::path& temp_dir) {
     if (act == 0) return;
     auto action_now = std::chrono::steady_clock::now();
-    auto result = dispatch_action(app, act, action_now, std::filesystem::temp_directory_path());
+    auto result = dispatch_action(app, act, action_now, temp_dir);
     if (result.resize) {
         Layout layout;
         height = scene_height(layout, app, action_now);
@@ -184,6 +185,10 @@ static void handle_action(Display* display, Window window, GC gc, int width, int
 int run_app(InstanceHandle, int) {
     x11::DisplayHandle display{XOpenDisplay(nullptr)};
     if (!display.display) return 1;
+
+    std::error_code temp_ec;
+    std::filesystem::path temp_dir = std::filesystem::temp_directory_path(temp_ec);
+    if (temp_ec) temp_dir = std::filesystem::current_path();
 
     App app;
     Layout layout;
@@ -225,13 +230,13 @@ int run_app(InstanceHandle, int) {
                     running = false;
                     break;
                 }
-                x11::handle_action(display.display, window, gc, width, height, app, x11::action_for_key(key, app));
+                x11::handle_action(display.display, window, gc, width, height, app, x11::action_for_key(key, app), temp_dir);
                 break;
             }
             case ButtonPress: {
                 auto scene = x11::current_scene(width, app);
                 int act = ui_scene::hit_test(scene, ev.xbutton.x, ev.xbutton.y);
-                x11::handle_action(display.display, window, gc, width, height, app, act);
+                x11::handle_action(display.display, window, gc, width, height, app, act, temp_dir);
                 break;
             }
             case ClientMessage:
