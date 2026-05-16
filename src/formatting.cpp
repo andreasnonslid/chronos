@@ -3,6 +3,27 @@
 #include <format>
 #include <string>
 
+std::string format_clock_text(ClockView view, int h, int m, int s) {
+    switch (view) {
+    case ClockView::H24_HMS:
+    case ClockView::Analog:
+        return std::format("{:02}:{:02}:{:02}", h, m, s);
+    case ClockView::H24_HM:
+        return std::format("{:02}:{:02}", h, m);
+    case ClockView::H12_HMS: {
+        int h12 = h % 12;
+        if (h12 == 0) h12 = 12;
+        return std::format("{}:{:02}:{:02} {}", h12, m, s, h < 12 ? "AM" : "PM");
+    }
+    case ClockView::H12_HM: {
+        int h12 = h % 12;
+        if (h12 == 0) h12 = 12;
+        return std::format("{}:{:02} {}", h12, m, h < 12 ? "AM" : "PM");
+    }
+    }
+    return std::format("{:02}:{:02}:{:02}", h, m, s);
+}
+
 std::wstring format_stopwatch_short(std::chrono::steady_clock::duration d) {
     auto total_ms = std::max(std::chrono::milliseconds::rep{0}, std::chrono::duration_cast<std::chrono::milliseconds>(d).count());
     auto ms = total_ms % 1000;

@@ -25,30 +25,6 @@ struct DisplayHandle {
     DisplayHandle& operator=(const DisplayHandle&) = delete;
 };
 
-static std::string current_time_text(ClockView view) {
-    auto now = std::chrono::system_clock::now();
-    std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    localtime_r(&t, &tm);
-    char buf[24] = {};
-    switch (view) {
-    case ClockView::H24_HMS:
-    case ClockView::Analog:
-        std::strftime(buf, sizeof(buf), "%H:%M:%S", &tm);
-        break;
-    case ClockView::H24_HM:
-        std::strftime(buf, sizeof(buf), "%H:%M", &tm);
-        break;
-    case ClockView::H12_HMS:
-        std::strftime(buf, sizeof(buf), "%I:%M:%S %p", &tm);
-        break;
-    case ClockView::H12_HM:
-        std::strftime(buf, sizeof(buf), "%I:%M %p", &tm);
-        break;
-    }
-    return buf;
-}
-
 static unsigned long pixel(Display* display, int screen, UiColor color) {
     Colormap cmap = DefaultColormap(display, screen);
     XColor xcolor{};
@@ -111,7 +87,10 @@ static void draw_scene(Display* display, Window window, GC gc, const ui_scene::S
 }
 
 static ui_scene::MainSceneState scene_state(const App& app, std::chrono::steady_clock::time_point now) {
-    return ui_scene::main_scene_state_from_app(app, now, current_time_text(app.clock_view));
+    std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::tm tm{};
+    localtime_r(&t, &tm);
+    return ui_scene::main_scene_state_from_app(app, now, tm.tm_hour, tm.tm_min, tm.tm_sec);
 }
 
 static int scene_height(const Layout& layout, const App& app, std::chrono::steady_clock::time_point now) {
