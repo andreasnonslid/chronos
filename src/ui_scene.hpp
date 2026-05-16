@@ -68,9 +68,14 @@ struct MainSceneState {
     bool show_timers = true;
     bool show_alarms = false;
     bool stopwatch_running = false;
+    bool stopwatch_has_lap_file = false;
+    bool stopwatch_lap_write_failed = false;
     ClockView clock_view = ClockView::H24_HMS;
     std::string clock_text = "00:00:00";
     std::string stopwatch_text = "00:00.000";
+    // Single-line lap summary shown below the stopwatch buttons.
+    // Empty string is rendered as a dim em-dash placeholder.
+    std::string stopwatch_lap_info;
     // Action id of the button currently flashing as click feedback (0 = none).
     int blink_act = 0;
     std::vector<TimerSceneState> timers{{}};
@@ -188,7 +193,7 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
     int gap = layout.dpi_scale(6);
     int bh = layout.dpi_scale(28);
     int x0 = (client_w - 3 * bw - 2 * gap) / 2;
-    int by = y + layout.dpi_scale(50);
+    int by = y + layout.dpi_scale(46);
     add_button(scene, {x0, by, x0 + bw, by + bh}, state.stopwatch_running ? "Stop" : "Start",
                ui.button(ButtonConfig{.active = state.stopwatch_running, .radius_px = layout.dpi_scale(6)}),
                A_SW_START);
@@ -196,6 +201,27 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
                ui.button(ButtonConfig{.radius_px = layout.dpi_scale(6)}), A_SW_LAP);
     add_button(scene, {x0 + 2 * (bw + gap), by, x0 + 3 * bw + 2 * gap, by + bh}, "Reset",
                ui.button(ButtonConfig{.radius_px = layout.dpi_scale(6)}), A_SW_RESET);
+
+    // Lap info row below the buttons (em-dash placeholder when empty).
+    add_text(scene,
+             {0, by + bh + layout.dpi_scale(4), client_w, by + bh + layout.dpi_scale(22)},
+             state.stopwatch_lap_info.empty() ? "—" : state.stopwatch_lap_info,
+             ui.text(TextConfig{.tone = TextTone::Dim}), Align::Center);
+
+    // "Get Laps" button: fill expresses state (failed/enabled/disabled);
+    // action id is 0 when no lap file exists so input ignores the click.
+    int gbw = layout.dpi_scale(100);
+    int gbh = layout.dpi_scale(18);
+    UiColor lap_fill = state.stopwatch_lap_write_failed ? ui.palette.expire
+                       : state.stopwatch_has_lap_file   ? ui.palette.btn
+                                                        : ui.palette.dim;
+    const char* lap_label = state.stopwatch_lap_write_failed ? "Get Laps (!)" : "Get Laps";
+    add_button(scene,
+               {(client_w - gbw) / 2, y + layout.sw_h - gbh, (client_w + gbw) / 2, y + layout.sw_h},
+               lap_label,
+               ui.button(ButtonConfig{.fill_override = lap_fill, .radius_px = layout.dpi_scale(6)}),
+               state.stopwatch_has_lap_file ? A_SW_GET : 0);
+
     y += layout.sw_h;
 }
 
@@ -300,6 +326,12 @@ inline int hit_test(const Scene& scene, int x, int y) {
 inline MainSceneState main_scene_state_from_app(const App& app, std::chrono::steady_clock::time_point now,
                                                 std::string clock_text) {
     using namespace std::chrono;
+    const auto& laps = app.sw.laps();
+    std::string lap_info;
+    if (!laps.empty()) {
+        lap_info = "Lap " + std::to_string(laps.size()) + "  —  " +
+                   wide_to_utf8(format_stopwatch_short(laps.back()));
+    }
     MainSceneState state{
         .topmost = app.topmost,
         .show_clock = app.show_clk,
@@ -307,9 +339,12 @@ inline MainSceneState main_scene_state_from_app(const App& app, std::chrono::ste
         .show_timers = app.show_tmr,
         .show_alarms = app.show_alarms,
         .stopwatch_running = app.sw.is_running(),
+        .stopwatch_has_lap_file = !app.sw_lap_file.empty(),
+        .stopwatch_lap_write_failed = app.lap_write_failed,
         .clock_view = app.clock_view,
         .clock_text = std::move(clock_text),
         .stopwatch_text = wide_to_utf8(format_stopwatch_display(app.sw.elapsed(now))),
+        .stopwatch_lap_info = std::move(lap_info),
         // Mirror theme.hpp's BLINK_DUR (kept inline to keep this header platform-neutral).
         .blink_act = (app.blink_act != 0 && (now - app.blink_t) < std::chrono::milliseconds{120}) ? app.blink_act : 0,
         .timers = {},

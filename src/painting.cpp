@@ -43,44 +43,6 @@ int paint_analog_panel(HDC hdc, int cw, int y, PaintCtx& ctx) {
 
 } // namespace
 
-int paint_stopwatch(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::steady_clock::time_point now) {
-    auto& layout = ctx.layout;
-    auto& th = ctx.theme;
-    divider(hdc, y, cw, ctx);
-    auto elap = ctx.app.sw.elapsed(now);
-    std::wstring etime = format_stopwatch_display(elap);
-
-    SelectObject(hdc, ctx.res.fontBig);
-    SetTextColor(hdc, th.text);
-    RECT tr{0, y + layout.dpi_scale(4), cw, y + layout.dpi_scale(44)};
-    DrawTextW(hdc, etime.c_str(), -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-    SelectObject(hdc, ctx.res.fontSm);
-    bool running = ctx.app.sw.is_running();
-    int bw = layout.dpi_scale(76), gap = layout.dpi_scale(6), bh = layout.dpi_scale(28);
-    int bx0 = (cw - 3 * bw - 2 * gap) / 2;
-    int by0 = y + layout.dpi_scale(46);
-    btn(hdc, {bx0, by0, bx0 + bw, by0 + bh}, running, running ? L"Stop" : L"Start", A_SW_START, ctx);
-    btn(hdc, {bx0 + bw + gap, by0, bx0 + 2 * bw + gap, by0 + bh}, false, L"Lap", A_SW_LAP, ctx);
-    btn(hdc, {bx0 + 2 * (bw + gap), by0, bx0 + 3 * bw + 2 * gap, by0 + bh}, false, L"Reset", A_SW_RESET, ctx);
-
-    auto& laps = ctx.app.sw.laps();
-    auto info = laps.empty() ? std::wstring(L"—")
-                             : std::format(L"Lap {}  —  {}", laps.size(), format_stopwatch_short(laps.back()));
-    SetTextColor(hdc, th.dim);
-    RECT ir{0, by0 + bh + layout.dpi_scale(4), cw, by0 + bh + layout.dpi_scale(22)};
-    DrawTextW(hdc, info.c_str(), -1, &ir, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-
-    bool has_file = !ctx.app.sw_lap_file.empty();
-    int gbw = layout.dpi_scale(100), gbh = layout.dpi_scale(18);
-    auto lap_label = ctx.app.lap_write_failed ? L"Get Laps (!)" : L"Get Laps";
-    auto lap_col = ctx.app.lap_write_failed ? th.expire : has_file ? th.btn : th.dim;
-    int laps_top = y + layout.sw_h - gbh;
-    btn(hdc, {(cw - gbw) / 2, laps_top, (cw + gbw) / 2, y + layout.sw_h},
-        false, lap_label, has_file ? A_SW_GET : 0, ctx, lap_col);
-    return y + layout.sw_h;
-}
-
 int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     auto& th = ctx.theme;
@@ -227,11 +189,15 @@ void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     int y = ctx.layout.bar_h;
     bool digital_clock = ctx.app.show_clk && ctx.app.clock_view != ClockView::Analog;
     if (digital_clock) add_clock(scene, ctx.layout, cw, y, scene_state, ui);
+    // Analog clock isn't a Scene Op yet; reserve its strip in the layout flow
+    // and draw the face below after paint_scene.
+    bool analog_clock = ctx.app.show_clk && ctx.app.clock_view == ClockView::Analog;
+    int analog_y = y;
+    if (analog_clock) y += ctx.layout.analog_clk_h;
+    add_stopwatch(scene, ctx.layout, cw, y, scene_state, ui);
     paint_scene(hdc, scene, ctx);
 
-    if (ctx.app.show_clk && ctx.app.clock_view == ClockView::Analog)
-        y = paint_analog_panel(hdc, cw, y, ctx);
-    if (ctx.app.show_sw) y = paint_stopwatch(hdc, cw, y, ctx, now);
+    if (analog_clock) paint_analog_panel(hdc, cw, analog_y, ctx);
     if (ctx.app.show_tmr) y = paint_timers(hdc, cw, y, ctx, now);
     if (ctx.app.show_alarms) y = paint_alarms(hdc, cw, y, ctx);
     if (ctx.app.show_help) paint_help(hdc, cw, y, ctx);
