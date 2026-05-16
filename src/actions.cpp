@@ -101,9 +101,8 @@ bool wants_blink(int act) {
     default:
         if (act >= A_ALARM_DEL && act < A_ALARM_DEL + ALARM_MAX_COUNT) return false;
         if (act >= A_ALARM_TOGGLE && act < A_ALARM_TOGGLE + ALARM_MAX_COUNT) return false;
-        if (act >= A_TMR_BASE && act < A_ALARM_DEL) {
-            int off = (act - A_TMR_BASE) % TMR_STRIDE;
-            if (off == A_TMR_START || off == A_TMR_ADD || off == A_TMR_DEL) return false;
+        if (auto tmr = tmr_decode(act)) {
+            if (tmr->off == A_TMR_START || tmr->off == A_TMR_ADD || tmr->off == A_TMR_DEL) return false;
         }
         return true;
     }
@@ -281,10 +280,8 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
                 app.alarms[i].enabled = !app.alarms[i].enabled;
                 r.save_config = true;
             }
-        } else if (act >= A_TMR_BASE) {
-            int idx = (act - A_TMR_BASE) / TMR_STRIDE;
-            int off = (act - A_TMR_BASE) % TMR_STRIDE;
-            r = dispatch_timer_action(app, idx, off, now);
+        } else if (auto tmr = tmr_decode(act)) {
+            r = dispatch_timer_action(app, tmr->idx, tmr->off, now);
         }
     }
     return r;

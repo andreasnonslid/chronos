@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <filesystem>
+#include <optional>
 #include "app.hpp"
 
 enum Act {
@@ -52,6 +53,17 @@ struct HandleResult {
 void reset_timer_slot(TimerSlot& ts, const App& app);
 bool apply_timer_hms_adjust(TimerSlot& ts, int off);
 int  tmr_act(int i, int off);
+
+// Inverse of tmr_act: returns {idx, op_off} if `act` is a timer action, else
+// std::nullopt. Centralises the (act - A_TMR_BASE) decomposition that used to
+// be scattered across dispatch_action and wants_blink.
+struct TmrDecoded { int idx; int off; };
+inline std::optional<TmrDecoded> tmr_decode(int act) {
+    if (act < A_TMR_BASE || act >= A_ALARM_DEL) return std::nullopt;
+    int rel = act - A_TMR_BASE;
+    return TmrDecoded{rel / TMR_STRIDE, rel % TMR_STRIDE};
+}
+
 bool wants_blink(int act);
 HandleResult dispatch_timer_action(App& app, int idx, int off,
                                    std::chrono::steady_clock::time_point now);
