@@ -3,10 +3,13 @@
 #include <cmath>
 #include <cstring>
 #include "gdi.hpp"
+#include "ui_style.hpp"
 
 namespace icon_detail {
 
-struct Pixel { uint8_t b, g, r, a; };
+struct Pixel {
+    uint8_t b, g, r, a;
+};
 
 inline void blend(Pixel& dst, uint8_t r, uint8_t g, uint8_t b, float alpha) {
     if (alpha <= 0.f) return;
@@ -62,7 +65,10 @@ inline HICON create_app_icon(int size, bool dark = true) {
     if (!screen) return nullptr;
 
     HBITMAP dib = CreateDIBSection(screen, (BITMAPINFO*)&bih, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!dib) { ReleaseDC(nullptr, screen); return nullptr; }
+    if (!dib) {
+        ReleaseDC(nullptr, screen);
+        return nullptr;
+    }
 
     GdiObj mask_bmp{CreateBitmap(size, size, 1, 1, nullptr)};
     ReleaseDC(nullptr, screen);
@@ -77,9 +83,10 @@ inline HICON create_app_icon(int size, bool dark = true) {
     float hand_w = size > 20 ? 1.6f : 1.1f;
     float tick_w = size > 20 ? 1.4f : 1.0f;
 
-    uint8_t cr, cg, cb;
-    if (dark) { cr = 210; cg = 210; cb = 215; }
-    else      { cr = 50;  cg = 50;  cb = 60;  }
+    IconPaint icon = make_icon(dark ? dark_palette : light_palette, IconConfig{});
+    uint8_t cr = icon.foreground.r;
+    uint8_t cg = icon.foreground.g;
+    uint8_t cb = icon.foreground.b;
 
     for (int y = 0; y < size; y++) {
         for (int x = 0; x < size; x++) {
@@ -97,12 +104,15 @@ inline HICON create_app_icon(int size, bool dark = true) {
     }
 
     const float pi = 3.14159265f;
-    struct Tick { float angle; float len; };
+    struct Tick {
+        float angle;
+        float len;
+    };
     Tick ticks[] = {
-        {0.f,           0.15f},
-        {pi * 0.5f,     0.12f},
-        {pi,            0.12f},
-        {pi * 1.5f,     0.15f},
+        {0.f, 0.15f},
+        {pi * 0.5f, 0.12f},
+        {pi, 0.12f},
+        {pi * 1.5f, 0.15f},
     };
     for (auto& t : ticks) {
         float inner = radius - size * t.len;
@@ -124,14 +134,17 @@ inline HICON create_app_icon(int size, bool dark = true) {
     }
 
     float hour_angle = pi * 2.f * (10.f / 12.f) - pi * 0.5f;
-    float min_angle  = pi * 2.f * (10.f / 60.f) - pi * 0.5f;
+    float min_angle = pi * 2.f * (10.f / 60.f) - pi * 0.5f;
     float hour_len = radius * 0.55f;
-    float min_len  = radius * 0.78f;
+    float min_len = radius * 0.78f;
 
-    struct Hand { float x1, y1, x2, y2; float w; };
+    struct Hand {
+        float x1, y1, x2, y2;
+        float w;
+    };
     Hand hands[] = {
         {cx, cy, cx + cosf(hour_angle) * hour_len, cy + sinf(hour_angle) * hour_len, hand_w * 1.2f},
-        {cx, cy, cx + cosf(min_angle) * min_len,   cy + sinf(min_angle) * min_len,   hand_w},
+        {cx, cy, cx + cosf(min_angle) * min_len, cy + sinf(min_angle) * min_len, hand_w},
     };
     for (auto& h : hands) {
         for (int y = 0; y < size; y++) {
@@ -164,7 +177,7 @@ inline HICON create_app_icon(int size, bool dark = true) {
     ii.fIcon = TRUE;
     ii.hbmMask = (HBITMAP)mask_bmp.h;
     ii.hbmColor = dib;
-    HICON icon = CreateIconIndirect(&ii);
+    HICON hicon = CreateIconIndirect(&ii);
     DeleteObject(dib);
-    return icon;
+    return hicon;
 }

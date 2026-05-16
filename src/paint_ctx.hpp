@@ -7,6 +7,7 @@
 #include "gdi.hpp"
 #include "layout.hpp"
 #include "theme.hpp"
+#include "ui_windows_painter.hpp"
 
 // ─── Paint context ─────────────────────────────────────────────────
 struct PaintCtx {
@@ -24,32 +25,21 @@ inline RECT btn(HDC hdc, RECT r, bool active, const wchar_t* label, int id, Pain
                 std::optional<COLORREF> override_col = std::nullopt) {
     auto& layout = ctx.layout;
     bool blinking = id && ctx.app.blink_act == id && (ctx.now - ctx.app.blink_t) < BLINK_DUR;
-    HBRUSH brush;
-    GdiObj dyn_br{nullptr};
-    if (blinking) {
-        brush = ctx.res.brBlink;
-    } else if (override_col.has_value()) {
-        dyn_br.h = CreateSolidBrush(*override_col);
-        brush = (HBRUSH)dyn_br.h;
-    } else {
-        brush = active ? ctx.res.brActive : ctx.res.brBtn;
-    }
-    auto* obr = (HBRUSH)SelectObject(hdc, brush);
-    auto* opn = (HPEN)SelectObject(hdc, ctx.res.pnNull);
-    int rr = layout.dpi_scale(6);
-    RoundRect(hdc, r.left, r.top, r.right, r.bottom, rr, rr);
-    SelectObject(hdc, obr);
-    SelectObject(hdc, opn);
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, ctx.theme.text);
-    DrawTextW(hdc, label, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    std::optional<UiColor> override_ui;
+    if (override_col.has_value()) override_ui = ui_color_from_colorref(*override_col);
+    ButtonConfig button_config{
+        .active = active,
+        .blinking = blinking,
+        .fill_override = override_ui,
+        .radius_px = layout.dpi_scale(6),
+    };
+    WidgetPaint button = make_button(ctx.theme.palette, button_config);
+
+    win_paint_button(hdc, r, label, nullptr, button);
     if (id) ctx.btns.push_back({r, id});
     return r;
 }
 
 inline void divider(HDC hdc, int y, int cw, const PaintCtx& ctx) {
-    auto* op = (HPEN)SelectObject(hdc, ctx.res.pnDivider);
-    MoveToEx(hdc, 0, y, nullptr);
-    LineTo(hdc, cw, y);
-    SelectObject(hdc, op);
+    win_paint_divider(hdc, 0, cw, y, make_ui(ctx.theme.palette).divider());
 }

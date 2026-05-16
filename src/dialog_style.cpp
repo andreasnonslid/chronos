@@ -1,15 +1,19 @@
 #include "dialog_style.hpp"
+#include "ui_windows_painter.hpp"
 #include <windowsx.h>
 
-void dlg_add_item(DlgBuf& b, DWORD style, short x, short y, short cx, short cy,
-                  WORD id, WORD cls_atom, const wchar_t* title) {
+void dlg_add_item(DlgBuf& b, DWORD style, short x, short y, short cx, short cy, WORD id, WORD cls_atom,
+                  const wchar_t* title) {
     b.align4();
     b.push_dword(WS_CHILD | WS_VISIBLE | style);
     b.push_dword(0);
-    b.push_word((WORD)x); b.push_word((WORD)y);
-    b.push_word((WORD)cx); b.push_word((WORD)cy);
+    b.push_word((WORD)x);
+    b.push_word((WORD)y);
+    b.push_word((WORD)cx);
+    b.push_word((WORD)cy);
     b.push_word(id);
-    b.push_word(0xFFFF); b.push_word(cls_atom);
+    b.push_word(0xFFFF);
+    b.push_word(cls_atom);
     b.push_wstr(title);
     b.push_word(0);
 }
@@ -21,42 +25,26 @@ void DlgStyle::apply_dark_mode(HWND hwnd) const {
 }
 
 void DlgStyle::fill_background(HDC hdc, const RECT& rc) const {
-    HBRUSH br = CreateSolidBrush(theme->bg);
-    FillRect(hdc, &rc, br);
-    DeleteObject(br);
+    DialogPaint dialog = make_dialog(theme->palette, DialogConfig{});
+    GdiObj br = win_brush(dialog.background);
+    FillRect(hdc, &rc, (HBRUSH)br.h);
 }
 
 void DlgStyle::draw_label(HDC hdc, const RECT& rc, const wchar_t* text, UINT fmt) const {
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, theme->text);
-    SelectObject(hdc, font);
-    RECT r = rc;
-    DrawTextW(hdc, text, -1, &r, fmt);
+    win_paint_label(hdc, rc, text, font, theme->palette, fmt);
 }
 
 void DlgStyle::draw_button(HDC hdc, const RECT& rc, const wchar_t* text, bool focused) const {
-    HBRUSH bg_br = CreateSolidBrush(theme->bg);
-    FillRect(hdc, &rc, bg_br);
-    DeleteObject(bg_br);
-    int rr = scale(6);
-    HBRUSH br = CreateSolidBrush(focused ? theme->active : theme->btn);
-    HPEN pen = CreatePen(PS_NULL, 0, 0);
-    auto* obr = (HBRUSH)SelectObject(hdc, br);
-    auto* opn = (HPEN)SelectObject(hdc, pen);
-    RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, rr, rr);
-    SelectObject(hdc, obr);
-    SelectObject(hdc, opn);
-    DeleteObject(br);
-    DeleteObject(pen);
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, theme->text);
-    SelectObject(hdc, font);
-    RECT r = rc;
-    DrawTextW(hdc, text, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    GdiObj bg_br = win_brush(theme->palette.bg);
+    FillRect(hdc, &rc, (HBRUSH)bg_br.h);
+    WidgetPaint button = make_button(theme->palette, ButtonConfig{
+                                                         .focused = focused,
+                                                         .radius_px = scale(6),
+                                                     });
+    win_paint_button(hdc, rc, text, font, button);
 }
 
-void DlgStyle::draw_check_radio(HDC hdc, const RECT& rc, const wchar_t* text,
-                                 bool checked, bool is_radio) const {
+void DlgStyle::draw_check_radio(HDC hdc, const RECT& rc, const wchar_t* text, bool checked, bool is_radio) const {
     HBRUSH bg_br = CreateSolidBrush(theme->bg);
     FillRect(hdc, &rc, bg_br);
     DeleteObject(bg_br);
@@ -65,7 +53,7 @@ void DlgStyle::draw_check_radio(HDC hdc, const RECT& rc, const wchar_t* text,
     int gs = scale(10);
     if (gs > h - 2) gs = h - 2;
     int gy = rc.top + (h - gs) / 2;
-    RECT g = { rc.left + 2, gy, rc.left + 2 + gs, gy + gs };
+    RECT g = {rc.left + 2, gy, rc.left + 2 + gs, gy + gs};
 
     HPEN pen = CreatePen(PS_SOLID, 1, theme->text);
     HBRUSH fill = CreateSolidBrush(theme->bar);
@@ -100,7 +88,7 @@ void DlgStyle::draw_check_radio(HDC hdc, const RECT& rc, const wchar_t* text,
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, theme->text);
     SelectObject(hdc, font);
-    RECT tr = { rc.left + gs + 6, rc.top, rc.right, rc.bottom };
+    RECT tr = {rc.left + gs + 6, rc.top, rc.right, rc.bottom};
     DrawTextW(hdc, text, -1, &tr, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 }
 
@@ -108,9 +96,9 @@ void DlgStyle::draw_check_radio(HDC hdc, const RECT& rc, const wchar_t* text,
 
 DialogBrushes DialogBrushes::create(const Theme& theme) {
     return DialogBrushes{
-        .bg   = GdiObj{CreateSolidBrush(theme.bg)},
+        .bg = GdiObj{CreateSolidBrush(theme.bg)},
         .edit = GdiObj{CreateSolidBrush(theme.bar)},
-        .btn  = GdiObj{CreateSolidBrush(theme.bg)},
+        .btn = GdiObj{CreateSolidBrush(theme.bg)},
     };
 }
 
@@ -122,19 +110,21 @@ void dialog_center_on_parent(HWND dlg) {
     GetWindowRect(dlg, &dr);
     int dw = dr.right - dr.left, dh = dr.bottom - dr.top;
     int x = pr.left + (pr.right - pr.left - dw) / 2;
-    int y = pr.top  + (pr.bottom - pr.top  - dh) / 2;
+    int y = pr.top + (pr.bottom - pr.top - dh) / 2;
     SetWindowPos(dlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
 void dialog_apply_font_to_children(HWND dlg, HFONT font) {
-    EnumChildWindows(dlg, [](HWND child, LPARAM param) -> BOOL {
-        SendMessageW(child, WM_SETFONT, (WPARAM)param, FALSE);
-        return TRUE;
-    }, (LPARAM)font);
+    EnumChildWindows(
+        dlg,
+        [](HWND child, LPARAM param) -> BOOL {
+            SendMessageW(child, WM_SETFONT, (WPARAM)param, FALSE);
+            return TRUE;
+        },
+        (LPARAM)font);
 }
 
-INT_PTR dialog_handle_ctl_color(UINT msg, HDC hdc, const Theme& theme,
-                                const DialogBrushes& brushes) {
+INT_PTR dialog_handle_ctl_color(UINT msg, HDC hdc, const Theme& theme, const DialogBrushes& brushes) {
     switch (msg) {
     case WM_CTLCOLORSTATIC:
         SetTextColor(hdc, theme.text);
@@ -162,8 +152,7 @@ INT_PTR dialog_handle_caption_hittest(HWND dlg, LPARAM lp, short title_h_dlu) {
     return 0;
 }
 
-void dialog_paint_title(HDC hdc, HWND dlg, const DlgStyle& style,
-                        const wchar_t* title, short title_h_dlu) {
+void dialog_paint_title(HDC hdc, HWND dlg, const DlgStyle& style, const wchar_t* title, short title_h_dlu) {
     RECT client{};
     GetClientRect(dlg, &client);
     RECT title_rc{0, 0, 0, title_h_dlu};
@@ -172,10 +161,10 @@ void dialog_paint_title(HDC hdc, HWND dlg, const DlgStyle& style,
     title_rc.right = client.right;
     style.draw_label(hdc, title_rc, title, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
-    HPEN pen = CreatePen(PS_SOLID, 1, style.theme->divider);
-    auto* old = (HPEN)SelectObject(hdc, pen);
+    DialogPaint dialog = make_dialog(style.theme->palette, DialogConfig{});
+    GdiObj pen = win_pen(dialog.divider);
+    auto* old = (HPEN)SelectObject(hdc, pen.h);
     MoveToEx(hdc, 0, divider_y, nullptr);
     LineTo(hdc, client.right, divider_y);
     SelectObject(hdc, old);
-    DeleteObject(pen);
 }

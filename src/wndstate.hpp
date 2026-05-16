@@ -115,8 +115,12 @@ inline void recreate_fonts(WndState& s) {
 }
 
 inline void apply_theme(HWND hwnd, WndState& s) {
-    bool dark = (s.app.theme_mode == ThemeMode::Dark) ||
-                (s.app.theme_mode == ThemeMode::Auto && system_prefers_dark());
+    UiStyleConfig style_config{
+        .theme_mode = s.app.theme_mode,
+        .system_dark = system_prefers_dark(),
+    };
+    const ThemePalette& palette = palette_for(style_config);
+    bool dark = &palette == &dark_palette;
     BOOL dwm_dark = dark ? TRUE : FALSE;
     DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR, &dwm_dark, sizeof(dwm_dark));
     s.active_theme = dark ? &dark_theme : &light_theme;

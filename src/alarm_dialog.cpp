@@ -5,6 +5,7 @@
 #include <string>
 #include "alarm.hpp"
 #include "dialog_style.hpp"
+#include "ui_windows_painter.hpp"
 #include "encoding.hpp"
 
 namespace alarm_dlg {
@@ -104,19 +105,11 @@ static void init_painted_rects(HWND dlg, Params& p) {
 
 static void paint_toggle_btn(HDC hdc, const RECT& r, const wchar_t* text, bool active,
                               const DlgStyle& s) {
-    int rr = s.scale(4);
-    HBRUSH br = CreateSolidBrush(active ? s.theme->active : s.theme->btn);
-    HPEN   pn = CreatePen(PS_NULL, 0, 0);
-    auto* obr = (HBRUSH)SelectObject(hdc, br);
-    auto* opn = (HPEN)SelectObject(hdc, pn);
-    RoundRect(hdc, r.left, r.top, r.right, r.bottom, rr, rr);
-    SelectObject(hdc, obr); SelectObject(hdc, opn);
-    DeleteObject(br); DeleteObject(pn);
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, s.theme->text);
-    SelectObject(hdc, s.font);
-    RECT rc = r;
-    DrawTextW(hdc, text, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    WidgetPaint button = make_button(s.theme->palette, ButtonConfig{
+                                                           .active = active,
+                                                           .radius_px = s.scale(4),
+                                                       });
+    win_paint_button(hdc, r, text, s.font, button);
 }
 
 // ─── Dialog procedure ─────────────────────────────────────────────────────────
