@@ -43,8 +43,9 @@ void render_op(HDC hdc, const ui_scene::Op& op, PaintCtx& ctx) {
         break;
     case OpKind::Text: {
         std::wstring w = utf8_to_wide(op.text);
-        win_paint_text(hdc, rc, w.c_str(), font_for(op.text_style, ctx), TextPaint{.color = op.text_color},
-                       text_format(op.align));
+        UINT fmt = text_format(op.align);
+        if (op.end_ellipsis) fmt |= DT_END_ELLIPSIS;
+        win_paint_text(hdc, rc, w.c_str(), font_for(op.text_style, ctx), TextPaint{.color = op.text_color}, fmt);
         break;
     }
     case OpKind::Button: {

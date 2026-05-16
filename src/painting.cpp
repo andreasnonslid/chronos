@@ -42,85 +42,6 @@ int paint_analog_panel(HDC hdc, int cw, int y, PaintCtx& ctx) {
 
 } // namespace
 
-int paint_alarms(HDC hdc, int cw, int y, PaintCtx& ctx) {
-    auto& layout = ctx.layout;
-    auto& th = ctx.theme;
-    divider(hdc, y, cw, ctx);
-
-    int pad = layout.dpi_scale(10);
-    int bw  = layout.dpi_scale(56);
-    int bh  = layout.dpi_scale(24);
-    int by0 = y + (layout.alarm_header_h - bh) / 2;
-
-    SelectObject(hdc, ctx.res.fontSm);
-    SetTextColor(hdc, th.text);
-    RECT title_r{pad, y, cw - bw - 2 * pad, y + layout.alarm_header_h};
-    DrawTextW(hdc, L"Alarms", -1, &title_r, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-
-    btn(hdc, {cw - bw - pad, by0, cw - pad, by0 + bh}, false, L"+ Add", A_ALARM_ADD, ctx);
-
-    int row_y = y + layout.alarm_header_h;
-    int del_w = layout.dpi_scale(36);
-    int tog_w = layout.dpi_scale(50);
-
-    HBRUSH stripe = CreateSolidBrush(th.bar);
-    for (int i = 0; i < (int)ctx.app.alarms.size(); ++i) {
-        const auto& a = ctx.app.alarms[i];
-
-        RECT row_bg{0, row_y, cw, row_y + layout.alarm_row_h};
-        if (i % 2 == 1)
-            FillRect(hdc, &row_bg, stripe);
-
-        std::wstring sched;
-        if (a.schedule == AlarmSchedule::Days) {
-            const wchar_t* day_names[] = {L"Mo", L"Tu", L"We", L"Th", L"Fr", L"Sa", L"Su"};
-            for (int d = 0; d < 7; ++d)
-                if (a.days_mask & (1 << d)) {
-                    if (!sched.empty()) sched += L' ';
-                    sched += day_names[d];
-                }
-            if (sched.empty()) sched = L"(no days)";
-        } else {
-            sched = std::format(L"{:04}-{:02}-{:02}", a.date_year, a.date_month, a.date_day);
-        }
-        std::wstring label;
-        {
-            std::wstring name_w = utf8_to_wide(a.name);
-            if (!name_w.empty()) label = name_w + L"  ";
-        }
-        label += std::format(L"{:02}:{:02}  {}", a.hour, a.minute, sched);
-
-        int text_x = pad;
-        int row_mid = row_y + layout.alarm_row_h / 2;
-        int text_h  = layout.dpi_scale(18);
-        int buttons_right = cw - pad;
-        int del_x  = buttons_right - del_w;
-        int tog_x  = del_x - layout.dpi_scale(6) - tog_w;
-
-        RECT lr{text_x, row_mid - text_h / 2, tog_x - layout.dpi_scale(6), row_mid + text_h / 2};
-        SetTextColor(hdc, a.enabled ? th.text : th.dim);
-        DrawTextW(hdc, label.c_str(), -1, &lr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-
-        int btn_top = row_mid - bh / 2;
-        btn(hdc, {tog_x, btn_top, tog_x + tog_w, btn_top + bh},
-            a.enabled, a.enabled ? L"On" : L"Off", A_ALARM_TOGGLE + i, ctx);
-        btn(hdc, {del_x, btn_top, del_x + del_w, btn_top + bh},
-            false, L"Del", A_ALARM_DEL + i, ctx);
-
-        row_y += layout.alarm_row_h;
-    }
-    DeleteObject(stripe);
-
-    if (ctx.app.alarms.empty()) {
-        SetTextColor(hdc, th.dim);
-        RECT er{pad, row_y, cw - pad, row_y + layout.alarm_row_h};
-        DrawTextW(hdc, L"No alarms set", -1, &er, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        row_y += layout.alarm_row_h;
-    }
-
-    return row_y;
-}
-
 void paint_help(HDC hdc, int cw, int y_bottom, PaintCtx& ctx) {
     auto& layout = ctx.layout;
     RECT cr{0, layout.bar_h, cw, y_bottom > layout.bar_h ? y_bottom : layout.bar_h + layout.dpi_scale(200)};
@@ -198,9 +119,9 @@ void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
         for (int i = 0; i < (int)scene_state.timers.size(); ++i)
             add_timer(scene, ctx.layout, cw, y, i, scene_state.timers[i], ui, scene_state.blink_act);
     }
+    add_alarms(scene, ctx.layout, cw, y, scene_state, ui);
     paint_scene(hdc, scene, ctx);
 
     if (analog_clock) paint_analog_panel(hdc, cw, analog_y, ctx);
-    if (ctx.app.show_alarms) y = paint_alarms(hdc, cw, y, ctx);
     if (ctx.app.show_help) paint_help(hdc, cw, y, ctx);
 }

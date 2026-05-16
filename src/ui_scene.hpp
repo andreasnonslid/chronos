@@ -42,6 +42,7 @@ struct Op {
     int radius_px = 0;
     Align align = Align::Left;
     TextStyle text_style = TextStyle::Small;
+    bool end_ellipsis = false;  // text Ops: clip with "…" when overflowing
     int id = 0;
 };
 
@@ -70,8 +71,9 @@ struct TimerSceneState {
 };
 
 struct AlarmSceneState {
+    // Combined "name HH:MM schedule" string built once in the state builder so
+    // add_alarms doesn't need to know about AlarmSchedule or day_mask formats.
     std::string label;
-    std::string time_text;
     bool enabled = true;
 };
 
@@ -109,7 +111,7 @@ inline void add_fill(Scene& scene, RectI rect, SurfacePaint paint) {
 }
 
 inline void add_text(Scene& scene, RectI rect, std::string text, TextPaint paint, Align align = Align::Left,
-                     int id = 0, TextStyle style = TextStyle::Small) {
+                     int id = 0, TextStyle style = TextStyle::Small, bool end_ellipsis = false) {
     Op op{};
     op.kind = OpKind::Text;
     op.rect = rect;
@@ -117,6 +119,7 @@ inline void add_text(Scene& scene, RectI rect, std::string text, TextPaint paint
     op.text_color = paint.color;
     op.align = align;
     op.text_style = style;
+    op.end_ellipsis = end_ellipsis;
     op.id = id;
     scene.ops.push_back(std::move(op));
 }
@@ -355,34 +358,52 @@ inline void add_alarms(Scene& scene, const Layout& layout, int client_w, int& y,
                        const UiMakers& ui) {
     if (!state.show_alarms) return;
     add_divider(scene, 0, client_w, y, ui.divider());
+
+    int pad = layout.dpi_scale(10);
+    int add_bw = layout.dpi_scale(56);
+    int bh = layout.dpi_scale(24);
+    int radius = layout.dpi_scale(6);
     int header_bottom = y + layout.alarm_header_h;
-    add_text(scene, {0, y, client_w / 2, header_bottom}, "Alarms", ui.text(), Align::Left);
-    int bw = layout.dpi_scale(40);
-    add_action_button(scene, ui,
-                      {client_w - bw - layout.dpi_scale(4), y + layout.dpi_scale(7), client_w - layout.dpi_scale(4),
-                       header_bottom - layout.dpi_scale(7)},
-                      "Add", ButtonConfig{.radius_px = layout.dpi_scale(4)}, A_ALARM_ADD, state.blink_act);
+    int by0 = y + (layout.alarm_header_h - bh) / 2;
+
+    add_text(scene, {pad, y, client_w - add_bw - 2 * pad, header_bottom}, "Alarms", ui.text(), Align::Left);
+    add_action_button(scene, ui, {client_w - add_bw - pad, by0, client_w - pad, by0 + bh}, "+ Add",
+                      ButtonConfig{.radius_px = radius}, A_ALARM_ADD, state.blink_act);
     y = header_bottom;
+
+    int del_w = layout.dpi_scale(36);
+    int tog_w = layout.dpi_scale(50);
+    int text_h = layout.dpi_scale(18);
+
     if (state.alarms.empty()) {
-        add_text(scene, {0, y, client_w, y + layout.alarm_row_h}, "No alarms", ui.text(TextConfig{.tone = TextTone::Dim}),
-                 Align::Center);
+        add_text(scene, {pad, y, client_w - pad, y + layout.alarm_row_h}, "No alarms set",
+                 ui.text(TextConfig{.tone = TextTone::Dim}), Align::Center);
         y += layout.alarm_row_h;
-    } else {
-        for (int i = 0; i < (int)state.alarms.size(); ++i) {
-            const auto& alarm = state.alarms[i];
-            int row_bottom = y + layout.alarm_row_h;
-            add_text(scene, {layout.dpi_scale(4), y, client_w / 2, row_bottom}, alarm.time_text, ui.text(), Align::Left);
-            add_text(scene, {client_w / 2, y, client_w - bw - layout.dpi_scale(8), row_bottom},
-                     alarm.label.empty() ? "Alarm" : alarm.label,
-                     ui.text(alarm.enabled ? TextConfig{} : TextConfig{.tone = TextTone::Dim}), Align::Left);
-            add_action_button(scene, ui,
-                              {client_w - bw - layout.dpi_scale(4), y + layout.dpi_scale(4),
-                               client_w - layout.dpi_scale(4), row_bottom - layout.dpi_scale(4)},
-                              alarm.enabled ? "On" : "Off",
-                              ButtonConfig{.active = alarm.enabled, .radius_px = layout.dpi_scale(4)},
-                              A_ALARM_TOGGLE + i, state.blink_act);
-            y = row_bottom;
-        }
+        return;
+    }
+
+    for (int i = 0; i < (int)state.alarms.size(); ++i) {
+        const auto& alarm = state.alarms[i];
+        int row_bottom = y + layout.alarm_row_h;
+        // Striped row background on every other entry.
+        if (i % 2 == 1)
+            add_fill(scene, {0, y, client_w, row_bottom}, ui.surface(SurfaceConfig{.elevated = true}));
+
+        int row_mid = y + layout.alarm_row_h / 2;
+        int del_x = client_w - pad - del_w;
+        int tog_x = del_x - layout.dpi_scale(6) - tog_w;
+        int btn_top = row_mid - bh / 2;
+
+        add_text(scene, {pad, row_mid - text_h / 2, tog_x - layout.dpi_scale(6), row_mid + text_h / 2}, alarm.label,
+                 ui.text(alarm.enabled ? TextConfig{} : TextConfig{.tone = TextTone::Dim}),
+                 Align::Left, 0, TextStyle::Small, /*end_ellipsis=*/true);
+
+        add_action_button(scene, ui, {tog_x, btn_top, tog_x + tog_w, btn_top + bh}, alarm.enabled ? "On" : "Off",
+                          ButtonConfig{.active = alarm.enabled, .radius_px = radius}, A_ALARM_TOGGLE + i,
+                          state.blink_act);
+        add_action_button(scene, ui, {del_x, btn_top, del_x + del_w, btn_top + bh}, "Del",
+                          ButtonConfig{.radius_px = radius}, A_ALARM_DEL + i, state.blink_act);
+        y = row_bottom;
     }
 }
 
@@ -441,11 +462,23 @@ inline MainSceneState main_scene_state_from_app(const App& app, std::chrono::ste
     };
 
     for (const auto& alarm : app.alarms) {
-        char buf[8] = {};
-        std::snprintf(buf, sizeof(buf), "%02d:%02d", alarm.hour, alarm.minute);
+        std::string sched;
+        if (alarm.schedule == AlarmSchedule::Days) {
+            const char* day_names[] = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"};
+            for (int d = 0; d < 7; ++d)
+                if (alarm.days_mask & (1 << d)) {
+                    if (!sched.empty()) sched += ' ';
+                    sched += day_names[d];
+                }
+            if (sched.empty()) sched = "(no days)";
+        } else {
+            sched = std::format("{:04}-{:02}-{:02}", alarm.date_year, alarm.date_month, alarm.date_day);
+        }
+        std::string label;
+        if (!alarm.name.empty()) label = alarm.name + "  ";
+        label += std::format("{:02}:{:02}  {}", alarm.hour, alarm.minute, sched);
         state.alarms.push_back(AlarmSceneState{
-            .label = alarm.name,
-            .time_text = buf,
+            .label = std::move(label),
             .enabled = alarm.enabled,
         });
     }
