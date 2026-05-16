@@ -15,7 +15,6 @@
 #include "paint_ctx.hpp"
 #include "painting_analog.hpp"
 #include "painting_scene.hpp"
-#include "painting_timer.hpp"
 #include "theme.hpp"
 #include "ui_scene.hpp"
 
@@ -195,10 +194,13 @@ void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     int analog_y = y;
     if (analog_clock) y += ctx.layout.analog_clk_h;
     add_stopwatch(scene, ctx.layout, cw, y, scene_state, ui);
+    if (ctx.app.show_tmr) {
+        for (int i = 0; i < (int)scene_state.timers.size(); ++i)
+            add_timer(scene, ctx.layout, cw, y, i, scene_state.timers[i], ui, scene_state.blink_act);
+    }
     paint_scene(hdc, scene, ctx);
 
     if (analog_clock) paint_analog_panel(hdc, cw, analog_y, ctx);
-    if (ctx.app.show_tmr) y = paint_timers(hdc, cw, y, ctx, now);
     if (ctx.app.show_alarms) y = paint_alarms(hdc, cw, y, ctx);
     if (ctx.app.show_help) paint_help(hdc, cw, y, ctx);
 }
