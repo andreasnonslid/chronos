@@ -8,17 +8,35 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_program(LLD NAMES ld.lld ld.lld.exe)
 
-# Cross-platform sources (no Windows.h dependency)
-set(CHRONOS_SOURCES
-    src/main.cpp
+add_library(chronos_project_options INTERFACE)
+target_compile_options(chronos_project_options INTERFACE
+    -Wall -Wextra -Werror $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-command-line-argument>
+)
+
+function(chronos_use_lld target)
+    if(LLD)
+        target_link_options(${target} PRIVATE "--ld-path=${LLD}")
+    endif()
+endfunction()
+
+# Logic-portable sources shared by the desktop app and unit tests.
+# Keep Windows.h-dependent files in the platform sections below.
+set(CHRONOS_CORE_SOURCES
     src/actions.cpp
     src/config_serial.cpp
     src/encoding.cpp
     src/formatting.cpp
 )
 
+add_library(chronos_core STATIC ${CHRONOS_CORE_SOURCES})
+target_include_directories(chronos_core PUBLIC src)
+target_link_libraries(chronos_core PUBLIC chronos_project_options)
+set_target_properties(chronos_core PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+
+set(CHRONOS_APP_SOURCES src/main.cpp)
+
 if(WIN32)
-    list(APPEND CHRONOS_SOURCES
+    list(APPEND CHRONOS_APP_SOURCES
         src/config_io.cpp
         src/dialog_style.cpp
         src/input_core.cpp
@@ -35,9 +53,9 @@ if(WIN32)
         src/ui_windows_app.cpp
         src/ui_windows_settings_dialog.cpp
     )
-    add_executable(chronos WIN32 ${CHRONOS_SOURCES})
+    add_executable(chronos WIN32 ${CHRONOS_APP_SOURCES})
 
-    target_include_directories(chronos PRIVATE src)
+    target_link_libraries(chronos PRIVATE chronos_core)
     set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 
     target_compile_definitions(chronos PRIVATE
@@ -47,17 +65,11 @@ if(WIN32)
         _UNICODE
     )
 
-    target_compile_options(chronos PRIVATE
-        -Wall -Wextra -Werror $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-command-line-argument>
-    )
-
     target_link_options(chronos PRIVATE
         -static-libstdc++
         -static-libgcc
     )
-    if(LLD)
-        target_link_options(chronos PRIVATE "--ld-path=${LLD}")
-    endif()
+    chronos_use_lld(chronos)
 
     target_link_libraries(chronos PRIVATE
         -Wl,-Bstatic winpthread -Wl,-Bdynamic
@@ -65,14 +77,10 @@ if(WIN32)
     )
 elseif(UNIX AND NOT APPLE)
     find_package(X11 REQUIRED)
-    list(APPEND CHRONOS_SOURCES src/ui_linux.cpp)
-    add_executable(chronos ${CHRONOS_SOURCES})
-    target_include_directories(chronos PRIVATE src)
+    list(APPEND CHRONOS_APP_SOURCES src/ui_linux.cpp)
+    add_executable(chronos ${CHRONOS_APP_SOURCES})
+    target_link_libraries(chronos PRIVATE chronos_core X11::X11)
     set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
-    target_compile_options(chronos PRIVATE
-        -Wall -Wextra -Werror $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-command-line-argument>
-    )
-    target_link_libraries(chronos PRIVATE X11::X11)
 endif()
 
 # Copy compile_commands.json to repo root after build so all editors find it
@@ -105,20 +113,10 @@ if(BUILD_TESTS)
         tests/test_actions_timer.cpp
         tests/test_actions_adjust.cpp
         tests/test_pomodoro.cpp
-        src/actions.cpp
-        src/config_serial.cpp
-        src/encoding.cpp
-        src/formatting.cpp
     )
-    target_include_directories(chronos_tests PRIVATE src)
     set_target_properties(chronos_tests PROPERTIES CXX_SCAN_FOR_MODULES OFF)
-    target_link_libraries(chronos_tests PRIVATE Catch2::Catch2WithMain)
-    target_compile_options(chronos_tests PRIVATE
-        -Wall -Wextra -Werror $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-command-line-argument>
-    )
-    if(LLD)
-        target_link_options(chronos_tests PRIVATE "--ld-path=${LLD}")
-    endif()
+    target_link_libraries(chronos_tests PRIVATE chronos_core Catch2::Catch2WithMain)
+    chronos_use_lld(chronos_tests)
     if(WIN32)
         target_compile_definitions(chronos_tests PRIVATE
             WIN32_LEAN_AND_MEAN

@@ -18,34 +18,34 @@ COLORREF analog_pick_color(int configured, COLORREF fallback) {
 COLORREF analog_blend(COLORREF fg, COLORREF bg, int opacity_pct) {
     opacity_pct = std::clamp(opacity_pct, 0, 100);
     auto mix = [&](int f, int b) { return (f * opacity_pct + b * (100 - opacity_pct)) / 100; };
-    return RGB(mix(GetRValue(fg), GetRValue(bg)),
-               mix(GetGValue(fg), GetGValue(bg)),
-               mix(GetBValue(fg), GetBValue(bg)));
+    return RGB(mix(GetRValue(fg), GetRValue(bg)), mix(GetGValue(fg), GetGValue(bg)), mix(GetBValue(fg), GetBValue(bg)));
 }
 
-AnalogResolvedColors resolve_analog_colors(const AnalogClockStyle& style,
-                                                   const Theme& theme) {
-    COLORREF background = analog_pick_color(style.background_color, theme.bg);
+AnalogResolvedColors resolve_analog_colors(const AnalogClockStyle& style, const Theme& theme) {
+    AnalogClockPaint clock = make_analog_clock(theme.palette, AnalogClockConfig{});
+    COLORREF background = analog_pick_color(style.background_color, colorref_from_ui(clock.background));
     COLORREF outline = analog_pick_color(style.face_outline_color,
-                         analog_pick_color(style.face_color, theme.divider));
+                                         analog_pick_color(style.face_color, colorref_from_ui(clock.outline)));
+    COLORREF text = colorref_from_ui(clock.text);
+    COLORREF tick = colorref_from_ui(clock.tick);
     return {
-        .hour        = analog_blend(analog_pick_color(style.hour_color, theme.text), background, style.hour_opacity_pct),
-        .minute      = analog_blend(analog_pick_color(style.minute_color, theme.text), background, style.minute_opacity_pct),
-        .second      = analog_blend(analog_pick_color(style.second_color, theme.dim), background, style.second_opacity_pct),
-        .background  = background,
-        .face_fill   = analog_blend(analog_pick_color(style.face_fill_color, background), background, style.face_opacity_pct),
-        .face_outline= analog_blend(outline, background, style.face_opacity_pct),
-        .tick        = analog_blend(analog_pick_color(style.tick_color, theme.dim), background, style.tick_opacity_pct),
-        .hour_label  = analog_blend(analog_pick_color(style.hour_label_color,
-                                          analog_pick_color(style.tick_color, theme.dim)), background, style.tick_opacity_pct),
-        .center_dot  = analog_blend(analog_pick_color(style.center_dot_color,
-                                          analog_pick_color(style.hour_color, theme.text)), background, style.hour_opacity_pct),
+        .hour = analog_blend(analog_pick_color(style.hour_color, text), background, style.hour_opacity_pct),
+        .minute = analog_blend(analog_pick_color(style.minute_color, text), background, style.minute_opacity_pct),
+        .second = analog_blend(analog_pick_color(style.second_color, tick), background, style.second_opacity_pct),
+        .background = background,
+        .face_fill =
+            analog_blend(analog_pick_color(style.face_fill_color, background), background, style.face_opacity_pct),
+        .face_outline = analog_blend(outline, background, style.face_opacity_pct),
+        .tick = analog_blend(analog_pick_color(style.tick_color, tick), background, style.tick_opacity_pct),
+        .hour_label = analog_blend(analog_pick_color(style.hour_label_color, analog_pick_color(style.tick_color, tick)),
+                                   background, style.tick_opacity_pct),
+        .center_dot = analog_blend(analog_pick_color(style.center_dot_color, analog_pick_color(style.hour_color, text)),
+                                   background, style.hour_opacity_pct),
     };
 }
 
-void draw_analog_clock_native(HDC hdc, RECT area, const AnalogClockStyle& style,
-                                      const Theme& theme, int dpi,
-                                      int hour, int minute, int second) {
+void draw_analog_clock_native(HDC hdc, RECT area, const AnalogClockStyle& style, const Theme& theme, int dpi, int hour,
+                              int minute, int second) {
     auto colors = resolve_analog_colors(style, theme);
 
     int cx = (area.left + area.right) / 2;
@@ -58,9 +58,7 @@ void draw_analog_clock_native(HDC hdc, RECT area, const AnalogClockStyle& style,
 
     auto dpi_px = [&](int base) { return std::max(1, base * dpi / STANDARD_DPI); };
 
-    auto angle_rad = [](double units, double total) {
-        return (units / total) * 2.0 * M_PI - M_PI / 2.0;
-    };
+    auto angle_rad = [](double units, double total) { return (units / total) * 2.0 * M_PI - M_PI / 2.0; };
 
     auto line_from_center = [&](double angle, int len, COLORREF color, int thickness) {
         GdiObj pen{CreatePen(PS_SOLID, dpi_px(thickness), color)};
@@ -110,14 +108,13 @@ void draw_analog_clock_native(HDC hdc, RECT area, const AnalogClockStyle& style,
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, colors.hour_label);
         int label_font_h = -MulDiv(7, dpi, 72);
-        GdiObj label_font{CreateFontW(label_font_h, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                                       DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                       CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI")};
+        GdiObj label_font{CreateFontW(label_font_h, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                                      OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                      DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI")};
         auto* old_font = (HFONT)SelectObject(hdc, label_font.h);
         int label_r = radius - radius * style.hour_tick_pct / 100 - dpi_px(6);
         for (int i = 1; i <= 12; ++i) {
-            if (style.hour_labels == HourLabels::Sparse && i != 12 && i != 3 && i != 6 && i != 9)
-                continue;
+            if (style.hour_labels == HourLabels::Sparse && i != 12 && i != 3 && i != 6 && i != 9) continue;
             double a = angle_rad(i, 12.0);
             int lx = cx + (int)std::lround(std::cos(a) * label_r);
             int ly = cy + (int)std::lround(std::sin(a) * label_r);
@@ -153,9 +150,8 @@ void draw_analog_clock_native(HDC hdc, RECT area, const AnalogClockStyle& style,
     }
 }
 
-void draw_analog_clock(HDC hdc, RECT area, const AnalogClockStyle& style,
-                               const Theme& theme, int dpi,
-                               int hour, int minute, int second) {
+void draw_analog_clock(HDC hdc, RECT area, const AnalogClockStyle& style, const Theme& theme, int dpi, int hour,
+                       int minute, int second) {
     int w = area.right - area.left;
     int h = area.bottom - area.top;
     if (w <= 0 || h <= 0) return;
@@ -182,18 +178,15 @@ void draw_analog_clock(HDC hdc, RECT area, const AnalogClockStyle& style,
     if (saved_dc != 0) {
         SetStretchBltMode(hdc, HALFTONE);
         SetBrushOrgEx(hdc, 0, 0, nullptr);
-        blit_ok = StretchBlt(hdc, area.left, area.top, w, h,
-                             mem_dc.h, 0, 0, w * AA_SCALE, h * AA_SCALE, SRCCOPY);
+        blit_ok = StretchBlt(hdc, area.left, area.top, w, h, mem_dc.h, 0, 0, w * AA_SCALE, h * AA_SCALE, SRCCOPY);
         RestoreDC(hdc, saved_dc);
     } else {
         int old_mode = SetStretchBltMode(hdc, HALFTONE);
         SetBrushOrgEx(hdc, 0, 0, nullptr);
-        blit_ok = StretchBlt(hdc, area.left, area.top, w, h,
-                             mem_dc.h, 0, 0, w * AA_SCALE, h * AA_SCALE, SRCCOPY);
+        blit_ok = StretchBlt(hdc, area.left, area.top, w, h, mem_dc.h, 0, 0, w * AA_SCALE, h * AA_SCALE, SRCCOPY);
         SetStretchBltMode(hdc, old_mode);
     }
 
     SelectObject(mem_dc.h, old_bmp);
-    if (!blit_ok)
-        draw_analog_clock_native(hdc, area, style, theme, dpi, hour, minute, second);
+    if (!blit_ok) draw_analog_clock_native(hdc, area, style, theme, dpi, hour, minute, second);
 }

@@ -22,7 +22,7 @@ void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::steady_clo
     auto& layout = ctx.layout;
     auto& ts = ctx.app.timers[i];
     bool expired = ts.t.expired(now);
-    HBRUSH fillbr = expired ? ctx.res.brFillExp : ctx.res.brFill;
+    ProgressPaint progress = make_ui(ctx.theme.palette).progress(ProgressConfig{.expired = expired});
     int fw = cw;
     if (!expired) {
         using namespace std::chrono;
@@ -31,7 +31,7 @@ void paint_timer_progress(HDC hdc, int cw, int y, int i, std::chrono::steady_clo
         fw = total > 0 ? std::clamp((int)(cw * (double)(total - rem) / total), 0, cw) : 0;
     }
     RECT fr{0, y, fw, y + layout.tmr_h};
-    FillRect(hdc, &fr, fillbr);
+    win_paint_progress(hdc, fr, progress);
 }
 
 void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
@@ -78,11 +78,11 @@ void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     } else {
         SelectObject(hdc, ctx.res.fontBig);
         SetTextColor(hdc, th.text);
-        int field_h    = layout.dpi_scale(40);
-        int td_y       = y + m.td_off;
+        int field_h = layout.dpi_scale(40);
+        int td_y = y + m.td_off;
         int field_half = layout.dpi_scale(22);
         long long total_s_edit = ts.dur.count();
-        auto h_s  = std::format(L"{}", total_s_edit / 3600);
+        auto h_s = std::format(L"{}", total_s_edit / 3600);
         auto mm_s = std::format(L"{:02}", (total_s_edit / 60) % 60);
         auto ss_s = std::format(L"{:02}", total_s_edit % 60);
         RECT hr{hh_cx - field_half, td_y, hh_cx + field_half, td_y + field_h};
@@ -91,7 +91,7 @@ void paint_timer_idle(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
         DrawTextW(hdc, h_s.c_str(), -1, &hr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         DrawTextW(hdc, mm_s.c_str(), -1, &mr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         DrawTextW(hdc, ss_s.c_str(), -1, &sr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        int sep_w   = layout.dpi_scale(8);
+        int sep_w = layout.dpi_scale(8);
         int sep1_cx = (hh_cx + mm_cx) / 2;
         int sep2_cx = (mm_cx + ss_cx) / 2;
         RECT sep1r{sep1_cx - sep_w / 2, td_y, sep1_cx + sep_w / 2, td_y + field_h};
@@ -124,7 +124,8 @@ void paint_timer_running(HDC hdc, int cw, int y, int i, std::chrono::steady_cloc
 
     SelectObject(hdc, ctx.res.fontSm);
     SetTextColor(hdc, th.dim);
-    std::wstring subtitle = ts.label.empty() ? format_timer_edit(std::chrono::duration_cast<Timer::dur>(ts.dur)) : ts.label;
+    std::wstring subtitle =
+        ts.label.empty() ? format_timer_edit(std::chrono::duration_cast<Timer::dur>(ts.dur)) : ts.label;
     if (ts.pomodoro && ts.pomodoro_work_elapsed.count() > 0)
         subtitle += L" \u00B7 " + format_worked_time(ts.pomodoro_work_elapsed);
     RECT sr{0, y + m.up_off, cw, y + m.up_off + layout.dpi_scale(20)};
@@ -167,11 +168,10 @@ void paint_timer_controls(HDC hdc, int cw, int y, int i, PaintCtx& ctx) {
     int pm_sz = layout.dpi_scale(22), pm_margin = layout.dpi_scale(6);
     int pm_top = y + layout.tmr_h - pm_sz;
     if ((int)ctx.app.timers.size() < Config::MAX_TIMERS)
-        btn(hdc, {cw - pm_margin - pm_sz, pm_top, cw - pm_margin, pm_top + pm_sz}, false, L"+",
-            tmr_act(i, A_TMR_ADD), ctx);
+        btn(hdc, {cw - pm_margin - pm_sz, pm_top, cw - pm_margin, pm_top + pm_sz}, false, L"+", tmr_act(i, A_TMR_ADD),
+            ctx);
     if ((int)ctx.app.timers.size() > 1)
-        btn(hdc, {pm_margin, pm_top, pm_margin + pm_sz, pm_top + pm_sz}, false, L"\u2212",
-            tmr_act(i, A_TMR_DEL), ctx);
+        btn(hdc, {pm_margin, pm_top, pm_margin + pm_sz, pm_top + pm_sz}, false, L"\u2212", tmr_act(i, A_TMR_DEL), ctx);
 }
 
 int paint_timers(HDC hdc, int cw, int y, PaintCtx& ctx, std::chrono::steady_clock::time_point now) {

@@ -3,11 +3,13 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <algorithm>
+#include <array>
 #include <format>
 #include <vector>
 #include "app.hpp"
 #include "dialog_style.hpp"
 #include "painting_analog.hpp"
+#include "ui_windows_painter.hpp"
 
 namespace ui {
 
@@ -170,8 +172,54 @@ static RECT map_dlu(HWND dlg, short x, short y, short cx, short cy) {
     return r;
 }
 
-constexpr int ANALOG_COLOR_COUNT = 9;
-constexpr int ANALOG_VALUE_COUNT = 15;
+// Keep each owner-drawn analog setting as data: the label, backing field,
+// and (for numeric values) valid stepping range live together. Paint,
+// hit-testing, and mutation then iterate the same source of truth.
+struct AnalogColorOption {
+    const wchar_t* label;
+    int AnalogClockStyle::*field;
+};
+
+struct AnalogValueOption {
+    const wchar_t* label;
+    int AnalogClockStyle::*field;
+    int min_value;
+    int max_value;
+    int step;
+};
+
+static constexpr std::array<AnalogColorOption, 9> kAnalogColors{{
+    {L"Hour", &AnalogClockStyle::hour_color},
+    {L"Minute", &AnalogClockStyle::minute_color},
+    {L"Second", &AnalogClockStyle::second_color},
+    {L"Background", &AnalogClockStyle::background_color},
+    {L"Face fill", &AnalogClockStyle::face_fill_color},
+    {L"Outline", &AnalogClockStyle::face_outline_color},
+    {L"Ticks", &AnalogClockStyle::tick_color},
+    {L"Numbers", &AnalogClockStyle::hour_label_color},
+    {L"Center dot", &AnalogClockStyle::center_dot_color},
+}};
+
+static constexpr std::array<AnalogValueOption, 15> kAnalogValues{{
+    {L"Hour length", &AnalogClockStyle::hour_len_pct, 0, 100, 5},
+    {L"Minute length", &AnalogClockStyle::minute_len_pct, 0, 100, 5},
+    {L"Second length", &AnalogClockStyle::second_len_pct, 0, 100, 5},
+    {L"Hour thickness", &AnalogClockStyle::hour_thickness, 1, 6, 1},
+    {L"Minute thickness", &AnalogClockStyle::minute_thickness, 1, 4, 1},
+    {L"Second thickness", &AnalogClockStyle::second_thickness, 1, 3, 1},
+    {L"Hour tick", &AnalogClockStyle::hour_tick_pct, 5, 20, 1},
+    {L"Minute tick", &AnalogClockStyle::minute_tick_pct, 2, 10, 1},
+    {L"Center dot", &AnalogClockStyle::center_dot_size, 0, 10, 1},
+    {L"Hour opacity", &AnalogClockStyle::hour_opacity_pct, 10, 100, 10},
+    {L"Minute opacity", &AnalogClockStyle::minute_opacity_pct, 10, 100, 10},
+    {L"Second opacity", &AnalogClockStyle::second_opacity_pct, 10, 100, 10},
+    {L"Tick opacity", &AnalogClockStyle::tick_opacity_pct, 10, 100, 10},
+    {L"Face opacity", &AnalogClockStyle::face_opacity_pct, 0, 100, 10},
+    {L"Clock radius", &AnalogClockStyle::radius_pct, 50, 100, 5},
+}};
+
+constexpr int ANALOG_COLOR_COUNT = static_cast<int>(kAnalogColors.size());
+constexpr int ANALOG_VALUE_COUNT = static_cast<int>(kAnalogValues.size());
 
 struct HitRects {
     RECT sidebar[TAB_COUNT];
@@ -381,21 +429,11 @@ static void apply_scroll(HWND dlg, Params* p, int new_pos) {
 
 static void paint_option_btn(HDC hdc, const RECT& rc, const wchar_t* text, bool selected,
                               const DlgStyle& s) {
-    int rr = s.scale(4);
-    HBRUSH br = CreateSolidBrush(selected ? s.theme->active : s.theme->btn);
-    HPEN pen = CreatePen(PS_NULL, 0, 0);
-    auto* obr = (HBRUSH)SelectObject(hdc, br);
-    auto* opn = (HPEN)SelectObject(hdc, pen);
-    RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, rr, rr);
-    SelectObject(hdc, obr);
-    SelectObject(hdc, opn);
-    DeleteObject(br);
-    DeleteObject(pen);
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, s.theme->text);
-    SelectObject(hdc, s.font);
-    RECT r = rc;
-    DrawTextW(hdc, text, -1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    WidgetPaint button = make_button(s.theme->palette, ButtonConfig{
+                                                           .active = selected,
+                                                           .radius_px = s.scale(4),
+                                                       });
+    win_paint_button(hdc, rc, text, s.font, button);
 }
 
 static bool read_field(HWND dlg, int id, int& out) {
@@ -485,72 +523,23 @@ static void set_initial_tab_visibility(HWND dlg, Params& p) {
 }
 
 static int* analog_color_field(AnalogClockStyle& a, int i) {
-    switch (i) {
-    case 0: return &a.hour_color;
-    case 1: return &a.minute_color;
-    case 2: return &a.second_color;
-    case 3: return &a.background_color;
-    case 4: return &a.face_fill_color;
-    case 5: return &a.face_outline_color;
-    case 6: return &a.tick_color;
-    case 7: return &a.hour_label_color;
-    case 8: return &a.center_dot_color;
-    default: return nullptr;
-    }
+    if (i < 0 || i >= ANALOG_COLOR_COUNT) return nullptr;
+    return &(a.*kAnalogColors[(size_t)i].field);
 }
 
 static int* analog_value_field(AnalogClockStyle& a, int i) {
-    switch (i) {
-    case 0: return &a.hour_len_pct;
-    case 1: return &a.minute_len_pct;
-    case 2: return &a.second_len_pct;
-    case 3: return &a.hour_thickness;
-    case 4: return &a.minute_thickness;
-    case 5: return &a.second_thickness;
-    case 6: return &a.hour_tick_pct;
-    case 7: return &a.minute_tick_pct;
-    case 8: return &a.center_dot_size;
-    case 9: return &a.hour_opacity_pct;
-    case 10: return &a.minute_opacity_pct;
-    case 11: return &a.second_opacity_pct;
-    case 12: return &a.tick_opacity_pct;
-    case 13: return &a.face_opacity_pct;
-    case 14: return &a.radius_pct;
-    default: return nullptr;
-    }
+    if (i < 0 || i >= ANALOG_VALUE_COUNT) return nullptr;
+    return &(a.*kAnalogValues[(size_t)i].field);
 }
 
-static void analog_value_range(int i, int& min_v, int& max_v, int& step) {
-    struct Range { int min_v, max_v, step; };
-    static constexpr Range ranges[ANALOG_VALUE_COUNT] = {
-        {0, 100, 5}, {0, 100, 5}, {0, 100, 5},
-        {1, 6, 1}, {1, 4, 1}, {1, 3, 1},
-        {5, 20, 1}, {2, 10, 1}, {0, 10, 1},
-        {10, 100, 10}, {10, 100, 10}, {10, 100, 10},
-        {10, 100, 10}, {0, 100, 10}, {50, 100, 5},
-    };
-    min_v = ranges[i].min_v;
-    max_v = ranges[i].max_v;
-    step = ranges[i].step;
-}
+static void adjust_analog_value(AnalogClockStyle& a, int i, int direction) {
+    int* field = analog_value_field(a, i);
+    if (!field) return;
 
-static const wchar_t* analog_color_label(int i) {
-    static constexpr const wchar_t* labels[ANALOG_COLOR_COUNT] = {
-        L"Hour", L"Minute", L"Second", L"Background", L"Face fill",
-        L"Outline", L"Ticks", L"Numbers", L"Center dot"
-    };
-    return labels[i];
-}
-
-static const wchar_t* analog_value_label(int i) {
-    static constexpr const wchar_t* labels[ANALOG_VALUE_COUNT] = {
-        L"Hour length", L"Minute length", L"Second length",
-        L"Hour thickness", L"Minute thickness", L"Second thickness",
-        L"Hour tick", L"Minute tick", L"Center dot",
-        L"Hour opacity", L"Minute opacity", L"Second opacity",
-        L"Tick opacity", L"Face opacity", L"Clock radius"
-    };
-    return labels[i];
+    const auto& option = kAnalogValues[(size_t)i];
+    *field += option.step * direction;
+    if (*field > option.max_value) *field = option.min_value;
+    if (*field < option.min_value) *field = option.max_value;
 }
 
 static constexpr COLORREF ANALOG_PALETTE_COLORS[] = {
@@ -742,7 +731,7 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
                     r.top += sdy; r.bottom += sdy;
                     int* field = analog_color_field(p->analog_style, i);
                     bool custom = field && *field >= 0;
-                    paint_option_btn(hdc, r, analog_color_label(i), custom, s);
+                    paint_option_btn(hdc, r, kAnalogColors[(size_t)i].label, custom, s);
                     RECT sw = {r.right - s.scale(14), r.top + s.scale(2), r.right - s.scale(3), r.bottom - s.scale(2)};
                     COLORREF sw_color = custom ? (COLORREF)*field : s.theme->dim;
                     GdiObj br{CreateSolidBrush(sw_color)};
@@ -757,7 +746,7 @@ static INT_PTR on_erase_background(HWND dlg, HDC hdc) {
                     r.top += sdy; r.bottom += sdy;
                     int* field = analog_value_field(p->analog_style, i);
                     wchar_t buf[96];
-                    wsprintfW(buf, L"%s: %d", analog_value_label(i), field ? *field : 0);
+                    wsprintfW(buf, L"%s: %d", kAnalogValues[(size_t)i].label, field ? *field : 0);
                     paint_option_btn(hdc, r, buf, false, s);
                 }
 
@@ -865,15 +854,9 @@ static INT_PTR on_left_button_down(HWND dlg, LPARAM lp) {
         }
         for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
             if (PtInRect(&p->rects.analog_values[i], spt)) {
-                int* field = analog_value_field(p->analog_style, i);
-                if (field) {
-                    int min_v, max_v, step;
-                    analog_value_range(i, min_v, max_v, step);
-                    *field += step;
-                    if (*field > max_v) *field = min_v;
-                    InvalidateRect(dlg, nullptr, TRUE);
-                    return TRUE;
-                }
+                adjust_analog_value(p->analog_style, i, 1);
+                InvalidateRect(dlg, nullptr, TRUE);
+                return TRUE;
             }
         }
     }
@@ -1054,15 +1037,9 @@ static INT_PTR on_right_button_down(HWND dlg, LPARAM lp) {
     }
     for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
         if (PtInRect(&p->rects.analog_values[i], spt)) {
-            int* field = analog_value_field(p->analog_style, i);
-            if (field) {
-                int min_v, max_v, step;
-                analog_value_range(i, min_v, max_v, step);
-                *field -= step;
-                if (*field < min_v) *field = max_v;
-                InvalidateRect(dlg, nullptr, TRUE);
-                return TRUE;
-            }
+            adjust_analog_value(p->analog_style, i, -1);
+            InvalidateRect(dlg, nullptr, TRUE);
+            return TRUE;
         }
     }
     return FALSE;

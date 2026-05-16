@@ -2,10 +2,23 @@
 #include <windows.h>
 #include <chrono>
 
+#include "ui_style.hpp"
+
 constexpr DWORD DWMWA_USE_IMMERSIVE_DARK_MODE_ATTR = 20;
+
+constexpr COLORREF colorref_from_ui(UiColor color) { return RGB(color.r, color.g, color.b); }
+
+constexpr UiColor ui_color_from_colorref(COLORREF color) {
+    return UiColor{
+        static_cast<std::uint8_t>(color & 0xFF),
+        static_cast<std::uint8_t>((color >> 8) & 0xFF),
+        static_cast<std::uint8_t>((color >> 16) & 0xFF),
+    };
+}
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 struct Theme {
+    ThemePalette palette;
     COLORREF bg;
     COLORREF bar;
     COLORREF btn;
@@ -21,37 +34,27 @@ struct Theme {
     COLORREF divider;
 };
 
-constexpr Theme dark_theme{
-    .bg = RGB(26, 26, 26),
-    .bar = RGB(35, 35, 38),
-    .btn = RGB(40, 40, 44),
-    .active = RGB(80, 80, 88),
-    .text = RGB(204, 204, 204),
-    .dim = RGB(90, 90, 90),
-    .warn = RGB(240, 140, 30),
-    .expire = RGB(200, 50, 50),
-    .blink = RGB(110, 110, 118),
-    .fill = RGB(38, 38, 50),
-    .fill_exp = RGB(72, 18, 18),
-    .help_bg = RGB(20, 20, 20),
-    .divider = RGB(50, 50, 55),
-};
+constexpr Theme make_theme(const ThemePalette& palette) {
+    return Theme{
+        .palette = palette,
+        .bg = colorref_from_ui(palette.bg),
+        .bar = colorref_from_ui(palette.bar),
+        .btn = colorref_from_ui(palette.btn),
+        .active = colorref_from_ui(palette.active),
+        .text = colorref_from_ui(palette.text),
+        .dim = colorref_from_ui(palette.dim),
+        .warn = colorref_from_ui(palette.warn),
+        .expire = colorref_from_ui(palette.expire),
+        .blink = colorref_from_ui(palette.blink),
+        .fill = colorref_from_ui(palette.fill),
+        .fill_exp = colorref_from_ui(palette.fill_exp),
+        .help_bg = colorref_from_ui(palette.help_bg),
+        .divider = colorref_from_ui(palette.divider),
+    };
+}
 
-constexpr Theme light_theme{
-    .bg = RGB(243, 243, 243),
-    .bar = RGB(228, 228, 232),
-    .btn = RGB(214, 214, 220),
-    .active = RGB(175, 175, 188),
-    .text = RGB(28, 28, 28),
-    .dim = RGB(138, 138, 138),
-    .warn = RGB(196, 90, 0),
-    .expire = RGB(196, 36, 36),
-    .blink = RGB(168, 168, 178),
-    .fill = RGB(208, 208, 230),
-    .fill_exp = RGB(240, 196, 196),
-    .help_bg = RGB(232, 232, 232),
-    .divider = RGB(198, 198, 208),
-};
+constexpr Theme dark_theme = make_theme(dark_palette);
+constexpr Theme light_theme = make_theme(light_palette);
 
 // ─── Blink duration ──────────────────────────────────────────────────────────
 constexpr auto BLINK_DUR = std::chrono::milliseconds{120};

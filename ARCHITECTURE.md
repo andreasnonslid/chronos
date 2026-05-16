@@ -95,6 +95,8 @@ block-beta
         layoutHpp["layout.hpp"]
         geometryHpp["geometry.hpp"]
         wndstateHpp["wndstate.hpp"]
+        uiStyleHpp["ui_style.hpp"]
+        uiSceneHpp["ui_scene.hpp"]
         themeHpp["theme.hpp"]
         trayHpp["tray.hpp"]
         iconHpp["icon.hpp"]
@@ -109,6 +111,25 @@ block-beta
     end
 ```
 
+
+## UI Surface Inventory
+
+The Windows UI currently creates and paints these surfaces. The long-term painter split should keep the left column as platform-neutral config/recipes and let Win32/GDI or Linux/X11 provide only the final adapter:
+
+| Surface | Current Windows ownership | Platform-neutral direction |
+|---------|---------------------------|----------------------------|
+| App shell/window | `ui_windows_app.cpp`, `window.cpp`, `wndstate.hpp` | Window host and event pump stay platform-specific; app state, layout intent, and style selection stay shared. |
+| Surfaces/panels | Main background, bar, help overlay, dialog body | `UiMakers::surface` / `dialog` describe fills and borders; adapters only fill rectangles/native windows. |
+| Text/labels/readouts | Clock, stopwatch, timer fields, subtitles, empty states | `UiMakers::text` maps semantic tones (`Primary`, `Dim`, `Warning`, `Danger`) to colors; adapters own fonts and text APIs. |
+| Dividers/separators | Section dividers and dialog title rules | `UiMakers::divider` provides the rule color; adapters draw the line primitive. |
+| Buttons/toggles/chips | Toolbar buttons, timer controls, alarm day chips, settings options | `UiMakers::button` / `toggle` return `WidgetPaint`; platform adapters draw GDI/X11 primitives. |
+| Dropdowns/combos | Win32 combo boxes in settings dialog | `UiMakers::dropdown` defines shared colors/radius; platform code owns native control creation. |
+| Progress/meters | Countdown fill bars and expired fills | `UiMakers::progress` chooses semantic fill color; adapters fill the computed geometry. |
+| Dialogs | `dialog_style.*`, `alarm_dialog.cpp`, `pomodoro_dialog.cpp`, settings dialog | `UiMakers::dialog` provides title/background/divider styling; platform code owns modal loops and native child controls. |
+| Scrollable views | Settings dialog scroll state and painted analog options | `UiMakers::scroll_view` provides track/thumb/divider styling; platform code owns wheel/scrollbar integration. |
+| Analog clock | `painting_analog.*` | `UiMakers::analog_clock` centralizes semantic colors; platform painters draw lines, ticks, labels, and dots. |
+| Icons/tray | `icon.hpp`, `tray.hpp` | `UiMakers::icon` describes semantic icon colors; platform code produces `HICON`, tray notifications, or Linux equivalents. |
+
 ## Key Data Structures
 
 **`App`** (`app.hpp`) -- Central application state. Holds the stopwatch, a vector of `TimerSlot`s (each pairing a `Timer` with its duration, label, notification flag, and pomodoro state), visibility toggles, and theme mode. This is the only mutable state that the action layer touches.
@@ -121,9 +142,17 @@ block-beta
 
 **`Layout`** (`layout.hpp`) -- DPI-scaled dimensions for every UI element. All sizes are defined as base constants at 96 DPI and scaled proportionally via `dpi_scale()`. Updated on `WM_DPICHANGED`.
 
+**`ui_style.hpp`** -- Platform-neutral color palettes and a grouped `UiMakers` recipe object. New widgets should be assembled from the existing makers (surface, text, divider, button/toggle/dropdown, progress, dialog, scroll view, analog clock, icon) before adding a new primitive. Windows converts these colors to `COLORREF` in `theme.hpp`; Linux/X11 converts the same palette to X11 pixels.
+
+**`ui_scene.hpp`** -- Platform-neutral scene operations for the shared main app surface. The Linux backend renders this scene directly through X11, and it gives the Windows painter a concrete target for future migration away from hand-painted per-module drawing.
+
 ## Design Decisions
 
 **Multi-translation-unit build** -- Each logical module has a `.hpp` (declarations) and a `.cpp` (definitions), compiled in parallel. `main.cpp` is the entry point; platform-specific sources (`ui_windows_app.cpp`, `ui_linux.cpp`, dialogs) are gated by CMake platform conditions.
+
+**Shared core target** -- CMake builds the logic-portable files (`actions`, config serialization, encoding, formatting) once as `chronos_core`. The desktop app and unit tests both link that target, so adding a portable source usually means editing one source list instead of keeping app and test lists in sync. Common warning flags and optional LLD wiring live in reusable CMake helpers rather than being repeated per target.
+
+**Platform-neutral style decisions** -- Theme palettes and widget recipes are represented without Win32 or X11 types in `ui_style.hpp`. Platform code owns only the final rendering adapter: Win32/GDI turns `SurfacePaint`, `TextPaint`, `DividerPaint`, `ProgressPaint`, and `WidgetPaint` into brushes, pens, and text colors; X11 turns the same values into allocated pixels and primitive draws.
 
 **No UI framework** -- Direct Win32 + GDI. The app is ~2800 lines total; a framework would add more complexity than it removes. GDI objects are managed with RAII wrappers (`GdiObj`, `DcObj`, `IconObj` in `gdi.hpp`).
 
