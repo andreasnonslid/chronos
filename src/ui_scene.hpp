@@ -142,7 +142,7 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
         {layout.w_set, "Settings", false, A_SETTINGS},
     };
 
-    int total_w = 5 * layout.bar_gap;
+    int total_w = (static_cast<int>(std::size(buttons)) - 1) * layout.bar_gap;
     for (const auto& b : buttons) total_w += b.width;
     int x = (client_w - total_w) / 2;
     int y = (layout.bar_h - layout.btn_h) / 2;
