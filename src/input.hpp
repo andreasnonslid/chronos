@@ -1,12 +1,10 @@
 #pragma once
 #include <windows.h>
 #include <optional>
-#include "input_keyboard.hpp"
-#include "input_mouse.hpp"
 #include "wndstate.hpp"
 
-inline std::optional<LRESULT> dispatch_input(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s) {
-    if (auto r = dispatch_keyboard(hwnd, msg, wp, s); r) return r;
-    if (auto r = dispatch_mouse(hwnd, msg, wp, lp, s); r) return r;
-    return std::nullopt;
-}
+constexpr int HOTKEY_GLOBAL = 1;
+
+std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, WndState& s);
+std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s);
+void handle(HWND hwnd, int act, WndState& s);

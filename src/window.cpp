@@ -12,7 +12,7 @@
 #include "icon.hpp"
 #include "input.hpp"
 #include "layout.hpp"
-#include "painting.hpp"
+#include "painting_scene.hpp"
 #include "polling.hpp"
 #include "theme.hpp"
 #include "tray.hpp"
@@ -52,7 +52,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
     if (!s) return DefWindowProcW(hwnd, msg, wp, lp);
 
-    if (auto r = dispatch_input(hwnd, msg, wp, lp, *s); r.has_value())
+    if (auto r = dispatch_keyboard(hwnd, msg, wp, *s); r.has_value())
+        return *r;
+    if (auto r = dispatch_mouse(hwnd, msg, wp, lp, *s); r.has_value())
         return *r;
 
     switch (msg) {

@@ -1,9 +1,14 @@
 #include "painting_scene.hpp"
 #include <windows.h>
+#include <chrono>
 #include <string>
+#include "actions.hpp"
+#include "app.hpp"
 #include "encoding.hpp"
+#include "layout.hpp"
 #include "painting_analog.hpp"
 #include "theme.hpp"
+#include "ui_scene.hpp"
 #include "ui_windows_painter.hpp"
 
 namespace {
@@ -75,4 +80,22 @@ void paint_scene(HDC hdc, const ui_scene::Scene& scene, PaintCtx& ctx) {
         draw_analog_clock(hdc, rc, ac.style, ctx.theme, ctx.layout.dpi, ac.hour, ac.minute, ac.second);
         if (ac.id != 0) ctx.btns.push_back({rc, ac.id});
     }
+}
+
+void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
+    ctx.btns.clear();
+    SetBkMode(hdc, TRANSPARENT);
+
+    RECT all{0, 0, cw, ch};
+    FillRect(hdc, &all, ctx.res.brBg);
+
+    ctx.now = std::chrono::steady_clock::now();
+
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    UiMakers ui = make_ui(ctx.theme.palette);
+    auto scene_state = ui_scene::main_scene_state_from_app(ctx.app, ctx.now, st.wHour, st.wMinute, st.wSecond,
+                                                           ctx.global_hotkey_ok);
+    auto scene = ui_scene::build_main_scene(ctx.layout, cw, scene_state, ui);
+    paint_scene(hdc, scene, ctx);
 }

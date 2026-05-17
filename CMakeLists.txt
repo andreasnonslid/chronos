@@ -47,7 +47,6 @@ if(WIN32)
         src/input_keyboard.cpp
         src/input_label_edit.cpp
         src/input_mouse.cpp
-        src/painting.cpp
         src/painting_analog.cpp
         src/painting_scene.cpp
         src/polling.cpp
