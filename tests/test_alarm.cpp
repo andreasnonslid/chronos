@@ -118,7 +118,7 @@ TEST_CASE("config-alarm: given no alarms when written then no alarm keys emitted
           "[config-alarm]") {
     Config orig;
     std::ostringstream os;
-    config_write(orig, os);
+    REQUIRE(config_write(orig, os));
     REQUIRE(os.str().find("alarm") == std::string::npos);
     REQUIRE(os.str().find("num_alarms") == std::string::npos);
 }
@@ -143,7 +143,7 @@ TEST_CASE("config-alarm: hour out of range is clamped on read", "[config-alarm]"
        << "\nalarm0_min=0\nalarm0_days=" << ALARM_ALL_DAYS << "\n";
     Config back;
     std::istringstream is(os.str());
-    config_read(back, is);
+    REQUIRE(config_read(back, is));
     REQUIRE(back.alarms.size() == 1);
     REQUIRE(back.alarms[0].hour == c.expected);
 }
@@ -156,7 +156,7 @@ TEST_CASE("config-alarm: minute out of range is clamped on read", "[config-alarm
        << "\nalarm0_days=" << ALARM_ALL_DAYS << "\n";
     Config back;
     std::istringstream is(os.str());
-    config_read(back, is);
+    REQUIRE(config_read(back, is));
     REQUIRE(back.alarms.size() == 1);
     REQUIRE(back.alarms[0].minute == pair.second);
 }
@@ -171,7 +171,7 @@ TEST_CASE("config-alarm: days_mask is clamped to [0, ALARM_ALL_DAYS]", "[config-
        << pair.first << "\n";
     Config back;
     std::istringstream is(os.str());
-    config_read(back, is);
+    REQUIRE(config_read(back, is));
     REQUIRE(back.alarms.size() == 1);
     REQUIRE(back.alarms[0].days_mask == pair.second);
 }
@@ -179,7 +179,7 @@ TEST_CASE("config-alarm: days_mask is clamped to [0, ALARM_ALL_DAYS]", "[config-
 TEST_CASE("config-alarm: num_alarms clamped to ALARM_MAX_COUNT", "[config-alarm]") {
     std::istringstream is("num_alarms=9999\n");
     Config c;
-    config_read(c, is);
+    REQUIRE(config_read(c, is));
     REQUIRE((int)c.alarms.size() <= ALARM_MAX_COUNT);
 }
 

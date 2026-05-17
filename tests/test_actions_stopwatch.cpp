@@ -1,7 +1,15 @@
 #include <catch2/catch_test_macros.hpp>
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <string>
+#ifndef _WIN32
+#  include <unistd.h>
+#else
+#  include <process.h>
+#  define getpid _getpid
+#endif
 #include "actions.hpp"
 #include "app.hpp"
 #include "test_helpers.hpp"
@@ -108,15 +116,31 @@ TEST_CASE("A_SW_GET clears stale path when file is missing", "[actions]") {
     REQUIRE(app.sw_lap_file.empty());
 }
 
+// Build a temp path unique to this process + monotonic counter so neither
+// concurrent runs nor leftover artifacts from a crashed previous run can make
+// these tests flake.
+static std::filesystem::path unique_tmp(std::string_view suffix) {
+    static std::atomic<unsigned long long> seq{0};
+    auto n = seq.fetch_add(1, std::memory_order_relaxed);
+    auto pid = static_cast<unsigned long long>(::getpid());
+    auto ns = std::chrono::steady_clock::now().time_since_epoch().count();
+    return std::filesystem::temp_directory_path()
+           / (std::string{"chronos-test-"} + std::to_string(pid) + "-"
+              + std::to_string(ns) + "-" + std::to_string(n) + "-"
+              + std::string{suffix});
+}
+
 TEST_CASE("actions-stopwatch: given unwritable lap-file path when A_SW_LAP dispatched"
           " then lap_write_failed is set",
           "[actions][actions-stopwatch]") {
     App app;
     dispatch_action(app, A_SW_START, t0(), {});
-    // Point the lap file at a path inside a non-existent directory so the
-    // ofstream open will fail; the dispatch path must record the failure.
-    app.sw_lap_file = std::filesystem::temp_directory_path()
-                      / "chronos-test-no-such-dir" / "laps.txt";
+    // Point the lap file inside a unique directory we never create so the
+    // ofstream open is guaranteed to fail; the dispatch path must record it.
+    auto bad_dir = unique_tmp("no-such-dir");
+    std::filesystem::remove_all(bad_dir); // belt-and-braces
+    app.sw_lap_file = bad_dir / "laps.txt";
+    REQUIRE_FALSE(std::filesystem::exists(bad_dir));
     REQUIRE_FALSE(app.lap_write_failed);
     dispatch_action(app, A_SW_LAP, at_ms(1000), {});
     REQUIRE(app.lap_write_failed);
@@ -125,7 +149,7 @@ TEST_CASE("actions-stopwatch: given unwritable lap-file path when A_SW_LAP dispa
 TEST_CASE("actions-stopwatch: given writable lap-file path when A_SW_LAP dispatched"
           " then lap_write_failed stays false",
           "[actions][actions-stopwatch]") {
-    auto tmp = std::filesystem::temp_directory_path() / "chronos-test-good-laps.txt";
+    auto tmp = unique_tmp("good-laps.txt");
     std::filesystem::remove(tmp);
     App app;
     dispatch_action(app, A_SW_START, t0(), {});

@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+#include <catch2/generators/catch_generators_range.hpp>
 #include <chrono>
 #include <sstream>
 #include "actions.hpp"
@@ -519,11 +520,12 @@ TEST_CASE("pomodoro_phase_count reflects cadence", "[pomodoro][cadence]") {
 //   - the final phase is "Long Break" and pomodoro_is_long_break() agrees
 //   - the second-to-last work phase ("Work <cadence>/<cadence>") sits at
 //     position (count - 2) and is *not* a long break
-// Parameterized so cadences 1, 2, 3, 4, 5, 6 all exercise the same contract.
+// Parameterized over the full POMODORO_MIN_CADENCE..POMODORO_MAX_CADENCE range
+// so every value the config layer accepts exercises the same contract.
 TEST_CASE("pomodoro-cadence: given any supported cadence then phase count, first/last labels,"
           " and long-break predicate all agree",
           "[pomodoro][cadence]") {
-    int cad = GENERATE(1, 2, 3, 4, 5, 6);
+    int cad = GENERATE(range(POMODORO_MIN_CADENCE, POMODORO_MAX_CADENCE + 1));
     int count = pomodoro_phase_count(cad);
     REQUIRE(count == 2 * cad);
     REQUIRE(pomodoro_phase_label(0, cad) == L"Work 1/" + std::to_wstring(cad));
