@@ -23,17 +23,30 @@ function(chronos_use_lld target)
     endif()
 endfunction()
 
+# All sources use bare #include "foo.hpp" names; the include directories
+# below let the preprocessor find headers regardless of which subdir they
+# live in. Adding a new file = drop it in the right subdir, no include edits.
+set(CHRONOS_INCLUDE_DIRS
+    src
+    src/core
+    src/ui
+    src/input
+    src/painting
+    src/win32
+    src/linux
+)
+
 # Logic-portable sources shared by the desktop app and unit tests.
 # Keep Windows.h-dependent files in the platform sections below.
 set(CHRONOS_CORE_SOURCES
-    src/actions.cpp
-    src/config_serial.cpp
-    src/encoding.cpp
-    src/formatting.cpp
+    src/core/actions.cpp
+    src/core/config_serial.cpp
+    src/core/encoding.cpp
+    src/core/formatting.cpp
 )
 
 add_library(chronos_core STATIC ${CHRONOS_CORE_SOURCES})
-target_include_directories(chronos_core PUBLIC src)
+target_include_directories(chronos_core PUBLIC ${CHRONOS_INCLUDE_DIRS})
 target_link_libraries(chronos_core PUBLIC chronos_project_options)
 set_target_properties(chronos_core PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 
@@ -41,20 +54,20 @@ set(CHRONOS_APP_SOURCES src/main.cpp)
 
 if(WIN32)
     list(APPEND CHRONOS_APP_SOURCES
-        src/config_io.cpp
-        src/dialog_style.cpp
-        src/input_core.cpp
-        src/input_keyboard.cpp
-        src/input_label_edit.cpp
-        src/input_mouse.cpp
-        src/painting_analog.cpp
-        src/painting_scene.cpp
-        src/polling.cpp
-        src/window.cpp
-        src/alarm_dialog.cpp
-        src/pomodoro_dialog.cpp
-        src/ui_windows_app.cpp
-        src/ui_windows_settings_dialog.cpp
+        src/win32/config_io.cpp
+        src/win32/dialog_style.cpp
+        src/input/input_core.cpp
+        src/input/input_keyboard.cpp
+        src/input/input_label_edit.cpp
+        src/input/input_mouse.cpp
+        src/painting/painting_analog.cpp
+        src/painting/painting_scene.cpp
+        src/win32/polling.cpp
+        src/win32/window.cpp
+        src/win32/alarm_dialog.cpp
+        src/win32/pomodoro_dialog.cpp
+        src/win32/ui_windows_app.cpp
+        src/win32/ui_windows_settings_dialog.cpp
     )
     add_executable(chronos WIN32 ${CHRONOS_APP_SOURCES})
 
@@ -80,7 +93,7 @@ if(WIN32)
     )
 elseif(UNIX AND NOT APPLE)
     find_package(X11 REQUIRED)
-    list(APPEND CHRONOS_APP_SOURCES src/ui_linux.cpp)
+    list(APPEND CHRONOS_APP_SOURCES src/linux/ui_linux.cpp)
     add_executable(chronos ${CHRONOS_APP_SOURCES})
     target_link_libraries(chronos PRIVATE chronos_core X11::X11)
     set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)

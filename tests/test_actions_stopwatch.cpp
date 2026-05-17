@@ -2,8 +2,8 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include "../src/actions.hpp"
-#include "../src/app.hpp"
+#include "actions.hpp"
+#include "app.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;

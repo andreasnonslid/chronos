@@ -1,9 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <sstream>
-#include "../src/actions.hpp"
-#include "../src/config_serial.hpp"
-#include "../src/pomodoro.hpp"
+#include "actions.hpp"
+#include "config_serial.hpp"
+#include "pomodoro.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;

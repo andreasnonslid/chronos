@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <thread>
-#include "../src/stopwatch.hpp"
+#include "stopwatch.hpp"
 
 using namespace std::chrono;
 using tp = steady_clock::time_point;
