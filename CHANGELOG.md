@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.17.1] — 2026-05-17
+
+### Added
+- `tests/test_alarm.cpp` covering the previously-untested alarm subsystem: `Alarm` Days/Date round-trip, hour/minute/`days_mask` clamping, leap-year and short-month date normalization, and the `A_SHOW_ALARMS` / `A_SETTINGS` / `A_ALARM_ADD` / `A_ALARM_DEL+i` / `A_ALARM_TOGGLE+i` dispatch entry points (#398)
+- `tests/test_helpers.hpp` consolidating `t0`/`at_ms`/`set_timer_dur` helpers previously redefined across six test files (#398)
+- Edge-case coverage for `Timer::set()` while running and after expiry, and for `A_SW_LAP` setting `app.lap_write_failed` when the lap-file path is unwritable (#398)
+
+### Changed
+- Collapsed near-duplicate test cases into table-driven `GENERATE` blocks in `test_actions_adjust.cpp`, `test_actions_dispatch.cpp`, `test_formatting.cpp`, and `test_pomodoro.cpp`; consolidation closes the audit-flagged gaps that `wants_blink` skipped `A_SETTINGS` / `A_SHOW_ALARMS` / `A_ALARM_ADD` and that pomodoro cadences 3, 4, 5 were never exercised (#398)
+
 ## [1.17.0] — 2026-05-16
 
 ### Changed
