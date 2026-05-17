@@ -34,20 +34,13 @@ struct WndState {
     std::chrono::steady_clock::time_point clipboard_copied_until{};
     IconObj tray_icon{};
 
-    GdiObj brBg, brBar, brBtn, brActive, brBlink, brFill, brFillExp, brHelp, pnNull, pnDivider;
+    GdiObj brBg, brBar, brHelp;
 
     void create_brushes() {
         auto& th = *active_theme;
-        brBg      = GdiObj{CreateSolidBrush(th.bg)};
-        brBar     = GdiObj{CreateSolidBrush(th.bar)};
-        brBtn     = GdiObj{CreateSolidBrush(th.btn)};
-        brActive  = GdiObj{CreateSolidBrush(th.active)};
-        brBlink   = GdiObj{CreateSolidBrush(th.blink)};
-        brFill    = GdiObj{CreateSolidBrush(th.fill)};
-        brFillExp = GdiObj{CreateSolidBrush(th.fill_exp)};
-        brHelp    = GdiObj{CreateSolidBrush(th.help_bg)};
-        pnNull    = GdiObj{CreatePen(PS_NULL, 0, 0)};
-        pnDivider = GdiObj{CreatePen(PS_SOLID, 1, th.divider)};
+        brBg   = GdiObj{CreateSolidBrush(th.bg)};
+        brBar  = GdiObj{CreateSolidBrush(th.bar)};
+        brHelp = GdiObj{CreateSolidBrush(th.help_bg)};
     }
 
     WndResources res() const {
@@ -57,14 +50,7 @@ struct WndState {
             .fontSm    = (HFONT)fontSm.h,
             .brBg      = (HBRUSH)brBg.h,
             .brBar     = (HBRUSH)brBar.h,
-            .brBtn     = (HBRUSH)brBtn.h,
-            .brActive  = (HBRUSH)brActive.h,
-            .brBlink   = (HBRUSH)brBlink.h,
-            .brFill    = (HBRUSH)brFill.h,
-            .brFillExp = (HBRUSH)brFillExp.h,
             .brHelp    = (HBRUSH)brHelp.h,
-            .pnNull    = (HPEN)pnNull.h,
-            .pnDivider = (HPEN)pnDivider.h,
         };
     }
 

@@ -1,6 +1,8 @@
 #pragma once
 #include <algorithm>
 #include <chrono>
+#include <format>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -10,6 +12,7 @@
 #include "encoding.hpp"
 #include "formatting.hpp"
 #include "layout.hpp"
+#include "pomodoro.hpp"
 #include "ui_style.hpp"
 
 namespace ui_scene {
@@ -23,6 +26,11 @@ struct RectI {
 
 enum class Align { Left, Center, Right };
 
+// Logical text style — backends pick a concrete font. Small is the default
+// (matches the toolbar / labels); Large/Big are used for the timer running
+// readout and the digital clock respectively.
+enum class TextStyle { Small, Large, Big };
+
 enum class OpKind { FillRect, Divider, Text, Button, Progress };
 
 struct Op {
@@ -34,24 +42,52 @@ struct Op {
     UiColor text_color{};
     int radius_px = 0;
     Align align = Align::Left;
+    TextStyle text_style = TextStyle::Small;
+    bool end_ellipsis = false;  // text Ops: clip with "…" when overflowing
     int id = 0;
+};
+
+// Analog clock face: a self-contained widget that platform renderers draw with
+// their own (anti-aliased) primitives. Lives outside the Op stream because its
+// payload is large and only one instance ever appears per scene.
+struct AnalogClockOp {
+    RectI rect;
+    AnalogClockStyle style;
+    int hour = 0;
+    int minute = 0;
+    int second = 0;
+    int id = 0;  // action id for hit-testing the face
 };
 
 struct Scene {
     std::vector<Op> ops;
+    std::optional<AnalogClockOp> analog_clock;
 };
 
 struct TimerSceneState {
+    // Idle (untouched) timers show editable HH/MM/SS columns with adjust arrows.
+    // Touched timers show a single running readout. Pomodoro mode replaces the
+    // editable columns with a single duration string and adds a "Skip" button.
+    bool touched = false;            // false = idle/edit mode
     bool running = false;
     bool expired = false;
+    bool pomodoro = false;
     double progress = 0.0;
-    std::string text = "01:00";
-    std::string label = "Timer 1";
+    std::string readout = "01:00";   // running/expired text or idle pomodoro duration
+    TextTone readout_tone = TextTone::Primary;
+    std::string subtitle;            // dim line above readout (label, edit string, or phase)
+    // Idle non-pomodoro: per-column text and adjust-arrow action ids.
+    std::string hh_text;
+    std::string mm_text;
+    std::string ss_text;
+    bool can_add = false;            // show "+" to spawn another slot
+    bool can_remove = false;         // show "-" to drop this slot
 };
 
 struct AlarmSceneState {
+    // Combined "name HH:MM schedule" string built once in the state builder so
+    // add_alarms doesn't need to know about AlarmSchedule or day_mask formats.
     std::string label;
-    std::string time_text;
     bool enabled = true;
 };
 
@@ -61,10 +97,26 @@ struct MainSceneState {
     bool show_stopwatch = true;
     bool show_timers = true;
     bool show_alarms = false;
+    bool show_help = false;
     bool stopwatch_running = false;
+    bool stopwatch_has_lap_file = false;
+    bool stopwatch_lap_write_failed = false;
     ClockView clock_view = ClockView::H24_HMS;
     std::string clock_text = "00:00:00";
     std::string stopwatch_text = "00:00.000";
+    // Single-line lap summary shown below the stopwatch buttons.
+    // Empty string is rendered as a dim em-dash placeholder.
+    std::string stopwatch_lap_info;
+    // Wall-clock parts in 24h form, used by the analog clock face.
+    int wall_hour = 0;
+    int wall_minute = 0;
+    int wall_second = 0;
+    // Analog clock visual style. Only meaningful when clock_view == Analog.
+    AnalogClockStyle analog_style;
+    // Help-overlay shortcuts (key, description). Filled when show_help is true.
+    std::vector<std::pair<std::string, std::string>> help_shortcuts;
+    // Action id of the button currently flashing as click feedback (0 = none).
+    int blink_act = 0;
     std::vector<TimerSceneState> timers{{}};
     std::vector<AlarmSceneState> alarms{};
 };
@@ -82,13 +134,15 @@ inline void add_fill(Scene& scene, RectI rect, SurfacePaint paint) {
 }
 
 inline void add_text(Scene& scene, RectI rect, std::string text, TextPaint paint, Align align = Align::Left,
-                     int id = 0) {
+                     int id = 0, TextStyle style = TextStyle::Small, bool end_ellipsis = false) {
     Op op{};
     op.kind = OpKind::Text;
     op.rect = rect;
     op.text = std::move(text);
     op.text_color = paint.color;
     op.align = align;
+    op.text_style = style;
+    op.end_ellipsis = end_ellipsis;
     op.id = id;
     scene.ops.push_back(std::move(op));
 }
@@ -115,6 +169,15 @@ inline void add_button(Scene& scene, RectI rect, std::string label, WidgetPaint 
     scene.ops.push_back(std::move(op));
 }
 
+// Convenience overload: derives the WidgetPaint from a ButtonConfig and the
+// scene's blink hint. Lets callers stop repeating the
+// "state.blink_act != 0 && state.blink_act == action" pattern at every button.
+inline void add_action_button(Scene& scene, const UiMakers& ui, RectI rect, std::string label,
+                              ButtonConfig config, int action, int blink_act = 0) {
+    if (action != 0 && action == blink_act) config.blinking = true;
+    add_button(scene, rect, std::move(label), ui.button(config), action);
+}
+
 inline void add_progress(Scene& scene, RectI rect, ProgressPaint paint) {
     Op op{};
     op.kind = OpKind::Progress;
@@ -139,7 +202,7 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
         {layout.w_sw, "Stopwatch", state.show_stopwatch, A_SHOW_SW},
         {layout.w_tmr, "Timers", state.show_timers, A_SHOW_TMR},
         {layout.w_alm, "Alarms", state.show_alarms, A_SHOW_ALARMS},
-        {layout.w_set, "Settings", false, A_SETTINGS},
+        {layout.w_set, "⚙", false, A_SETTINGS}, // U+2699 gear
     };
 
     int total_w = (static_cast<int>(std::size(buttons)) - 1) * layout.bar_gap;
@@ -147,8 +210,9 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
     int x = (client_w - total_w) / 2;
     int y = (layout.bar_h - layout.btn_h) / 2;
     for (const auto& b : buttons) {
-        add_button(scene, {x, y, x + b.width, y + layout.btn_h}, b.label,
-                   ui.button(ButtonConfig{.active = b.active, .radius_px = layout.dpi_scale(6)}), b.action);
+        add_action_button(scene, ui, {x, y, x + b.width, y + layout.btn_h}, b.label,
+                          ButtonConfig{.active = b.active, .radius_px = layout.dpi_scale(6)},
+                          b.action, state.blink_act);
         x += b.width + layout.bar_gap;
     }
 }
@@ -158,7 +222,19 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
     if (!state.show_clock) return;
     int h = effective_clk_h(layout, state.clock_view);
     add_divider(scene, 0, client_w, y, ui.divider());
-    add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE);
+    if (state.clock_view == ClockView::Analog) {
+        scene.analog_clock = AnalogClockOp{
+            .rect = {0, y, client_w, y + h},
+            .style = state.analog_style,
+            .hour = state.wall_hour,
+            .minute = state.wall_minute,
+            .second = state.wall_second,
+            .id = A_CLK_CYCLE,
+        };
+    } else {
+        add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE,
+                 TextStyle::Big);
+    }
     y += h;
 }
 
@@ -167,49 +243,161 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
     if (!state.show_stopwatch) return;
     add_divider(scene, 0, client_w, y, ui.divider());
     add_text(scene, {0, y + layout.dpi_scale(4), client_w, y + layout.dpi_scale(44)}, state.stopwatch_text, ui.text(),
-             Align::Center);
+             Align::Center, 0, TextStyle::Big);
 
     int bw = layout.dpi_scale(76);
     int gap = layout.dpi_scale(6);
     int bh = layout.dpi_scale(28);
     int x0 = (client_w - 3 * bw - 2 * gap) / 2;
-    int by = y + layout.dpi_scale(50);
-    add_button(scene, {x0, by, x0 + bw, by + bh}, state.stopwatch_running ? "Stop" : "Start",
-               ui.button(ButtonConfig{.active = state.stopwatch_running, .radius_px = layout.dpi_scale(6)}),
-               A_SW_START);
-    add_button(scene, {x0 + bw + gap, by, x0 + 2 * bw + gap, by + bh}, "Lap",
-               ui.button(ButtonConfig{.radius_px = layout.dpi_scale(6)}), A_SW_LAP);
-    add_button(scene, {x0 + 2 * (bw + gap), by, x0 + 3 * bw + 2 * gap, by + bh}, "Reset",
-               ui.button(ButtonConfig{.radius_px = layout.dpi_scale(6)}), A_SW_RESET);
+    int by = y + layout.dpi_scale(46);
+    int radius = layout.dpi_scale(6);
+    add_action_button(scene, ui, {x0, by, x0 + bw, by + bh}, state.stopwatch_running ? "Stop" : "Start",
+                      ButtonConfig{.active = state.stopwatch_running, .radius_px = radius}, A_SW_START,
+                      state.blink_act);
+    add_action_button(scene, ui, {x0 + bw + gap, by, x0 + 2 * bw + gap, by + bh}, "Lap",
+                      ButtonConfig{.radius_px = radius}, A_SW_LAP, state.blink_act);
+    add_action_button(scene, ui, {x0 + 2 * (bw + gap), by, x0 + 3 * bw + 2 * gap, by + bh}, "Reset",
+                      ButtonConfig{.radius_px = radius}, A_SW_RESET, state.blink_act);
+
+    // Lap info row below the buttons (em-dash placeholder when empty).
+    add_text(scene,
+             {0, by + bh + layout.dpi_scale(4), client_w, by + bh + layout.dpi_scale(22)},
+             state.stopwatch_lap_info.empty() ? "—" : state.stopwatch_lap_info,
+             ui.text(TextConfig{.tone = TextTone::Dim}), Align::Center);
+
+    // "Get Laps" button: fill expresses state (failed/enabled/disabled);
+    // action id is 0 when no lap file exists so input ignores the click.
+    int gbw = layout.dpi_scale(100);
+    int gbh = layout.dpi_scale(18);
+    UiColor lap_fill = state.stopwatch_lap_write_failed ? ui.palette.expire
+                       : state.stopwatch_has_lap_file   ? ui.palette.btn
+                                                        : ui.palette.dim;
+    const char* lap_label = state.stopwatch_lap_write_failed ? "Get Laps (!)" : "Get Laps";
+    add_action_button(scene, ui,
+                      {(client_w - gbw) / 2, y + layout.sw_h - gbh, (client_w + gbw) / 2, y + layout.sw_h},
+                      lap_label, ButtonConfig{.fill_override = lap_fill, .radius_px = radius},
+                      state.stopwatch_has_lap_file ? A_SW_GET : 0, state.blink_act);
+
     y += layout.sw_h;
 }
 
 inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, int index, const TimerSceneState& timer,
-                      const UiMakers& ui) {
+                      const UiMakers& ui, int blink_act = 0) {
     add_divider(scene, 0, client_w, y, ui.divider());
 
-    int progress_w = std::clamp((int)(client_w * timer.progress), 0, client_w);
-    if (progress_w > 0 || timer.expired) {
-        add_progress(scene, {0, y, timer.expired ? client_w : progress_w, y + layout.tmr_h},
-                     ui.progress(ProgressConfig{.expired = timer.expired}));
+    // Progress fill (only when the timer has been touched at least once).
+    if (timer.touched) {
+        int progress_w = std::clamp((int)(client_w * timer.progress), 0, client_w);
+        if (progress_w > 0 || timer.expired) {
+            add_progress(scene, {0, y, timer.expired ? client_w : progress_w, y + layout.tmr_h},
+                         ui.progress(ProgressConfig{.expired = timer.expired}));
+        }
     }
 
-    add_text(scene, {0, y + layout.dpi_scale(12), client_w, y + layout.dpi_scale(34)}, timer.label,
-             ui.text(TextConfig{.tone = TextTone::Dim}), Align::Center);
-    add_text(scene, {0, y + layout.dpi_scale(36), client_w, y + layout.dpi_scale(78)}, timer.text,
-             ui.text(timer.expired ? TextConfig{.tone = TextTone::Danger} : TextConfig{}), Align::Center);
+    auto metrics = TimerMetrics::from(layout);
+    int hh_cx = client_w / 2 - metrics.col_gap;
+    int mm_cx = client_w / 2;
+    int ss_cx = client_w / 2 + metrics.col_gap;
+    int radius = layout.dpi_scale(6);
 
-    int bw = layout.dpi_scale(86);
+    auto emit_arrows = [&](int y_off, const char* glyph, int hh_act, int mm_act, int ss_act) {
+        for (auto [cx, act] : {std::pair{hh_cx, hh_act}, {mm_cx, mm_act}, {ss_cx, ss_act}}) {
+            add_action_button(scene, ui,
+                              {cx - metrics.abw / 2, y + y_off, cx + metrics.abw / 2, y + y_off + metrics.abh},
+                              glyph, ButtonConfig{.radius_px = radius}, tmr_act(index, act), blink_act);
+        }
+    };
+
+    // Subtitle: dim row above the big readout. Used by running mode and
+    // pomodoro idle mode; idle non-pomodoro shows the label here if any.
+    if (!timer.subtitle.empty()) {
+        add_text(scene, {0, y + metrics.up_off, client_w, y + metrics.up_off + layout.dpi_scale(20)},
+                 timer.subtitle, ui.text(TextConfig{.tone = TextTone::Dim}), Align::Center);
+    }
+
+    if (!timer.touched && !timer.pomodoro) {
+        // Idle non-pomodoro: three editable columns + arrow buttons.
+        emit_arrows(metrics.up_off, "▲", A_TMR_HUP, A_TMR_MUP, A_TMR_SUP);
+        int field_half = layout.dpi_scale(22);
+        int field_top = y + metrics.td_off;
+        int field_bottom = field_top + layout.dpi_scale(40);
+        struct Field { int cx; const std::string& text; };
+        Field fields[] = {{hh_cx, timer.hh_text}, {mm_cx, timer.mm_text}, {ss_cx, timer.ss_text}};
+        for (const auto& f : fields)
+            add_text(scene, {f.cx - field_half, field_top, f.cx + field_half, field_bottom},
+                     f.text, ui.text(), Align::Center, 0, TextStyle::Big);
+        int sep_w = layout.dpi_scale(8);
+        int sep1_cx = (hh_cx + mm_cx) / 2;
+        int sep2_cx = (mm_cx + ss_cx) / 2;
+        add_text(scene, {sep1_cx - sep_w / 2, field_top, sep1_cx + sep_w / 2, field_bottom}, ":",
+                 ui.text(), Align::Center, 0, TextStyle::Big);
+        add_text(scene, {sep2_cx - sep_w / 2, field_top, sep2_cx + sep_w / 2, field_bottom}, ":",
+                 ui.text(), Align::Center, 0, TextStyle::Big);
+        emit_arrows(metrics.dn_off, "▼", A_TMR_HDN, A_TMR_MDN, A_TMR_SDN);
+    } else {
+        // Running OR pomodoro-idle: single big readout below the subtitle.
+        add_text(scene,
+                 {0, y + metrics.up_off + layout.dpi_scale(20), client_w, y + metrics.dn_off + metrics.abh},
+                 timer.readout, ui.text(TextConfig{.tone = timer.readout_tone}), Align::Center, 0, TextStyle::Large);
+    }
+
+    // Control buttons row.
     int gap = layout.dpi_scale(6);
     int bh = layout.dpi_scale(28);
-    int x0 = (client_w - 2 * bw - gap) / 2;
-    int by = y + layout.dpi_scale(80);
-    add_button(scene, {x0, by, x0 + bw, by + bh}, timer.running ? "Pause" : "Start",
-               ui.button(ButtonConfig{.active = timer.running, .radius_px = layout.dpi_scale(6)}),
-               tmr_act(index, A_TMR_START));
-    add_button(scene, {x0 + bw + gap, by, x0 + 2 * bw + gap, by + bh}, "Reset",
-               ui.button(ButtonConfig{.radius_px = layout.dpi_scale(6)}), tmr_act(index, A_TMR_RST));
+    int by = y + layout.tmr_h - bh;
+    if (timer.pomodoro) {
+        int cw3 = layout.dpi_scale(58);
+        int cx0 = (client_w - 3 * cw3 - 2 * gap) / 2;
+        add_action_button(scene, ui, {cx0, by, cx0 + cw3, by + bh}, timer.running ? "Pause" : "Start",
+                          ButtonConfig{.active = timer.running, .radius_px = radius},
+                          tmr_act(index, A_TMR_START), blink_act);
+        add_action_button(scene, ui, {cx0 + cw3 + gap, by, cx0 + 2 * cw3 + gap, by + bh}, "Skip",
+                          ButtonConfig{.radius_px = radius}, tmr_act(index, A_TMR_SKIP), blink_act);
+        add_action_button(scene, ui, {cx0 + 2 * (cw3 + gap), by, cx0 + 3 * cw3 + 2 * gap, by + bh}, "Reset",
+                          ButtonConfig{.radius_px = radius}, tmr_act(index, A_TMR_RST), blink_act);
+    } else {
+        int cw2 = layout.dpi_scale(86);
+        int cx0 = (client_w - 2 * cw2 - gap) / 2;
+        add_action_button(scene, ui, {cx0, by, cx0 + cw2, by + bh}, timer.running ? "Pause" : "Start",
+                          ButtonConfig{.active = timer.running, .radius_px = radius},
+                          tmr_act(index, A_TMR_START), blink_act);
+        add_action_button(scene, ui, {cx0 + cw2 + gap, by, cx0 + 2 * cw2 + gap, by + bh}, "Reset",
+                          ButtonConfig{.radius_px = radius}, tmr_act(index, A_TMR_RST), blink_act);
+    }
+
+    // Slot add/remove buttons in the corners.
+    int pm_sz = layout.dpi_scale(22);
+    int pm_margin = layout.dpi_scale(6);
+    int pm_top = y + layout.tmr_h - pm_sz;
+    if (timer.can_add)
+        add_action_button(scene, ui, {client_w - pm_margin - pm_sz, pm_top, client_w - pm_margin, pm_top + pm_sz},
+                          "+", ButtonConfig{.radius_px = radius}, tmr_act(index, A_TMR_ADD), blink_act);
+    if (timer.can_remove)
+        add_action_button(scene, ui, {pm_margin, pm_top, pm_margin + pm_sz, pm_top + pm_sz},
+                          "−", ButtonConfig{.radius_px = radius}, tmr_act(index, A_TMR_DEL), blink_act);
+
     y += layout.tmr_h;
+}
+
+// Draws an overlay panel from below the toolbar down to bottom_y, listing
+// keyboard shortcuts. The caller decides whether to invoke based on
+// state.show_help; this helper just emits the fill + text Ops.
+inline void add_help_overlay(Scene& scene, const Layout& layout, int client_w, int bottom_y,
+                             const MainSceneState& state, const UiMakers& ui) {
+    if (!state.show_help) return;
+    int top = layout.bar_h;
+    int bot = std::max(bottom_y, top + layout.dpi_scale(200));
+    add_fill(scene, {0, top, client_w, bot},
+             SurfacePaint{.background = ui.palette.help_bg, .border = ui.palette.divider});
+
+    int line_h = layout.dpi_scale(20);
+    int pad = layout.dpi_scale(12);
+    int sy = top + pad;
+    for (const auto& [key, desc] : state.help_shortcuts) {
+        std::string line = "  " + key + "  —  " + desc;
+        add_text(scene, {pad, sy, client_w - pad, sy + line_h}, line, ui.text(), Align::Left);
+        sy += line_h;
+    }
 }
 
 inline int main_scene_height(const Layout& layout, const MainSceneState& state) {
@@ -226,33 +414,52 @@ inline void add_alarms(Scene& scene, const Layout& layout, int client_w, int& y,
                        const UiMakers& ui) {
     if (!state.show_alarms) return;
     add_divider(scene, 0, client_w, y, ui.divider());
+
+    int pad = layout.dpi_scale(10);
+    int add_bw = layout.dpi_scale(56);
+    int bh = layout.dpi_scale(24);
+    int radius = layout.dpi_scale(6);
     int header_bottom = y + layout.alarm_header_h;
-    add_text(scene, {0, y, client_w / 2, header_bottom}, "Alarms", ui.text(), Align::Left);
-    int bw = layout.dpi_scale(40);
-    add_button(scene, {client_w - bw - layout.dpi_scale(4), y + layout.dpi_scale(7), client_w - layout.dpi_scale(4),
-                       header_bottom - layout.dpi_scale(7)},
-               "Add", ui.button(ButtonConfig{.radius_px = layout.dpi_scale(4)}), A_ALARM_ADD);
+    int by0 = y + (layout.alarm_header_h - bh) / 2;
+
+    add_text(scene, {pad, y, client_w - add_bw - 2 * pad, header_bottom}, "Alarms", ui.text(), Align::Left);
+    add_action_button(scene, ui, {client_w - add_bw - pad, by0, client_w - pad, by0 + bh}, "+ Add",
+                      ButtonConfig{.radius_px = radius}, A_ALARM_ADD, state.blink_act);
     y = header_bottom;
+
+    int del_w = layout.dpi_scale(36);
+    int tog_w = layout.dpi_scale(50);
+    int text_h = layout.dpi_scale(18);
+
     if (state.alarms.empty()) {
-        add_text(scene, {0, y, client_w, y + layout.alarm_row_h}, "No alarms", ui.text(TextConfig{.tone = TextTone::Dim}),
-                 Align::Center);
+        add_text(scene, {pad, y, client_w - pad, y + layout.alarm_row_h}, "No alarms set",
+                 ui.text(TextConfig{.tone = TextTone::Dim}), Align::Center);
         y += layout.alarm_row_h;
-    } else {
-        for (int i = 0; i < (int)state.alarms.size(); ++i) {
-            const auto& alarm = state.alarms[i];
-            int row_bottom = y + layout.alarm_row_h;
-            add_text(scene, {layout.dpi_scale(4), y, client_w / 2, row_bottom}, alarm.time_text, ui.text(), Align::Left);
-            add_text(scene, {client_w / 2, y, client_w - bw - layout.dpi_scale(8), row_bottom},
-                     alarm.label.empty() ? "Alarm" : alarm.label,
-                     ui.text(alarm.enabled ? TextConfig{} : TextConfig{.tone = TextTone::Dim}), Align::Left);
-            add_button(scene,
-                       {client_w - bw - layout.dpi_scale(4), y + layout.dpi_scale(4), client_w - layout.dpi_scale(4),
-                        row_bottom - layout.dpi_scale(4)},
-                       alarm.enabled ? "On" : "Off",
-                       ui.button(ButtonConfig{.active = alarm.enabled, .radius_px = layout.dpi_scale(4)}),
-                       A_ALARM_TOGGLE + i);
-            y = row_bottom;
-        }
+        return;
+    }
+
+    for (int i = 0; i < (int)state.alarms.size(); ++i) {
+        const auto& alarm = state.alarms[i];
+        int row_bottom = y + layout.alarm_row_h;
+        // Striped row background on every other entry.
+        if (i % 2 == 1)
+            add_fill(scene, {0, y, client_w, row_bottom}, ui.surface(SurfaceConfig{.elevated = true}));
+
+        int row_mid = y + layout.alarm_row_h / 2;
+        int del_x = client_w - pad - del_w;
+        int tog_x = del_x - layout.dpi_scale(6) - tog_w;
+        int btn_top = row_mid - bh / 2;
+
+        add_text(scene, {pad, row_mid - text_h / 2, tog_x - layout.dpi_scale(6), row_mid + text_h / 2}, alarm.label,
+                 ui.text(alarm.enabled ? TextConfig{} : TextConfig{.tone = TextTone::Dim}),
+                 Align::Left, 0, TextStyle::Small, /*end_ellipsis=*/true);
+
+        add_action_button(scene, ui, {tog_x, btn_top, tog_x + tog_w, btn_top + bh}, alarm.enabled ? "On" : "Off",
+                          ButtonConfig{.active = alarm.enabled, .radius_px = radius}, A_ALARM_TOGGLE + i,
+                          state.blink_act);
+        add_action_button(scene, ui, {del_x, btn_top, del_x + del_w, btn_top + bh}, "Del",
+                          ButtonConfig{.radius_px = radius}, A_ALARM_DEL + i, state.blink_act);
+        y = row_bottom;
     }
 }
 
@@ -265,9 +472,10 @@ inline Scene build_main_scene(const Layout& layout, int client_w, const MainScen
     add_stopwatch(scene, layout, client_w, y, state, ui);
     if (state.show_timers) {
         for (int i = 0; i < (int)state.timers.size(); ++i)
-            add_timer(scene, layout, client_w, y, i, state.timers[i], ui);
+            add_timer(scene, layout, client_w, y, i, state.timers[i], ui, state.blink_act);
     }
     add_alarms(scene, layout, client_w, y, state, ui);
+    add_help_overlay(scene, layout, client_w, y, state, ui);
     return scene;
 }
 
@@ -282,49 +490,145 @@ inline int hit_test(const Scene& scene, int x, int y) {
     return 0;
 }
 
+// Compiled-in help-overlay shortcut list. Most rows are static; the
+// global-hotkey row toggles based on whether the hotkey successfully
+// registered at startup.
+inline std::vector<std::pair<std::string, std::string>> build_help_shortcuts(bool global_hotkey_ok) {
+    return {
+        {"Space", "Start/Stop stopwatch or first timer"},
+        {"L", "Record lap"},
+        {"E", "Open exported laps file"},
+        {"C", "Copy laps to clipboard"},
+        {"R", "Reset stopwatch or first timer"},
+        {"P", "Toggle Pomodoro on first timer"},
+        {"N", "Skip to next Pomodoro phase"},
+        {"T", "Toggle always-on-top"},
+        {"D", "Cycle theme: Auto → Dark → Light"},
+        {"1-9", "Start/Stop timer 1-9"},
+        {"Shift+1-9", "Reset timer 1-9"},
+        {"Shift+R", "Reset all timers"},
+        {"+ / =", "Add a timer slot"},
+        {"-", "Remove last timer slot"},
+        {"H / ?", "Toggle this help"},
+        {"Ctrl+Shift+Space",
+         global_hotkey_ok ? "Global start/stop (any app)" : "Global start/stop (unavailable)"},
+        {"", ""},
+        {"Scroll", "Adjust timer value (H/M/S)"},
+        {"Click clock", "Cycle clock format"},
+        {"Dbl-click", "Edit timer label"},
+        {"Right-click", "Timer presets / Pomodoro (untouched)"},
+    };
+}
+
 inline MainSceneState main_scene_state_from_app(const App& app, std::chrono::steady_clock::time_point now,
-                                                std::string clock_text) {
+                                                int wall_hour, int wall_minute, int wall_second,
+                                                bool global_hotkey_ok = true) {
     using namespace std::chrono;
+    const auto& laps = app.sw.laps();
+    std::string lap_info;
+    if (!laps.empty()) {
+        lap_info = "Lap " + std::to_string(laps.size()) + "  —  " +
+                   wide_to_utf8(format_stopwatch_short(laps.back()));
+    }
     MainSceneState state{
         .topmost = app.topmost,
         .show_clock = app.show_clk,
         .show_stopwatch = app.show_sw,
         .show_timers = app.show_tmr,
         .show_alarms = app.show_alarms,
+        .show_help = app.show_help,
         .stopwatch_running = app.sw.is_running(),
+        .stopwatch_has_lap_file = !app.sw_lap_file.empty(),
+        .stopwatch_lap_write_failed = app.lap_write_failed,
         .clock_view = app.clock_view,
-        .clock_text = std::move(clock_text),
+        .clock_text = format_clock_text(app.clock_view, wall_hour, wall_minute, wall_second),
         .stopwatch_text = wide_to_utf8(format_stopwatch_display(app.sw.elapsed(now))),
+        .stopwatch_lap_info = std::move(lap_info),
+        .wall_hour = wall_hour,
+        .wall_minute = wall_minute,
+        .wall_second = wall_second,
+        .analog_style = app.analog_style,
+        .help_shortcuts = app.show_help ? build_help_shortcuts(global_hotkey_ok)
+                                        : std::vector<std::pair<std::string, std::string>>{},
+        // Mirror theme.hpp's BLINK_DUR (kept inline to keep this header platform-neutral).
+        .blink_act = (app.blink_act != 0 && (now - app.blink_t) < std::chrono::milliseconds{120}) ? app.blink_act : 0,
         .timers = {},
         .alarms = {},
     };
 
     for (const auto& alarm : app.alarms) {
-        char buf[8] = {};
-        std::snprintf(buf, sizeof(buf), "%02d:%02d", alarm.hour, alarm.minute);
+        std::string sched;
+        if (alarm.schedule == AlarmSchedule::Days) {
+            const char* day_names[] = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"};
+            for (int d = 0; d < 7; ++d)
+                if (alarm.days_mask & (1 << d)) {
+                    if (!sched.empty()) sched += ' ';
+                    sched += day_names[d];
+                }
+            if (sched.empty()) sched = "(no days)";
+        } else {
+            sched = std::format("{:04}-{:02}-{:02}", alarm.date_year, alarm.date_month, alarm.date_day);
+        }
+        std::string label;
+        if (!alarm.name.empty()) label = alarm.name + "  ";
+        label += std::format("{:02}:{:02}  {}", alarm.hour, alarm.minute, sched);
         state.alarms.push_back(AlarmSceneState{
-            .label = alarm.name,
-            .time_text = buf,
+            .label = std::move(label),
             .enabled = alarm.enabled,
         });
     }
 
+    bool can_add = (int)app.timers.size() < Config::MAX_TIMERS;
+    bool can_remove = (int)app.timers.size() > 1;
     for (int i = 0; i < (int)app.timers.size(); ++i) {
         const auto& timer = app.timers[i];
+        bool touched = timer.t.touched();
         bool expired = timer.t.expired(now);
-        auto shown = timer.t.touched() ? timer.t.remaining(now) : timer.dur;
+        auto remaining = timer.t.remaining(now);
         double progress = 0.0;
         auto total = duration_cast<microseconds>(timer.dur).count();
-        auto rem = duration_cast<microseconds>(timer.t.remaining(now)).count();
-        if (timer.t.touched() && total > 0) progress = std::clamp((double)(total - rem) / (double)total, 0.0, 1.0);
-        auto label = timer.label.empty() ? std::string{"Timer "} + std::to_string(i + 1) : wide_to_utf8(timer.label);
-        state.timers.push_back(TimerSceneState{
-            .running = timer.t.is_running(),
-            .expired = expired,
-            .progress = expired ? 1.0 : progress,
-            .text = wide_to_utf8(format_timer_display(shown)),
-            .label = std::move(label),
-        });
+        auto rem = duration_cast<microseconds>(remaining).count();
+        if (touched && total > 0) progress = std::clamp((double)(total - rem) / (double)total, 0.0, 1.0);
+
+        TimerSceneState ts{};
+        ts.touched = touched;
+        ts.running = timer.t.is_running();
+        ts.expired = expired;
+        ts.pomodoro = timer.pomodoro;
+        ts.progress = expired ? 1.0 : progress;
+        ts.can_add = can_add;
+        ts.can_remove = can_remove;
+
+        // Decide subtitle and readout based on touched / pomodoro / running.
+        if (touched) {
+            // Running mode subtitle: label or the editable duration string.
+            std::wstring subtitle = timer.label.empty()
+                                        ? format_timer_edit(std::chrono::duration_cast<Timer::dur>(timer.dur))
+                                        : timer.label;
+            if (timer.pomodoro && timer.pomodoro_work_elapsed.count() > 0)
+                subtitle += L" · " + format_worked_time(timer.pomodoro_work_elapsed);
+            ts.subtitle = wide_to_utf8(subtitle);
+            ts.readout = wide_to_utf8(format_timer_display(remaining));
+            ts.readout_tone = expired                                            ? TextTone::Danger
+                              : (remaining < std::chrono::seconds{10})           ? TextTone::Warning
+                                                                                 : TextTone::Primary;
+        } else if (timer.pomodoro) {
+            // Idle pomodoro: phase label (+ worked) as subtitle, duration centered.
+            std::wstring subtitle = pomodoro_phase_label(timer.pomodoro_phase, app.pomodoro_cadence);
+            if (timer.pomodoro_work_elapsed.count() > 0)
+                subtitle += L" · " + format_worked_time(timer.pomodoro_work_elapsed);
+            ts.subtitle = wide_to_utf8(subtitle);
+            ts.readout = wide_to_utf8(format_timer_display(timer.dur));
+        } else {
+            // Idle non-pomodoro: optional label as subtitle, HH/MM/SS columns.
+            if (!timer.label.empty()) ts.subtitle = wide_to_utf8(timer.label);
+            long long total_s = timer.dur.count();
+            ts.hh_text = std::to_string(total_s / 3600);
+            ts.mm_text = std::format("{:02}", (total_s / 60) % 60);
+            ts.ss_text = std::format("{:02}", total_s % 60);
+        }
+
+        state.timers.push_back(std::move(ts));
     }
     if (state.timers.empty()) state.timers.push_back({});
     return state;
