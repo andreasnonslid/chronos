@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <chrono>
 #include "actions.hpp"
 #include "app.hpp"
@@ -20,29 +21,30 @@ TEST_CASE("tmr_act encodes timer index and offset", "[actions]") {
 
 // ─── wants_blink ─────────────────────────────────────────────────────────────
 
-TEST_CASE("wants_blink returns false for toggle and start actions", "[actions]") {
-    REQUIRE_FALSE(wants_blink(A_TOPMOST));
-    REQUIRE_FALSE(wants_blink(A_SHOW_CLK));
-    REQUIRE_FALSE(wants_blink(A_SHOW_SW));
-    REQUIRE_FALSE(wants_blink(A_SHOW_TMR));
-    REQUIRE_FALSE(wants_blink(A_SW_START));
-    REQUIRE_FALSE(wants_blink(A_SW_COPY));
-    REQUIRE_FALSE(wants_blink(A_CLK_CYCLE));
-    REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_START)));
-    REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_ADD)));
-    REQUIRE_FALSE(wants_blink(tmr_act(0, A_TMR_DEL)));
+// `wants_blink` is a pure classification of action IDs. Two tables: the
+// "no-blink" group (toggles, starts, theme/clock cycles, dialogs) and the
+// "blink" group (adjusts, lap, reset). One assertion each, applied to every
+// action in the group.
+TEST_CASE("actions-dispatch: wants_blink returns false for non-mutating-feedback actions",
+          "[actions][actions-dispatch]") {
+    int act = GENERATE(values<int>({
+        A_TOPMOST, A_SHOW_CLK, A_SHOW_SW, A_SHOW_TMR,
+        A_SW_START, A_SW_COPY, A_THEME, A_CLK_CYCLE, A_SETTINGS, A_SHOW_ALARMS, A_ALARM_ADD,
+        A_TMR_BASE + A_TMR_START, A_TMR_BASE + A_TMR_ADD, A_TMR_BASE + A_TMR_DEL,
+    }));
+    REQUIRE_FALSE(wants_blink(act));
 }
 
-TEST_CASE("wants_blink returns true for adjust, lap, and reset actions", "[actions]") {
-    REQUIRE(wants_blink(A_SW_LAP));
-    REQUIRE(wants_blink(A_SW_RESET));
-    REQUIRE(wants_blink(tmr_act(0, A_TMR_HUP)));
-    REQUIRE(wants_blink(tmr_act(0, A_TMR_HDN)));
-    REQUIRE(wants_blink(tmr_act(0, A_TMR_MUP)));
-    REQUIRE(wants_blink(tmr_act(0, A_TMR_MDN)));
-    REQUIRE(wants_blink(tmr_act(0, A_TMR_SUP)));
-    REQUIRE(wants_blink(tmr_act(0, A_TMR_SDN)));
-    REQUIRE(wants_blink(tmr_act(0, A_TMR_RST)));
+TEST_CASE("actions-dispatch: wants_blink returns true for adjust/lap/reset actions",
+          "[actions][actions-dispatch]") {
+    int act = GENERATE(values<int>({
+        A_SW_LAP, A_SW_RESET,
+        A_TMR_BASE + A_TMR_HUP, A_TMR_BASE + A_TMR_HDN,
+        A_TMR_BASE + A_TMR_MUP, A_TMR_BASE + A_TMR_MDN,
+        A_TMR_BASE + A_TMR_SUP, A_TMR_BASE + A_TMR_SDN,
+        A_TMR_BASE + A_TMR_RST,
+    }));
+    REQUIRE(wants_blink(act));
 }
 
 // ─── visibility toggles ──────────────────────────────────────────────────────

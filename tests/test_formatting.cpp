@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <chrono>
 #include "formatting.hpp"
 #include "timer_presets.hpp"
@@ -126,20 +127,16 @@ TEST_CASE("format_worked_time: partial seconds truncated to minutes", "[formatti
 
 // ── negative duration clamping ──────────────────────────────────────────────
 
-TEST_CASE("format_stopwatch_short: negative duration clamps to zero", "[formatting]") {
-    REQUIRE(format_stopwatch_short(dur_ms(-500)) == L"00:00.000");
-}
-
-TEST_CASE("format_stopwatch_long: negative duration clamps to zero", "[formatting]") {
-    REQUIRE(format_stopwatch_long(dur_s(-10)) == L"00:00:00.000");
-}
-
-TEST_CASE("format_timer_display: negative duration clamps to zero", "[formatting]") {
-    REQUIRE(format_timer_display(dur_s(-1)) == L"00:00");
-}
-
-TEST_CASE("format_timer_edit: negative duration clamps to zero", "[formatting]") {
-    REQUIRE(format_timer_edit(dur_s(-1)) == L"0:00:00");
+// Every duration formatter must clamp negative inputs to its zero string,
+// and every clamp must hold across a range of negative values.
+TEST_CASE("formatting: given negative duration when any duration formatter is called"
+          " then output equals the formatter's zero string",
+          "[formatting]") {
+    auto neg_ms = GENERATE(-1, -500, -3600 * 1000, -86400 * 1000);
+    REQUIRE(format_stopwatch_short(dur_ms(neg_ms)) == L"00:00.000");
+    REQUIRE(format_stopwatch_long(dur_ms(neg_ms))  == L"00:00:00.000");
+    REQUIRE(format_timer_display(dur_ms(neg_ms))   == L"00:00");
+    REQUIRE(format_timer_edit(dur_ms(neg_ms))      == L"0:00:00");
 }
 
 // ── format_timer_title ────────────────────────────────────────────────────
@@ -184,22 +181,22 @@ TEST_CASE("format_tray_title: multi-timer slot 3", "[formatting]") {
 
 // ── format_preset_label ──────────────────────────────────────────────────
 
-TEST_CASE("format_preset_label: exact minutes", "[formatting]") {
-    REQUIRE(format_preset_label(60) == L"1:00");
-    REQUIRE(format_preset_label(300) == L"5:00");
-    REQUIRE(format_preset_label(2700) == L"45:00");
-}
-
-TEST_CASE("format_preset_label: minutes and seconds", "[formatting]") {
-    REQUIRE(format_preset_label(90) == L"1:30");
-    REQUIRE(format_preset_label(450) == L"7:30");
-}
-
-TEST_CASE("format_preset_label: hours", "[formatting]") {
-    REQUIRE(format_preset_label(3600) == L"1:00:00");
-    REQUIRE(format_preset_label(5400) == L"1:30:00");
-}
-
-TEST_CASE("format_preset_label: hours with seconds", "[formatting]") {
-    REQUIRE(format_preset_label(3661) == L"1:01:01");
+// Table-driven: enumerate every shape the preset formatter must handle
+// (exact minutes, mm:ss, hh:mm:ss with and without seconds) so the format
+// contract lives in one place.
+TEST_CASE("formatting: format_preset_label renders the expected mm:ss / h:mm:ss shape"
+          " for each preset duration",
+          "[formatting]") {
+    struct Row { int secs; std::wstring expected; };
+    auto row = GENERATE(values<Row>({
+        {60,   L"1:00"},
+        {300,  L"5:00"},
+        {2700, L"45:00"},
+        {90,   L"1:30"},
+        {450,  L"7:30"},
+        {3600, L"1:00:00"},
+        {5400, L"1:30:00"},
+        {3661, L"1:01:01"},
+    }));
+    REQUIRE(format_preset_label(row.secs) == row.expected);
 }
