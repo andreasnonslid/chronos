@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
-#include "../src/formatting.hpp"
-#include "../src/timer_presets.hpp"
+#include "formatting.hpp"
+#include "timer_presets.hpp"
 
 using namespace std::chrono;
 using steady_duration = steady_clock::duration;

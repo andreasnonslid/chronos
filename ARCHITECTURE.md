@@ -1,6 +1,16 @@
 # Architecture
 
-Chronos is a single-binary Win32 desktop app built with C++26 and raw GDI. The codebase is split across 20+ translation units with headers organized into clear layers.
+Chronos is a single-binary desktop app built with C++26: Win32+GDI on Windows, X11 on Linux. The codebase is organized into per-responsibility subdirectories under `src/`:
+
+- `src/core/` -- platform-agnostic data model, actions, config serialization, encoding, formatting. Compiled into `chronos_core` (also linked by the unit tests).
+- `src/ui/` -- platform-agnostic UI model: `ui_scene`, `ui_style`, `theme`, `layout`, `icon`, `paint_ctx`. Consumed by both backends.
+- `src/input/` -- Win32 input dispatch (keyboard, mouse, label edit).
+- `src/painting/` -- platform-agnostic-ish scene rendering for the main window.
+- `src/win32/` -- everything that needs `<windows.h>`: window proc, dialogs, GDI helpers, tray, config I/O.
+- `src/linux/` -- X11 backend.
+- `src/main.cpp` -- entry point.
+
+CMake adds every subdirectory to the include path, so headers are still referenced by bare name (`#include "wndstate.hpp"`).
 
 ## Message Flow
 
@@ -11,15 +21,13 @@ flowchart TD
     WinMain["WinMain (main.cpp)"] --> MsgLoop["GetMessage / DispatchMessage"]
     MsgLoop --> WndProc["WndProc (window.hpp)"]
 
-    WndProc --> Input["dispatch_input (input.hpp)"]
+    WndProc --> Keyboard["dispatch_keyboard\n(input/input.hpp)"]
+    WndProc --> Mouse["dispatch_mouse\n(input/input.hpp)"]
     WndProc --> Paint["WM_PAINT: paint_all"]
     WndProc --> Poll["WM_TIMER: handle_wm_timer"]
     WndProc --> System["WM_SIZE, WM_DPICHANGED,\nWM_SETTINGCHANGE, ..."]
 
-    Input --> Keyboard["dispatch_keyboard\n(input_keyboard.hpp)"]
-    Input --> Mouse["dispatch_mouse\n(input_mouse.hpp)"]
-
-    Keyboard --> Handle["handle (input_core.hpp)"]
+    Keyboard --> Handle["handle (input/input.hpp)"]
     Mouse --> Handle
     Handle --> Action["dispatch_action\n(actions.hpp)"]
     Action --> Result["HandleResult"]
@@ -60,21 +68,20 @@ block-beta
     block:window["Window"]
         windowHpp["window.hpp / window.cpp"]
     end
-    block:inputLayer["Input"]
+    block:inputLayer["Input (src/input/)"]
         inputHpp["input.hpp"]
-        inputKbd["input_keyboard.hpp / .cpp"]
-        inputMouse["input_mouse.hpp / .cpp"]
-        inputCore["input_core.hpp / .cpp"]
+        inputKbd["input_keyboard.cpp"]
+        inputMouse["input_mouse.cpp"]
+        inputCore["input_core.cpp"]
         inputLabel["input_label_edit.hpp / .cpp"]
     end
     block:actionsLayer["Actions"]
         actionsHpp["actions.hpp / actions.cpp"]
     end
-    block:renderLayer["Rendering"]
-        paintingHpp["painting.hpp / painting.cpp"]
-        paintingTimer["painting_timer.hpp / .cpp"]
+    block:renderLayer["Rendering (src/painting/)"]
+        paintingScene["painting_scene.hpp / .cpp"]
         paintingAnalog["painting_analog.hpp / .cpp"]
-        paintCtx["paint_ctx.hpp"]
+        paintCtx["paint_ctx.hpp (ui/)"]
     end
     block:pollingLayer["Polling"]
         pollingHpp["polling.hpp / polling.cpp"]

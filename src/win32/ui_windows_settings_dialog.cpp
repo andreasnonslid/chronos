@@ -166,11 +166,6 @@ static std::vector<WORD> build_template() {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-static RECT map_dlu(HWND dlg, short x, short y, short cx, short cy) {
-    RECT r = {x, y, x + cx, y + cy};
-    MapDialogRect(dlg, &r);
-    return r;
-}
 
 static void set_field_int(HWND dlg, int id, int value) {
     SetDlgItemTextW(dlg, id, std::format(L"{}", value).c_str());

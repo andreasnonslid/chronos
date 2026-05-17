@@ -12,7 +12,7 @@
 #include "icon.hpp"
 #include "input.hpp"
 #include "layout.hpp"
-#include "painting.hpp"
+#include "painting_scene.hpp"
 #include "polling.hpp"
 #include "theme.hpp"
 #include "tray.hpp"
@@ -34,11 +34,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (wdpi != 0) s->layout.update_for_dpi((int)wdpi);
         }
         recreate_fonts(*s);
-        SetTimer(hwnd, 1, POLL_TIMER_MS, nullptr);
         s->cfg_path = config_path();
         load_config(hwnd, *s);
         apply_theme(hwnd, *s);
         resize_window(hwnd, *s);
+        // Arm WM_TIMER at the rate the loaded state needs (may be POLL_OFF).
+        sync_timer(hwnd, *s);
         s->global_hotkey_ok = RegisterHotKey(hwnd, HOTKEY_GLOBAL,
                                                MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_SPACE) != 0;
         if (!s->global_hotkey_ok)
@@ -52,7 +53,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
     if (!s) return DefWindowProcW(hwnd, msg, wp, lp);
 
-    if (auto r = dispatch_input(hwnd, msg, wp, lp, *s); r.has_value())
+    if (auto r = dispatch_keyboard(hwnd, msg, wp, *s); r.has_value())
+        return *r;
+    if (auto r = dispatch_mouse(hwnd, msg, wp, lp, *s); r.has_value())
         return *r;
 
     switch (msg) {
@@ -66,6 +69,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             tray_add(hwnd, s->tray_icon);
             s->tray_active = true;
             ShowWindow(hwnd, SW_HIDE);
+            sync_timer(hwnd, *s);  // hidden window can stop polling
             return 0;
         }
         break;
@@ -75,6 +79,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SetForegroundWindow(hwnd);
             tray_remove(hwnd);
             s->tray_active = false;
+            sync_timer(hwnd, *s);  // visible window needs the title-bar tick again
         };
         if (lp == WM_LBUTTONUP) {
             tray_restore();

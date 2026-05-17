@@ -28,7 +28,7 @@ struct WndState {
     const Theme* active_theme = &dark_theme;
     std::vector<std::pair<RECT, int>> btns;
     GdiObj fontBig{nullptr}, fontLarge{nullptr}, fontSm{nullptr};
-    int timer_ms = 100;
+    int timer_ms = -1;  // -1 = WM_TIMER not yet armed; set by sync_timer()
     bool tray_active = false;
     bool global_hotkey_ok = false;
     std::chrono::steady_clock::time_point clipboard_copied_until{};

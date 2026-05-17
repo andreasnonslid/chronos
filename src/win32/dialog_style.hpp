@@ -20,6 +20,13 @@ struct DlgBuf {
 void dlg_add_item(DlgBuf& b, DWORD style, short x, short y, short cx, short cy,
                   WORD id, WORD cls_atom, const wchar_t* title);
 
+// Convert dialog-unit coordinates to client pixels for `dlg`.
+inline RECT map_dlu(HWND dlg, short x, short y, short cx, short cy) {
+    RECT r = {x, y, x + cx, y + cy};
+    MapDialogRect(dlg, &r);
+    return r;
+}
+
 // ─── Reusable owner-drawn dialog styling ─────────────────────────────────────
 
 struct DlgStyle {

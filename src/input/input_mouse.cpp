@@ -1,4 +1,4 @@
-#include "input_mouse.hpp"
+#include "input.hpp"
 #include <windows.h>
 #include <windowsx.h>
 #include <algorithm>
@@ -10,7 +10,6 @@
 #include "config_io.hpp"
 #include "geometry.hpp"
 #include "gdi.hpp"
-#include "input_core.hpp"
 #include "input_label_edit.hpp"
 #include "layout.hpp"
 #include "pomodoro.hpp"

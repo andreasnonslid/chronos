@@ -1,9 +1,8 @@
-#include "input_keyboard.hpp"
+#include "input.hpp"
 #include <windows.h>
 #include <optional>
 #include "actions.hpp"
 #include "config.hpp"
-#include "input_core.hpp"
 #include "wndstate.hpp"
 
 bool plain_key() {

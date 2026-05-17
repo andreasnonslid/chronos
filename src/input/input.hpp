@@ -6,3 +6,5 @@
 constexpr int HOTKEY_GLOBAL = 1;
 
 std::optional<LRESULT> dispatch_keyboard(HWND hwnd, UINT msg, WPARAM wp, WndState& s);
+std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, WndState& s);
+void handle(HWND hwnd, int act, WndState& s);

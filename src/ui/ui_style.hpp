@@ -273,10 +273,6 @@ constexpr DialogPaint make_dialog(const ThemePalette& palette, const DialogConfi
     return make_ui(palette).dialog(config);
 }
 
-constexpr ScrollViewPaint make_scrollable_view(const ThemePalette& palette, const ScrollViewConfig& config) {
-    return make_ui(palette).scroll_view(config);
-}
-
 constexpr AnalogClockPaint make_analog_clock(const ThemePalette& palette, const AnalogClockConfig& config) {
     return make_ui(palette).analog_clock(config);
 }
@@ -287,8 +283,4 @@ constexpr IconPaint make_icon(const ThemePalette& palette, const IconConfig& con
 
 constexpr WidgetPaint make_button(const ThemePalette& palette, const ButtonConfig& config) {
     return make_ui(palette).button(config);
-}
-
-constexpr WidgetPaint make_dropdown(const ThemePalette& palette, const DropdownConfig& config) {
-    return make_ui(palette).dropdown(config);
 }
