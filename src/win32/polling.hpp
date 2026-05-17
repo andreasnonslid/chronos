@@ -24,9 +24,12 @@ constexpr int POLL_CLOCK_MS     = 1000;  // wall clock + alarm minute-flip detec
 constexpr int POLL_OFF          = 0;     // nothing time-driven on screen — stop the timer entirely
 
 // Longest interval at which a repaint will still match reality, given the
-// widgets currently visible/running. POLL_OFF means "don't tick at all";
-// the next input event will re-arm us via sync_timer.
-int desired_poll_ms(const App& a);
+// widgets currently visible/running. POLL_OFF means "don't tick at all"
+// and is only safe when the window is minimized to the tray — visible
+// windows always need at least POLL_CLOCK_MS for the title-bar wall clock
+// and for clearing transient states (button blink, "Copied" title).
+// The next input event will re-arm us via sync_timer.
+int desired_poll_ms(const WndState& s);
 
 void sync_timer(HWND hwnd, WndState& s);
 void update_title(HWND hwnd, WndState& s);

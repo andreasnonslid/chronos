@@ -11,7 +11,9 @@
 #include "tray.hpp"
 #include "wndstate.hpp"
 
-int desired_poll_ms(const App& a) {
+int desired_poll_ms(const WndState& s) {
+    const App& a = s.app;
+
     // Stopwatch shows hundredths-of-a-second while running. The title bar
     // mirrors the same readout, so we need this rate even if the on-screen
     // panel is hidden.
@@ -22,20 +24,21 @@ int desired_poll_ms(const App& a) {
     for (const auto& ts : a.timers)
         if (ts.t.is_running()) return POLL_TIMER_MS;
 
-    // No countdown active. The wall clock (digital or analog) and the
-    // alarm scheduler both need ~1 Hz so the minute flip is caught within
-    // a second of real time. The timer-of-day in the title bar lives here
-    // too, so we keep this rate whenever the clock is shown OR alarms are
-    // configured (alarms fire at minute boundaries).
-    if (a.show_clk || !a.alarms.empty()) return POLL_CLOCK_MS;
+    // No countdown active. When the window is minimized to the tray there
+    // is nothing on screen to keep fresh and no alarms can fire silently,
+    // so stop polling entirely — the next input event (incl. tray
+    // restore) re-arms us through sync_timer.
+    if (s.tray_active && a.alarms.empty()) return POLL_OFF;
 
-    // Nothing on screen depends on the clock. Stop polling; an input
-    // event will re-arm us through sync_timer.
-    return POLL_OFF;
+    // Visible window: the title bar always shows wall-clock HH:MM:SS, and
+    // transient states (button blink, "Copied" title) need timer ticks to
+    // clear. 1 Hz catches the minute flip for the digital/analog clock
+    // and for alarm firing within a second of real time.
+    return POLL_CLOCK_MS;
 }
 
 void sync_timer(HWND hwnd, WndState& s) {
-    int want = desired_poll_ms(s.app);
+    int want = desired_poll_ms(s);
     if (want == s.timer_ms) return;
     s.timer_ms = want;
     if (want == POLL_OFF) KillTimer(hwnd, 1);

@@ -69,6 +69,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             tray_add(hwnd, s->tray_icon);
             s->tray_active = true;
             ShowWindow(hwnd, SW_HIDE);
+            sync_timer(hwnd, *s);  // hidden window can stop polling
             return 0;
         }
         break;
@@ -78,6 +79,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SetForegroundWindow(hwnd);
             tray_remove(hwnd);
             s->tray_active = false;
+            sync_timer(hwnd, *s);  // visible window needs the title-bar tick again
         };
         if (lp == WM_LBUTTONUP) {
             tray_restore();
