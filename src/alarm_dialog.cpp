@@ -77,12 +77,6 @@ std::vector<WORD> build_template() {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-static RECT map_dlu(HWND dlg, short x, short y, short cx, short cy) {
-    RECT r = {x, y, x + cx, y + cy};
-    MapDialogRect(dlg, &r);
-    return r;
-}
-
 static void show_date_controls(HWND dlg, bool show) {
     int cmd = show ? SW_SHOW : SW_HIDE;
     for (WORD id : {IDC_ALM_YEAR, IDC_ALM_MONTH, IDC_ALM_DAY})
