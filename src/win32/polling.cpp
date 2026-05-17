@@ -11,20 +11,35 @@
 #include "tray.hpp"
 #include "wndstate.hpp"
 
+int desired_poll_ms(const App& a) {
+    // Stopwatch shows hundredths-of-a-second while running. The title bar
+    // mirrors the same readout, so we need this rate even if the on-screen
+    // panel is hidden.
+    if (a.sw.is_running()) return POLL_STOPWATCH_MS;
+
+    // Any timer counting down: display is MM:SS, title bar same. 10 fps
+    // catches each second boundary visibly cleanly.
+    for (const auto& ts : a.timers)
+        if (ts.t.is_running()) return POLL_TIMER_MS;
+
+    // No countdown active. The wall clock (digital or analog) and the
+    // alarm scheduler both need ~1 Hz so the minute flip is caught within
+    // a second of real time. The timer-of-day in the title bar lives here
+    // too, so we keep this rate whenever the clock is shown OR alarms are
+    // configured (alarms fire at minute boundaries).
+    if (a.show_clk || !a.alarms.empty()) return POLL_CLOCK_MS;
+
+    // Nothing on screen depends on the clock. Stop polling; an input
+    // event will re-arm us through sync_timer.
+    return POLL_OFF;
+}
+
 void sync_timer(HWND hwnd, WndState& s) {
-    bool any_timer_running = false;
-    for (auto& ts : s.app.timers)
-        if (ts.t.is_running()) {
-            any_timer_running = true;
-            break;
-        }
-    int want = (s.app.show_sw && s.app.sw.is_running()) ? POLL_STOPWATCH_MS
-               : any_timer_running                      ? POLL_TIMER_MS
-                                                        : POLL_IDLE_MS;
-    if (want != s.timer_ms) {
-        s.timer_ms = want;
-        SetTimer(hwnd, 1, want, nullptr);
-    }
+    int want = desired_poll_ms(s.app);
+    if (want == s.timer_ms) return;
+    s.timer_ms = want;
+    if (want == POLL_OFF) KillTimer(hwnd, 1);
+    else                  SetTimer(hwnd, 1, want, nullptr);
 }
 
 void update_title(HWND hwnd, WndState& s) {

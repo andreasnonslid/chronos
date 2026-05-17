@@ -34,11 +34,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (wdpi != 0) s->layout.update_for_dpi((int)wdpi);
         }
         recreate_fonts(*s);
-        SetTimer(hwnd, 1, POLL_TIMER_MS, nullptr);
         s->cfg_path = config_path();
         load_config(hwnd, *s);
         apply_theme(hwnd, *s);
         resize_window(hwnd, *s);
+        // Arm WM_TIMER at the rate the loaded state needs (may be POLL_OFF).
+        sync_timer(hwnd, *s);
         s->global_hotkey_ok = RegisterHotKey(hwnd, HOTKEY_GLOBAL,
                                                MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_SPACE) != 0;
         if (!s->global_hotkey_ok)
