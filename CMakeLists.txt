@@ -129,6 +129,7 @@ if(BUILD_TESTS)
         tests/test_actions_timer.cpp
         tests/test_actions_adjust.cpp
         tests/test_pomodoro.cpp
+        tests/test_alarm.cpp
     )
     set_target_properties(chronos_tests PROPERTIES CXX_SCAN_FOR_MODULES OFF)
     target_link_libraries(chronos_tests PRIVATE chronos_core Catch2::Catch2WithMain)

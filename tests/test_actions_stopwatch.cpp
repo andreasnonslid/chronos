@@ -4,12 +4,13 @@
 #include <fstream>
 #include "actions.hpp"
 #include "app.hpp"
+#include "test_helpers.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
 
-static sc::time_point t0() { return sc::time_point{}; }
-static sc::time_point at_ms(int ms) { return t0() + milliseconds(ms); }
+using test_helpers::at_ms;
+using test_helpers::t0;
 
 // ─── stopwatch ───────────────────────────────────────────────────────────────
 
@@ -105,4 +106,31 @@ TEST_CASE("A_SW_GET clears stale path when file is missing", "[actions]") {
     auto r = dispatch_action(app, A_SW_GET, t0(), {});
     REQUIRE_FALSE(r.open_file);
     REQUIRE(app.sw_lap_file.empty());
+}
+
+TEST_CASE("actions-stopwatch: given unwritable lap-file path when A_SW_LAP dispatched"
+          " then lap_write_failed is set",
+          "[actions][actions-stopwatch]") {
+    App app;
+    dispatch_action(app, A_SW_START, t0(), {});
+    // Point the lap file at a path inside a non-existent directory so the
+    // ofstream open will fail; the dispatch path must record the failure.
+    app.sw_lap_file = std::filesystem::temp_directory_path()
+                      / "chronos-test-no-such-dir" / "laps.txt";
+    REQUIRE_FALSE(app.lap_write_failed);
+    dispatch_action(app, A_SW_LAP, at_ms(1000), {});
+    REQUIRE(app.lap_write_failed);
+}
+
+TEST_CASE("actions-stopwatch: given writable lap-file path when A_SW_LAP dispatched"
+          " then lap_write_failed stays false",
+          "[actions][actions-stopwatch]") {
+    auto tmp = std::filesystem::temp_directory_path() / "chronos-test-good-laps.txt";
+    std::filesystem::remove(tmp);
+    App app;
+    dispatch_action(app, A_SW_START, t0(), {});
+    app.sw_lap_file = tmp;
+    dispatch_action(app, A_SW_LAP, at_ms(1000), {});
+    REQUIRE_FALSE(app.lap_write_failed);
+    std::filesystem::remove(tmp);
 }

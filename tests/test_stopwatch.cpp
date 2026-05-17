@@ -2,13 +2,14 @@
 #include <chrono>
 #include <thread>
 #include "stopwatch.hpp"
+#include "test_helpers.hpp"
 
 using namespace std::chrono;
 using tp = steady_clock::time_point;
 using dur = steady_clock::duration;
 
-static tp epoch() { return tp{}; }
-static tp at_ms(int ms) { return epoch() + milliseconds(ms); }
+using test_helpers::at_ms;
+static tp epoch() { return test_helpers::t0(); }
 
 TEST_CASE("Stopwatch start/stop basics", "[stopwatch]") {
     Stopwatch sw;

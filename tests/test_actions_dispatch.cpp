@@ -2,11 +2,12 @@
 #include <chrono>
 #include "actions.hpp"
 #include "app.hpp"
+#include "test_helpers.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
 
-static sc::time_point t0() { return sc::time_point{}; }
+using test_helpers::t0;
 
 // ─── tmr_act ─────────────────────────────────────────────────────────────────
 

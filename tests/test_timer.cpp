@@ -1,13 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
+#include "test_helpers.hpp"
 #include "timer.hpp"
 
 using namespace std::chrono;
 using tp = steady_clock::time_point;
 using dur = steady_clock::duration;
 
-static tp epoch() { return tp{}; }
-static tp at_ms(int ms) { return epoch() + milliseconds(ms); }
+using test_helpers::at_ms;
 
 TEST_CASE("Timer set and start counts down", "[timer]") {
     Timer t;
@@ -128,4 +128,28 @@ TEST_CASE("Timer restore with zero elapsed not running is not touched", "[timer]
     t.restore(seconds(60), dur::zero(), false, at_ms(0));
     REQUIRE_FALSE(t.touched());
     REQUIRE_FALSE(t.is_running());
+}
+
+TEST_CASE("timer: given running timer when set() called with new target"
+          " then remaining recomputes against new target",
+          "[timer]") {
+    Timer t;
+    t.set(seconds(10));
+    t.start(at_ms(0));
+    t.set(seconds(30)); // extend target while running
+    // 2s elapsed against new 30s target ⇒ 28s remaining.
+    REQUIRE(t.remaining(at_ms(2000)) == seconds(28));
+    REQUIRE(t.is_running());
+}
+
+TEST_CASE("timer: given expired timer when set() called with larger target"
+          " then no longer expired",
+          "[timer]") {
+    Timer t;
+    t.set(seconds(1));
+    t.start(at_ms(0));
+    REQUIRE(t.expired(at_ms(2000)));
+    t.set(seconds(60)); // bump target
+    REQUIRE_FALSE(t.expired(at_ms(2000)));
+    REQUIRE(t.remaining(at_ms(2000)) == seconds(58));
 }
