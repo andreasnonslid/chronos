@@ -1,6 +1,8 @@
 #include "painting_scene.hpp"
 #include <windows.h>
+#include <algorithm>
 #include <chrono>
+#include <cwchar>
 #include <string>
 #include "actions.hpp"
 #include "app.hpp"
@@ -24,6 +26,32 @@ HFONT font_for(ui_scene::TextStyle style, const PaintCtx& ctx) {
     case ui_scene::TextStyle::Small: return ctx.res.fontSm;
     }
     return ctx.res.fontSm;
+}
+
+// Picks the largest font height (in pixels) whose rendering of `text` fits
+// within `rc`. Returns a newly-created HFONT that the caller must DeleteObject.
+HFONT make_autofit_font(HDC hdc, const wchar_t* text, const RECT& rc) {
+    int rect_w = rc.right - rc.left;
+    int rect_h = rc.bottom - rc.top;
+    int max_h = std::max(8, rect_h * 8 / 10);
+    int min_h = 8;
+    int max_w = std::max(8, rect_w - 8);
+    int h = max_h;
+    while (h > min_h) {
+        HFONT f = CreateFontW(-h, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                              CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        HFONT old = (HFONT)SelectObject(hdc, f);
+        SIZE sz{};
+        GetTextExtentPoint32W(hdc, text, (int)wcslen(text), &sz);
+        SelectObject(hdc, old);
+        if (sz.cx <= max_w) return f;
+        DeleteObject(f);
+        int next = h * 9 / 10;
+        if (next >= h) --next;
+        h = next;
+    }
+    return CreateFontW(-min_h, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                       CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
 }
 
 UINT text_format(ui_scene::Align align) {
@@ -52,7 +80,10 @@ void render_op(HDC hdc, const ui_scene::Op& op, PaintCtx& ctx) {
         std::wstring w = utf8_to_wide(op.text);
         UINT fmt = text_format(op.align);
         if (op.end_ellipsis) fmt |= DT_END_ELLIPSIS;
-        win_paint_text(hdc, rc, w.c_str(), font_for(op.text_style, ctx), TextPaint{.color = op.text_color}, fmt);
+        HFONT fit = op.auto_fit ? make_autofit_font(hdc, w.c_str(), rc) : nullptr;
+        win_paint_text(hdc, rc, w.c_str(), fit ? fit : font_for(op.text_style, ctx),
+                       TextPaint{.color = op.text_color}, fmt);
+        if (fit) DeleteObject(fit);
         break;
     }
     case OpKind::Button: {

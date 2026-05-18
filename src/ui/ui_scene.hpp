@@ -44,6 +44,7 @@ struct Op {
     Align align = Align::Left;
     TextStyle text_style = TextStyle::Small;
     bool end_ellipsis = false;  // text Ops: clip with "…" when overflowing
+    bool auto_fit = false;      // text Ops: choose font size to fill the rect
     int id = 0;
 };
 
@@ -226,6 +227,10 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
 
     auto digital_24 = [&] { return format_clock_text(ClockView::H24_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
     auto digital_12 = [&] { return format_clock_text(ClockView::H12_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
+    auto add_digital = [&](RectI rect, std::string text) {
+        add_text(scene, rect, std::move(text), ui.text(), Align::Center, A_CLK_CYCLE, TextStyle::Big);
+        scene.ops.back().auto_fit = true;
+    };
 
     if (view == ClockView::Analog) {
         scene.analog_clock = AnalogClockOp{
@@ -246,14 +251,11 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
             .second = state.wall_second,
             .id = A_CLK_CYCLE,
         };
-        add_text(scene, {mid, y, client_w, y + h}, digital_24(), ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Big);
+        add_digital({mid, y, client_w, y + h}, digital_24());
     } else if (view == ClockView::Mixed_IntlLocal) {
         int half = h / 2;
-        add_text(scene, {0, y, client_w, y + half}, digital_24(), ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Big);
-        add_text(scene, {0, y + half, client_w, y + h}, digital_12(), ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Big);
+        add_digital({0, y, client_w, y + half}, digital_24());
+        add_digital({0, y + half, client_w, y + h}, digital_12());
     } else if (view == ClockView::Mixed_AnalogIntlLocal) {
         int mid = client_w / 2;
         int half = h / 2;
@@ -265,13 +267,10 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
             .second = state.wall_second,
             .id = A_CLK_CYCLE,
         };
-        add_text(scene, {mid, y, client_w, y + half}, digital_24(), ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Big);
-        add_text(scene, {mid, y + half, client_w, y + h}, digital_12(), ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Big);
+        add_digital({mid, y, client_w, y + half}, digital_24());
+        add_digital({mid, y + half, client_w, y + h}, digital_12());
     } else {
-        add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Big);
+        add_digital({0, y, client_w, y + h}, state.clock_text);
     }
     y += h;
 }
