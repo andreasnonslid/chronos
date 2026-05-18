@@ -116,21 +116,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_WINDOWPOSCHANGING: {
-        // Enforce fixed height before any size change is applied.
+        // Enforce minimum height so the scene contents never get clipped.
+        // Extra height beyond the minimum is absorbed by the clock widget.
         auto* pos = (WINDOWPOS*)lp;
-        if (!(pos->flags & SWP_NOSIZE))
-            pos->cy = client_height(*s) + nonclient_height(hwnd);
+        if (!(pos->flags & SWP_NOSIZE)) {
+            int min_cy = client_height(*s) + nonclient_height(hwnd);
+            if (pos->cy < min_cy) pos->cy = min_cy;
+        }
         break;
     }
     case WM_GETMINMAXINFO: {
-        // Only enforce minimum width; height is handled by WM_WINDOWPOSCHANGING.
-        // Oversized analog clocks need the larger min_client_w too, otherwise
-        // the user could drag the window narrower and silently clip the clock.
+        // Enforce both minimum width and minimum height so contents always fit.
+        // Above the minimum, the window is freely resizable (extra height
+        // flows into the clock widget in the painter).
         auto* m = (MINMAXINFO*)lp;
         DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
-        RECT adj{0, 0, min_client_w_for(*s), 0};
+        RECT adj{0, 0, min_client_w_for(*s), client_height(*s)};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         m->ptMinTrackSize.x = adj.right - adj.left;
+        m->ptMinTrackSize.y = adj.bottom - adj.top;
         return 0;
     }
     case WM_DPICHANGED: {

@@ -103,6 +103,10 @@ struct MainSceneState {
     bool stopwatch_has_lap_file = false;
     bool stopwatch_lap_write_failed = false;
     ClockView clock_view = ClockView::H24_HMS;
+    // Extra pixels to grant the clock widget on top of effective_clk_h, so
+    // user-driven window-height enlargement makes the clock taller rather
+    // than leaving empty space at the bottom.
+    int extra_clock_h = 0;
     std::string clock_text = "00:00:00";
     std::string stopwatch_text = "00:00.000";
     // Single-line lap summary shown below the stopwatch buttons.
@@ -222,7 +226,7 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
                       const UiMakers& ui) {
     if (!state.show_clock) return;
     ClockView view = state.clock_view;
-    int h = effective_clk_h(layout, view, state.analog_style.radius_pct);
+    int h = effective_clk_h(layout, view, state.analog_style.radius_pct) + std::max(0, state.extra_clock_h);
     add_divider(scene, 0, client_w, y, ui.divider());
 
     auto digital_24 = [&] { return format_clock_text(ClockView::H24_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
@@ -439,7 +443,9 @@ inline void add_help_overlay(Scene& scene, const Layout& layout, int client_w, i
 
 inline int main_scene_height(const Layout& layout, const MainSceneState& state) {
     int h = layout.bar_h;
-    if (state.show_clock) h += effective_clk_h(layout, state.clock_view, state.analog_style.radius_pct);
+    if (state.show_clock)
+        h += effective_clk_h(layout, state.clock_view, state.analog_style.radius_pct) +
+             std::max(0, state.extra_clock_h);
     if (state.show_stopwatch) h += layout.sw_h;
     if (state.show_timers) h += (int)state.timers.size() * layout.tmr_h;
     if (state.show_alarms)

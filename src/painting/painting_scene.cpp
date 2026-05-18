@@ -127,6 +127,11 @@ void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     UiMakers ui = make_ui(ctx.theme.palette);
     auto scene_state = ui_scene::main_scene_state_from_app(ctx.app, ctx.now, st.wHour, st.wMinute, st.wSecond,
                                                            ctx.global_hotkey_ok);
+    // Absorb any extra client height (user dragged the window taller than the
+    // computed minimum) into the clock widget so it scales with the window.
+    int computed_h = ui_scene::main_scene_height(ctx.layout, scene_state);
+    if (scene_state.show_clock && ch > computed_h)
+        scene_state.extra_clock_h = ch - computed_h;
     auto scene = ui_scene::build_main_scene(ctx.layout, cw, scene_state, ui);
     paint_scene(hdc, scene, ctx);
 }

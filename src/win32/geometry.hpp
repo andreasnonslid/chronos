@@ -45,10 +45,13 @@ inline void resize_window(HWND hwnd, const WndState& s) {
     RECT wr;
     GetWindowRect(hwnd, &wr);
     int cur_w = wr.right - wr.left;
+    int cur_h = wr.bottom - wr.top;
     RECT cr;
     GetClientRect(hwnd, &cr);
     int nonclient_w = cur_w - cr.right;
     int min_w = min_client_w_for(s) + nonclient_w;
     int new_w = std::max(cur_w, min_w);
-    SetWindowPos(hwnd, nullptr, 0, 0, new_w, client_height(s) + nonclient_height(hwnd), SWP_NOMOVE | SWP_NOZORDER);
+    int min_h = client_height(s) + nonclient_height(hwnd);
+    int new_h = std::max(cur_h, min_h);
+    SetWindowPos(hwnd, nullptr, 0, 0, new_w, new_h, SWP_NOMOVE | SWP_NOZORDER);
 }
