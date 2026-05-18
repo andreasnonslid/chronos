@@ -266,9 +266,9 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
             .id = A_CLK_CYCLE,
         };
         add_text(scene, {mid, y, client_w, y + half}, digital_24(), ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Large);
+                 TextStyle::Big);
         add_text(scene, {mid, y + half, client_w, y + h}, digital_12(), ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Large);
+                 TextStyle::Big);
     } else {
         add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE,
                  TextStyle::Big);
