@@ -144,6 +144,34 @@ TEST_CASE("effective_clk_h returns correct height per view", "[layout]") {
     REQUIRE(effective_clk_h(l, ClockView::Analog) == 120);
 }
 
+TEST_CASE("effective_clk_h: analog radius below or at 100 keeps base height", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    REQUIRE(effective_clk_h(l, ClockView::Analog, 50) == 120);
+    REQUIRE(effective_clk_h(l, ClockView::Analog, 100) == 120);
+}
+
+TEST_CASE("effective_clk_h: analog radius above 100 scales height", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    REQUIRE(effective_clk_h(l, ClockView::Analog, 200) == 240);
+    REQUIRE(effective_clk_h(l, ClockView::Analog, 500) == 600);
+}
+
+TEST_CASE("effective_clk_h: radius_pct ignored for digital views", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    REQUIRE(effective_clk_h(l, ClockView::H24_HMS, 500) == 62);
+}
+
+TEST_CASE("client_height_for: oversized analog grows the layout", "[layout]") {
+    Layout l;
+    l.update_for_dpi(96);
+    LayoutState base{true, false, false, false, 1, 0, ClockView::Analog, 100};
+    LayoutState big{true, false, false, false, 1, 0, ClockView::Analog, 300};
+    REQUIRE(client_height_for(l, big) - client_height_for(l, base) == 240);
+}
+
 TEST_CASE("timer_index_at_y accounts for analog clock height", "[layout]") {
     Layout l;
     l.update_for_dpi(96);

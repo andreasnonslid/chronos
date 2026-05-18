@@ -43,6 +43,9 @@ constexpr int IDC_PRESET_MIN3  = 328;
 constexpr int IDC_PRESET_MIN4  = 329;
 constexpr int IDC_CLOCK_COMBO  = 330;
 
+// Inline edits over analog value boxes. One ID per value index.
+constexpr int IDC_VALUE_EDIT_BASE = 9100;
+
 constexpr int IDC_THEME_AUTO  = 340;
 constexpr int IDC_THEME_LIGHT = 341;
 constexpr int IDC_THEME_DARK  = 342;
@@ -219,7 +222,7 @@ static constexpr std::array<AnalogValueOption, 15> kAnalogValues{{
     {L"Second opacity", &AnalogClockStyle::second_opacity_pct, 10, 100, 10},
     {L"Tick opacity", &AnalogClockStyle::tick_opacity_pct, 10, 100, 10},
     {L"Face opacity", &AnalogClockStyle::face_opacity_pct, 0, 100, 10},
-    {L"Clock radius", &AnalogClockStyle::radius_pct, 50, 100, 5},
+    {L"Clock size", &AnalogClockStyle::radius_pct, 50, 500, 10},
 }};
 
 constexpr int ANALOG_COLOR_COUNT = static_cast<int>(kAnalogColors.size());
@@ -274,7 +277,27 @@ struct Params {
     int scroll_y = 0;       // current scroll offset in pixels
     RECT clock_combo_rc{};  // base pixel rect of the combobox (unscrolled)
     DialogBrushes brushes;
+    // Inline numeric edit over an analog value box. -1 means none active.
+    int editing_value_idx = -1;
+    HWND value_edit = nullptr;
+    WNDPROC orig_value_edit_proc = nullptr;
+    bool value_edit_cancelled = false;
 };
+
+// Split an analog value row into [-] [label: value] [+] sub-rects so the
+// click handler and painter agree on geometry.
+struct AnalogValueParts { RECT minus, middle, plus; };
+static AnalogValueParts split_value_rect(const RECT& r) {
+    int w = r.right - r.left;
+    int btn_w = w / 6;
+    if (btn_w < 14) btn_w = 14;
+    if (btn_w > 24) btn_w = 24;
+    AnalogValueParts parts;
+    parts.minus  = {r.left, r.top, r.left + btn_w, r.bottom};
+    parts.plus   = {r.right - btn_w, r.top, r.right, r.bottom};
+    parts.middle = {r.left + btn_w + 1, r.top, r.right - btn_w - 1, r.bottom};
+    return parts;
+}
 
 // ─── Scroll & visibility ──────────────────────────────────────────────────────
 
@@ -419,6 +442,7 @@ static void update_content_scroll(HWND dlg, Params* p) {
 
 // Apply scroll delta and reposition the combobox if on the clock tab.
 static void apply_scroll(HWND dlg, Params* p, int new_pos) {
+    close_value_edit(dlg, *p);
     SCROLLINFO si = {sizeof(SCROLLINFO), SIF_POS, 0, 0, 0, 0, 0};
     si.nPos = new_pos;
     SetScrollInfo(dlg, SB_VERT, &si, TRUE);
@@ -455,6 +479,8 @@ static bool read_field(HWND dlg, int id, int& out) {
 static Params* dialog_params(HWND dlg) {
     return reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
 }
+
+static void close_value_edit(HWND dlg, Params& p);
 
 static constexpr struct { ThemeMode mode; int id; } kThemeMap[] = {
     {ThemeMode::Auto,  IDC_THEME_AUTO},
@@ -507,6 +533,7 @@ static void apply_tab_visibility(HWND dlg, int active_tab) {
 }
 
 static void set_active_tab(HWND dlg, Params& p, int tab) {
+    close_value_edit(dlg, p);
     p.active_tab = tab;
     apply_tab_visibility(dlg, tab);
     update_content_scroll(dlg, &p);
@@ -696,7 +723,13 @@ static void paint_analog_settings(HWND dlg, HDC hdc, Params& p, int sdy) {
         int* field = analog_value_field(p.analog_style, i);
         wchar_t buf[96];
         wsprintfW(buf, L"%s: %d", kAnalogValues[(size_t)i].label, field ? *field : 0);
-        paint_option_btn(hdc, r, buf, false, s);
+        auto parts = split_value_rect(r);
+        paint_option_btn(hdc, parts.minus, L"−", false, s);
+        // While editing this row, the EDIT child paints the middle; skip it
+        // here so we don't flicker behind the live edit.
+        if (p.editing_value_idx != i)
+            paint_option_btn(hdc, parts.middle, buf, false, s);
+        paint_option_btn(hdc, parts.plus, L"+", false, s);
     }
 }
 
@@ -792,9 +825,88 @@ static INT_PTR on_draw_item(HWND dlg, LPARAM lp) {
     return TRUE;
 }
 
+static LRESULT CALLBACK value_edit_subclass(HWND edit, UINT msg, WPARAM wp, LPARAM lp) {
+    HWND parent = GetParent(edit);
+    auto* p = dialog_params(parent);
+    if (!p) return DefWindowProcW(edit, msg, wp, lp);
+    if (msg == WM_KEYDOWN) {
+        if (wp == VK_RETURN) {
+            SetFocus(parent);
+            return 0;
+        }
+        if (wp == VK_ESCAPE) {
+            p->value_edit_cancelled = true;
+            SetFocus(parent);
+            return 0;
+        }
+    }
+    return CallWindowProcW(p->orig_value_edit_proc, edit, msg, wp, lp);
+}
+
+static void start_value_edit(HWND dlg, Params& p, int i) {
+    if (p.editing_value_idx >= 0 || i < 0 || i >= ANALOG_VALUE_COUNT) return;
+    int* field = analog_value_field(p.analog_style, i);
+    if (!field) return;
+
+    RECT box = shifted(p.rects.analog_values[i], -p.scroll_y);
+    auto parts = split_value_rect(box);
+    RECT mid = parts.middle;
+
+    wchar_t buf[16];
+    wsprintfW(buf, L"%d", *field);
+    HWND edit = CreateWindowExW(
+        0, L"EDIT", buf,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_CENTER | ES_NUMBER | ES_AUTOHSCROLL,
+        mid.left, mid.top, mid.right - mid.left, mid.bottom - mid.top,
+        dlg, (HMENU)(INT_PTR)(IDC_VALUE_EDIT_BASE + i), nullptr, nullptr);
+    if (!edit) return;
+    SendMessageW(edit, EM_SETLIMITTEXT, 4, 0);
+    SendMessageW(edit, WM_SETFONT, (WPARAM)p.style.font, TRUE);
+    p.value_edit_cancelled = false;
+    p.orig_value_edit_proc = (WNDPROC)SetWindowLongPtrW(edit, GWLP_WNDPROC, (LONG_PTR)value_edit_subclass);
+    p.value_edit = edit;
+    p.editing_value_idx = i;
+    SetFocus(edit);
+    SendMessageW(edit, EM_SETSEL, 0, -1);
+    InvalidateRect(dlg, nullptr, TRUE);
+}
+
+// Commit/cancel the active inline edit by transferring focus, which fires
+// EN_KILLFOCUS. Caller handles the actual field update in that handler.
+static void close_value_edit(HWND dlg, Params& p) {
+    if (!p.value_edit) return;
+    SetFocus(dlg);
+}
+
+static bool handle_value_edit_killfocus(HWND dlg, int id, HWND edit, Params& p) {
+    if (id < IDC_VALUE_EDIT_BASE || id >= IDC_VALUE_EDIT_BASE + ANALOG_VALUE_COUNT) return false;
+    int i = id - IDC_VALUE_EDIT_BASE;
+    int* field = analog_value_field(p.analog_style, i);
+    const auto& opt = kAnalogValues[(size_t)i];
+    if (field && !p.value_edit_cancelled) {
+        wchar_t buf[16] = {};
+        GetWindowTextW(edit, buf, 15);
+        wchar_t* end = nullptr;
+        long v = std::wcstol(buf, &end, 10);
+        if (end && *end == L'\0' && buf[0] != L'\0')
+            *field = std::clamp((int)v, opt.min_value, opt.max_value);
+    }
+    p.value_edit_cancelled = false;
+    p.editing_value_idx = -1;
+    p.value_edit = nullptr;
+    p.orig_value_edit_proc = nullptr;
+    DestroyWindow(edit);
+    InvalidateRect(dlg, nullptr, TRUE);
+    return true;
+}
+
 static INT_PTR on_left_button_down(HWND dlg, LPARAM lp) {
     auto* p = dialog_params(dlg);
     if (!p) return FALSE;
+
+    // A click anywhere in the dialog body means the user is done with any
+    // inline edit; commit it before reacting to the new click.
+    close_value_edit(dlg, *p);
 
     POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
 
@@ -832,9 +944,19 @@ static INT_PTR on_left_button_down(HWND dlg, LPARAM lp) {
             }
         }
         for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
-            if (PtInRect(&p->rects.analog_values[i], spt)) {
+            auto parts = split_value_rect(p->rects.analog_values[i]);
+            if (PtInRect(&parts.minus, spt)) {
+                adjust_analog_value(p->analog_style, i, -1);
+                InvalidateRect(dlg, nullptr, TRUE);
+                return TRUE;
+            }
+            if (PtInRect(&parts.plus, spt)) {
                 adjust_analog_value(p->analog_style, i, 1);
                 InvalidateRect(dlg, nullptr, TRUE);
+                return TRUE;
+            }
+            if (PtInRect(&parts.middle, spt)) {
+                start_value_edit(dlg, *p, i);
                 return TRUE;
             }
         }
@@ -943,7 +1065,15 @@ static bool commit_all_tabs(HWND dlg, Params& p) {
     return true;
 }
 
-static INT_PTR on_command(HWND dlg, WPARAM wp) {
+static INT_PTR on_command(HWND dlg, WPARAM wp, LPARAM lp) {
+    int id = LOWORD(wp);
+    int code = HIWORD(wp);
+    if (id >= IDC_VALUE_EDIT_BASE && id < IDC_VALUE_EDIT_BASE + ANALOG_VALUE_COUNT &&
+        code == EN_KILLFOCUS) {
+        auto* p = dialog_params(dlg);
+        if (p) handle_value_edit_killfocus(dlg, id, (HWND)lp, *p);
+        return TRUE;
+    }
     switch (LOWORD(wp)) {
     case IDC_CLOCK_COMBO:
         if (HIWORD(wp) == CBN_SELCHANGE) {
@@ -985,12 +1115,17 @@ static INT_PTR on_command(HWND dlg, WPARAM wp) {
         if (HIWORD(wp) != BN_CLICKED) return FALSE;
         auto* p = dialog_params(dlg);
         if (!p) return FALSE;
+        close_value_edit(dlg, *p);
         if (!commit_all_tabs(dlg, *p)) return TRUE;
         EndDialog(dlg, IDOK);
         return TRUE;
     }
     case IDC_SET_CANCEL:
         if (HIWORD(wp) != BN_CLICKED) return FALSE;
+        if (auto* p = dialog_params(dlg)) {
+            p->value_edit_cancelled = true;
+            close_value_edit(dlg, *p);
+        }
         EndDialog(dlg, IDCANCEL);
         return TRUE;
     }
@@ -1000,6 +1135,7 @@ static INT_PTR on_command(HWND dlg, WPARAM wp) {
 static INT_PTR on_right_button_down(HWND dlg, LPARAM lp) {
     auto* p = dialog_params(dlg);
     if (!p) return FALSE;
+    close_value_edit(dlg, *p);
     if (p->active_tab != TAB_CLOCK || p->clock_view != ClockView::Analog) return FALSE;
 
     POINT spt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp) + p->scroll_y};
@@ -1015,7 +1151,8 @@ static INT_PTR on_right_button_down(HWND dlg, LPARAM lp) {
         }
     }
     for (int i = 0; i < ANALOG_VALUE_COUNT; ++i) {
-        if (PtInRect(&p->rects.analog_values[i], spt)) {
+        auto parts = split_value_rect(p->rects.analog_values[i]);
+        if (PtInRect(&parts.middle, spt)) {
             adjust_analog_value(p->analog_style, i, -1);
             InvalidateRect(dlg, nullptr, TRUE);
             return TRUE;
@@ -1052,7 +1189,7 @@ static INT_PTR CALLBACK DlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_RBUTTONDOWN:      return on_right_button_down(dlg, lp);
     case WM_VSCROLL:          return on_scroll(dlg, wp);
     case WM_MOUSEWHEEL:       return on_mouse_wheel(dlg, wp);
-    case WM_COMMAND:          return on_command(dlg, wp);
+    case WM_COMMAND:          return on_command(dlg, wp, lp);
     case WM_KEYDOWN:          return on_key_down(dlg, wp);
     }
     return FALSE;

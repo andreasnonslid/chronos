@@ -220,7 +220,7 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
 inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, const MainSceneState& state,
                       const UiMakers& ui) {
     if (!state.show_clock) return;
-    int h = effective_clk_h(layout, state.clock_view);
+    int h = effective_clk_h(layout, state.clock_view, state.analog_style.radius_pct);
     add_divider(scene, 0, client_w, y, ui.divider());
     if (state.clock_view == ClockView::Analog) {
         scene.analog_clock = AnalogClockOp{
@@ -402,7 +402,7 @@ inline void add_help_overlay(Scene& scene, const Layout& layout, int client_w, i
 
 inline int main_scene_height(const Layout& layout, const MainSceneState& state) {
     int h = layout.bar_h;
-    if (state.show_clock) h += effective_clk_h(layout, state.clock_view);
+    if (state.show_clock) h += effective_clk_h(layout, state.clock_view, state.analog_style.radius_pct);
     if (state.show_stopwatch) h += layout.sw_h;
     if (state.show_timers) h += (int)state.timers.size() * layout.tmr_h;
     if (state.show_alarms)

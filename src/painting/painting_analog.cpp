@@ -53,6 +53,8 @@ void draw_analog_clock_native(HDC hdc, RECT area, const AnalogClockStyle& style,
     int w = area.right - area.left;
     int h = area.bottom - area.top;
     int radius = (w < h ? w : h) / 2 - dpi * 6 / STANDARD_DPI;
+    // Above 100 the analog area itself has already been scaled (see
+    // effective_clk_h), so the paint-side scale tops out at 100% of that area.
     radius = radius * std::clamp(style.radius_pct, 50, 100) / 100;
     if (radius < 10) return;
 
