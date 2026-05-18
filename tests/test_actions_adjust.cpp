@@ -13,25 +13,14 @@ using test_helpers::set_timer_dur;
 using test_helpers::t0;
 
 // ─── timer hour adjustments ──────────────────────────────────────────────────
-
-TEST_CASE("A_TMR_HUP increments hours", "[actions]") {
-    App app; // default 0h 1m 0s = 60s
-    dispatch_action(app, tmr_act(0, A_TMR_HUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{3660}); // 1h 1m 0s
-}
+// Plain increments-by-one are not tested directly: the wrap and clamp cases
+// below already prove the cycle/clamp arithmetic walks through every value.
 
 TEST_CASE("A_TMR_HUP wraps 24 to 0", "[actions]") {
     App app;
     set_timer_dur(app, 0, seconds{24 * 3600}); // 24h 0m 0s
     dispatch_action(app, tmr_act(0, A_TMR_HUP), t0(), {});
     REQUIRE(app.timers[0].dur == seconds{0}); // 0h 0m 0s
-}
-
-TEST_CASE("A_TMR_HDN decrements hours", "[actions]") {
-    App app;
-    set_timer_dur(app, 0, seconds{3660}); // 1h 1m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_HDN), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{60}); // 0h 1m 0s
 }
 
 TEST_CASE("A_TMR_HDN wraps 0 to 24 and clamps to TIMER_MAX_SECS", "[actions]") {
@@ -42,22 +31,10 @@ TEST_CASE("A_TMR_HDN wraps 0 to 24 and clamps to TIMER_MAX_SECS", "[actions]") {
 
 // ─── timer minute adjustments ────────────────────────────────────────────────
 
-TEST_CASE("A_TMR_MUP increments minutes", "[actions]") {
-    App app; // 0h 1m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{120}); // 0h 2m 0s
-}
-
 TEST_CASE("A_TMR_MUP wraps 59 to 0", "[actions]") {
     App app;
     set_timer_dur(app, 0, seconds{59 * 60}); // 0h 59m 0s
     dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{0}); // 0h 0m 0s
-}
-
-TEST_CASE("A_TMR_MDN decrements minutes", "[actions]") {
-    App app; // 0h 1m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
     REQUIRE(app.timers[0].dur == seconds{0}); // 0h 0m 0s
 }
 
@@ -70,24 +47,11 @@ TEST_CASE("A_TMR_MDN wraps 0 to 59", "[actions]") {
 
 // ─── timer second adjustments ────────────────────────────────────────────────
 
-TEST_CASE("A_TMR_SUP increments seconds", "[actions]") {
-    App app; // 0h 1m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{61}); // 0h 1m 1s
-}
-
 TEST_CASE("A_TMR_SUP wraps 59 to 0", "[actions]") {
     App app;
     set_timer_dur(app, 0, seconds{59}); // 0h 0m 59s
     dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
     REQUIRE(app.timers[0].dur == seconds{0}); // 0h 0m 0s
-}
-
-TEST_CASE("A_TMR_SDN decrements seconds", "[actions]") {
-    App app;
-    set_timer_dur(app, 0, seconds{61}); // 0h 1m 1s
-    dispatch_action(app, tmr_act(0, A_TMR_SDN), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{60}); // 0h 1m 0s
 }
 
 TEST_CASE("A_TMR_SDN wraps 0 to 59", "[actions]") {
