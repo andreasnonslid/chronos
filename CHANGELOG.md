@@ -302,7 +302,9 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.17.1...HEAD
+[1.17.1]: https://github.com/andreasnonslid/chronos/compare/v1.17.0...v1.17.1
+[1.17.0]: https://github.com/andreasnonslid/chronos/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/andreasnonslid/chronos/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/andreasnonslid/chronos/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/andreasnonslid/chronos/compare/v1.13.2...v1.14.0
