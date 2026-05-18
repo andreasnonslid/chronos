@@ -8,6 +8,7 @@
 #include "assert.hpp"
 #include "app.hpp"
 #include "config.hpp"
+#include "layout.hpp"
 #include "formatting.hpp"
 #include "pomodoro.hpp"
 #include "timer.hpp"
@@ -245,7 +246,13 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
     case A_CLK_CYCLE: {
         auto old_view = app.clock_view;
         app.clock_view = (ClockView)(((int)app.clock_view + 1) % CLOCK_VIEW_COUNT);
-        if (old_view == ClockView::Analog || app.clock_view == ClockView::Analog)
+        // Any view change that affects clock height (analog presence, stacked
+        // digital) needs a window resize. Compare effective heights at a
+        // baseline radius — the actual height also depends on analog_style,
+        // but width-changes here are dominated by view kind.
+        Layout probe;
+        if (effective_clk_h(probe, old_view, app.analog_style.radius_pct) !=
+            effective_clk_h(probe, app.clock_view, app.analog_style.radius_pct))
             r.resize = true;
         r.save_config = true;
         break;

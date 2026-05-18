@@ -376,7 +376,7 @@ static int rect_bottom_after_scroll(const RECT& r, const Params& p) {
 static int tab_painted_content_bottom(HWND dlg, const Params& p) {
     switch (p.active_tab) {
     case TAB_CLOCK: {
-        if (p.clock_view != ClockView::Analog) {
+        if (!clock_view_has_analog(p.clock_view)) {
             return map_dlu(dlg, 70, 28, 80, 12).bottom;
         }
         // analog_preview is fixed/sticky and excluded from scroll content
@@ -522,7 +522,8 @@ static void tab_clock_init(HWND dlg, Params& p) {
     if (!combo) return;
 
     const wchar_t* clock_names[CLOCK_VIEW_COUNT] = {
-        L"24h + seconds", L"24h", L"12h + seconds", L"12h", L"Analog"
+        L"24h + seconds", L"24h", L"12h + seconds", L"12h", L"Analog",
+        L"Analog + 24h", L"24h / 12h stacked", L"Analog + 24h/12h",
     };
     for (int i = 0; i < CLOCK_VIEW_COUNT; ++i)
         SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)clock_names[i]);
@@ -738,7 +739,7 @@ static void paint_analog_settings(HWND dlg, HDC hdc, Params& p, int sdy) {
 static void paint_clock_tab(HWND dlg, HDC hdc, Params& p, int sdy) {
     auto& s = p.style;
     s.draw_label(hdc, shifted(map_dlu(dlg, 70, 28, 80, 12), sdy), L"Format");
-    if (p.clock_view != ClockView::Analog) return;
+    if (!clock_view_has_analog(p.clock_view)) return;
 
     const RECT& preview = p.rects.analog_preview;
     {
@@ -931,7 +932,7 @@ static INT_PTR on_left_button_down(HWND dlg, LPARAM lp) {
 
     POINT spt = {pt.x, pt.y + p->scroll_y};
 
-    if (p->active_tab == TAB_CLOCK && p->clock_view == ClockView::Analog) {
+    if (p->active_tab == TAB_CLOCK && clock_view_has_analog(p->clock_view)) {
         if (PtInRect(&p->rects.analog_min_ticks, spt)) {
             p->analog_style.show_minute_ticks = !p->analog_style.show_minute_ticks;
             InvalidateRect(dlg, nullptr, TRUE);
@@ -1148,7 +1149,7 @@ static INT_PTR on_right_button_down(HWND dlg, LPARAM lp) {
     auto* p = dialog_params(dlg);
     if (!p) return FALSE;
     close_value_edit(dlg, *p);
-    if (p->active_tab != TAB_CLOCK || p->clock_view != ClockView::Analog) return FALSE;
+    if (p->active_tab != TAB_CLOCK || !clock_view_has_analog(p->clock_view)) return FALSE;
 
     POINT spt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp) + p->scroll_y};
 

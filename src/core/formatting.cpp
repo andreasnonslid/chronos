@@ -7,6 +7,9 @@ std::string format_clock_text(ClockView view, int h, int m, int s) {
     switch (view) {
     case ClockView::H24_HMS:
     case ClockView::Analog:
+    case ClockView::Mixed_AnalogDigital:
+    case ClockView::Mixed_IntlLocal:
+    case ClockView::Mixed_AnalogIntlLocal:
         return std::format("{:02}:{:02}:{:02}", h, m, s);
     case ClockView::H24_HM:
         return std::format("{:02}:{:02}", h, m);

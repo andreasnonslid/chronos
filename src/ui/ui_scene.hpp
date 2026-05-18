@@ -220,9 +220,24 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
 inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, const MainSceneState& state,
                       const UiMakers& ui) {
     if (!state.show_clock) return;
-    int h = effective_clk_h(layout, state.clock_view, state.analog_style.radius_pct);
+    ClockView view = state.clock_view;
+    int h = effective_clk_h(layout, view, state.analog_style.radius_pct);
     add_divider(scene, 0, client_w, y, ui.divider());
-    if (state.clock_view == ClockView::Analog) {
+
+    // Hit-test backdrop so clicks in transparent regions of mixed views still
+    // cycle the clock view.
+    if (clock_view_is_mixed(view)) {
+        Op bg{};
+        bg.kind = OpKind::FillRect;
+        bg.rect = {0, y, client_w, y + h};
+        bg.id = A_CLK_CYCLE;
+        scene.ops.push_back(std::move(bg));
+    }
+
+    auto digital_24 = [&] { return format_clock_text(ClockView::H24_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
+    auto digital_12 = [&] { return format_clock_text(ClockView::H12_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
+
+    if (view == ClockView::Analog) {
         scene.analog_clock = AnalogClockOp{
             .rect = {0, y, client_w, y + h},
             .style = state.analog_style,
@@ -231,6 +246,39 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
             .second = state.wall_second,
             .id = A_CLK_CYCLE,
         };
+    } else if (view == ClockView::Mixed_AnalogDigital) {
+        int mid = client_w / 2;
+        scene.analog_clock = AnalogClockOp{
+            .rect = {0, y, mid, y + h},
+            .style = state.analog_style,
+            .hour = state.wall_hour,
+            .minute = state.wall_minute,
+            .second = state.wall_second,
+            .id = A_CLK_CYCLE,
+        };
+        add_text(scene, {mid, y, client_w, y + h}, digital_24(), ui.text(), Align::Center, A_CLK_CYCLE,
+                 TextStyle::Big);
+    } else if (view == ClockView::Mixed_IntlLocal) {
+        int half = h / 2;
+        add_text(scene, {0, y, client_w, y + half}, digital_24(), ui.text(), Align::Center, A_CLK_CYCLE,
+                 TextStyle::Big);
+        add_text(scene, {0, y + half, client_w, y + h}, digital_12(), ui.text(), Align::Center, A_CLK_CYCLE,
+                 TextStyle::Big);
+    } else if (view == ClockView::Mixed_AnalogIntlLocal) {
+        int mid = client_w / 2;
+        int half = h / 2;
+        scene.analog_clock = AnalogClockOp{
+            .rect = {0, y, mid, y + h},
+            .style = state.analog_style,
+            .hour = state.wall_hour,
+            .minute = state.wall_minute,
+            .second = state.wall_second,
+            .id = A_CLK_CYCLE,
+        };
+        add_text(scene, {mid, y, client_w, y + half}, digital_24(), ui.text(), Align::Center, A_CLK_CYCLE,
+                 TextStyle::Large);
+        add_text(scene, {mid, y + half, client_w, y + h}, digital_12(), ui.text(), Align::Center, A_CLK_CYCLE,
+                 TextStyle::Large);
     } else {
         add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE,
                  TextStyle::Big);

@@ -190,7 +190,8 @@ TEST_CASE("Config theme round-trip", "[config]") {
 }
 
 TEST_CASE("Config clock_view round-trip", "[config]") {
-    for (auto view : {ClockView::H24_HMS, ClockView::H24_HM, ClockView::H12_HMS, ClockView::H12_HM, ClockView::Analog}) {
+    for (auto view : {ClockView::H24_HMS, ClockView::H24_HM, ClockView::H12_HMS, ClockView::H12_HM, ClockView::Analog,
+                       ClockView::Mixed_AnalogDigital, ClockView::Mixed_IntlLocal, ClockView::Mixed_AnalogIntlLocal}) {
         Config orig;
         orig.clock_view = view;
         std::ostringstream os;

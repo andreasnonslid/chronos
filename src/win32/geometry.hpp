@@ -31,10 +31,12 @@ inline int nonclient_height(HWND hwnd) {
 // width that lets the clock actually reach the requested radius_pct.
 inline int min_client_w_for(const WndState& s) {
     int w = s.layout.bar_min_client_w();
-    if (s.app.show_clk && s.app.clock_view == ClockView::Analog &&
+    if (s.app.show_clk && clock_view_has_analog(s.app.clock_view) &&
         s.app.analog_style.radius_pct > 100) {
-        int analog_h = effective_clk_h(s.layout, ClockView::Analog, s.app.analog_style.radius_pct);
-        w = std::max(w, analog_h);
+        int analog_h = effective_clk_h(s.layout, s.app.clock_view, s.app.analog_style.radius_pct);
+        // Analog occupies half the width in mixed-with-analog views.
+        int needed = (s.app.clock_view == ClockView::Analog) ? analog_h : analog_h * 2;
+        w = std::max(w, needed);
     }
     return w;
 }

@@ -108,7 +108,8 @@ struct TimerMetrics {
 // accommodate radius_pct > 100 while painting itself stays clamped to the
 // area. Digital views ignore radius_pct.
 inline int effective_clk_h(const Layout& layout, ClockView view, int analog_radius_pct = 100) {
-    if (view != ClockView::Analog) return layout.clk_h;
+    if (view == ClockView::Mixed_IntlLocal) return layout.clk_h * 2;
+    if (!clock_view_has_analog(view)) return layout.clk_h;
     int scale = analog_radius_pct < 100 ? 100 : analog_radius_pct;
     return layout.analog_clk_h * scale / 100;
 }
