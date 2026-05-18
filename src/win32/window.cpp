@@ -1,5 +1,6 @@
 #include "window.hpp"
 #include <windows.h>
+#include <windowsx.h>
 #include <shellapi.h>
 #include <memory>
 #include "debug.hpp"
