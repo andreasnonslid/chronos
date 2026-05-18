@@ -117,9 +117,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_NCHITTEST: {
-        // Extend the bottom resize grip into the client area so corners are
-        // easy to grab on a narrow window. Default NC hit-testing handles the
-        // title bar, sides, and the existing non-client border already.
+        // Extend resize grips into the client area on all sides so the corners
+        // and edges remain reachable on a narrow window. The NC border handles
+        // the outer frame; this covers the inner client-area strip.
         LRESULT hit = DefWindowProcW(hwnd, msg, wp, lp);
         if (hit == HTCLIENT) {
             POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
@@ -133,6 +133,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (near_bottom && near_left)  return HTBOTTOMLEFT;
             if (near_bottom && near_right) return HTBOTTOMRIGHT;
             if (near_bottom)               return HTBOTTOM;
+            if (near_left)                 return HTLEFT;
+            if (near_right)                return HTRIGHT;
         }
         return hit;
     }
