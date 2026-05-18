@@ -289,7 +289,7 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
     int gap = layout.dpi_scale(6);
     int bh = layout.dpi_scale(28);
     int pad = layout.dpi_scale(8);
-    int bw = (client_w - 2 * pad - 2 * gap) / 3;
+    int bw = std::max(1, (client_w - 2 * pad - 2 * gap) / 3);
     int x0 = pad;
     int by = y + layout.dpi_scale(46);
     int radius = layout.dpi_scale(6);
@@ -394,7 +394,7 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
     int pad = layout.dpi_scale(8);
     int by = y + layout.tmr_h - bh;
     if (timer.pomodoro) {
-        int cw3 = (client_w - 2 * pad - 2 * gap) / 3;
+        int cw3 = std::max(1, (client_w - 2 * pad - 2 * gap) / 3);
         int cx0 = pad;
         add_action_button(scene, ui, {cx0, by, cx0 + cw3, by + bh}, timer.running ? "Pause" : "Start",
                           ButtonConfig{.active = timer.running, .radius_px = radius},
@@ -404,7 +404,7 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
         add_action_button(scene, ui, {cx0 + 2 * (cw3 + gap), by, cx0 + 3 * cw3 + 2 * gap, by + bh}, "Reset",
                           ButtonConfig{.radius_px = radius}, tmr_act(index, A_TMR_RST), blink_act);
     } else {
-        int cw2 = (client_w - 2 * pad - gap) / 2;
+        int cw2 = std::max(1, (client_w - 2 * pad - gap) / 2);
         int cx0 = pad;
         add_action_button(scene, ui, {cx0, by, cx0 + cw2, by + bh}, timer.running ? "Pause" : "Start",
                           ButtonConfig{.active = timer.running, .radius_px = radius},
