@@ -90,18 +90,29 @@ TEST_CASE("format_lap_row: large lap number", "[formatting]") {
 }
 
 // ── format_worked_time ─────────────────────────────────────────────────────
+// Left as individual cases: a previous GENERATE consolidation reliably failed
+// on the Windows MSYS2/MinGW64 CI runner (clang21 + libstdc++ <format> with
+// wchar_t) while passing everywhere else; rather than chase the platform
+// quirk, keep each row in its own TEST_CASE so any future regression is local.
 
-TEST_CASE("format_worked_time renders \"Worked: …\" with the right h/m parts",
-          "[formatting]") {
-    struct Row { long long secs; std::wstring expected; };
-    auto row = GENERATE(values<Row>({
-        {0,            L"Worked: 0m"},
-        {25 * 60,      L"Worked: 25m"},
-        {25 * 60 + 30, L"Worked: 25m"},      // sub-minute truncated
-        {75 * 60,      L"Worked: 1h 15m"},
-        {2 * 3600,     L"Worked: 2h 00m"},   // exact hours pad to 2 digits
-    }));
-    REQUIRE(format_worked_time(seconds{row.secs}) == row.expected);
+TEST_CASE("format_worked_time: zero", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{0}) == L"Worked: 0m");
+}
+
+TEST_CASE("format_worked_time: minutes only", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{25 * 60}) == L"Worked: 25m");
+}
+
+TEST_CASE("format_worked_time: sub-minute truncated", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{25 * 60 + 30}) == L"Worked: 25m");
+}
+
+TEST_CASE("format_worked_time: hours and minutes", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{75 * 60}) == L"Worked: 1h 15m");
+}
+
+TEST_CASE("format_worked_time: exact hours pad to two digits", "[formatting]") {
+    REQUIRE(format_worked_time(seconds{2 * 3600}) == L"Worked: 2h 00m");
 }
 
 // ── negative duration clamping ──────────────────────────────────────────────
