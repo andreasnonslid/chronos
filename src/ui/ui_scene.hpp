@@ -224,16 +224,6 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
     int h = effective_clk_h(layout, view, state.analog_style.radius_pct);
     add_divider(scene, 0, client_w, y, ui.divider());
 
-    // Hit-test backdrop so clicks in transparent regions of mixed views still
-    // cycle the clock view.
-    if (clock_view_is_mixed(view)) {
-        Op bg{};
-        bg.kind = OpKind::FillRect;
-        bg.rect = {0, y, client_w, y + h};
-        bg.id = A_CLK_CYCLE;
-        scene.ops.push_back(std::move(bg));
-    }
-
     auto digital_24 = [&] { return format_clock_text(ClockView::H24_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
     auto digital_12 = [&] { return format_clock_text(ClockView::H12_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
 
