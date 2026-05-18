@@ -28,30 +28,39 @@ HFONT font_for(ui_scene::TextStyle style, const PaintCtx& ctx) {
     return ctx.res.fontSm;
 }
 
+// Builds a font with the same face/weight as the precreated big clock font but
+// at a specific pixel height. Keeping the face/weight in one place stops the
+// autofit path from drifting away from the static path (e.g., on a future
+// font-face change).
+HFONT make_clock_font_px(int px) {
+    return CreateFontW(-px, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                       CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+}
+
 // Picks the largest font height (in pixels) whose rendering of `text` fits
-// within `rc`. Returns a newly-created HFONT that the caller must DeleteObject.
+// within `rc` (both width AND height). Returns a newly-created HFONT that the
+// caller must DeleteObject.
 HFONT make_autofit_font(HDC hdc, const wchar_t* text, const RECT& rc) {
     int rect_w = rc.right - rc.left;
     int rect_h = rc.bottom - rc.top;
-    int max_h = std::max(8, rect_h * 8 / 10);
+    int max_h = std::max(8, rect_h * 9 / 10);
     int min_h = 8;
     int max_w = std::max(8, rect_w - 8);
+    int max_text_h = std::max(8, rect_h - 2);
     int h = max_h;
     while (h > min_h) {
-        HFONT f = CreateFontW(-h, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                              CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        HFONT f = make_clock_font_px(h);
         HFONT old = (HFONT)SelectObject(hdc, f);
         SIZE sz{};
         GetTextExtentPoint32W(hdc, text, (int)wcslen(text), &sz);
         SelectObject(hdc, old);
-        if (sz.cx <= max_w) return f;
+        if (sz.cx <= max_w && sz.cy <= max_text_h) return f;
         DeleteObject(f);
         int next = h * 9 / 10;
         if (next >= h) --next;
         h = next;
     }
-    return CreateFontW(-min_h, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-                       CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    return make_clock_font_px(min_h);
 }
 
 UINT text_format(ui_scene::Align align) {

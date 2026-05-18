@@ -530,6 +530,9 @@ inline int hit_test(const Scene& scene, int x, int y) {
     for (auto it = scene.ops.rbegin(); it != scene.ops.rend(); ++it) {
         if (it->id != 0 && contains(it->rect, x, y)) return it->id;
     }
+    if (scene.analog_clock && scene.analog_clock->id != 0 &&
+        contains(scene.analog_clock->rect, x, y))
+        return scene.analog_clock->id;
     return 0;
 }
 
