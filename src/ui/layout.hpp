@@ -76,6 +76,8 @@ struct LayoutState {
     int timer_count = 1;
     int alarm_count = 0;
     ClockView clock_view = ClockView::H24_HMS;
+    // Drives analog-clock height growth past 100% (see effective_clk_h).
+    int analog_radius_pct = 100;
 };
 
 struct TimerMetrics {
@@ -102,13 +104,18 @@ struct TimerMetrics {
     }
 };
 
-inline int effective_clk_h(const Layout& layout, ClockView view) {
-    return view == ClockView::Analog ? layout.analog_clk_h : layout.clk_h;
+// Analog clock height scales linearly past 100%: the drawing area grows to
+// accommodate radius_pct > 100 while painting itself stays clamped to the
+// area. Digital views ignore radius_pct.
+inline int effective_clk_h(const Layout& layout, ClockView view, int analog_radius_pct = 100) {
+    if (view != ClockView::Analog) return layout.clk_h;
+    int scale = analog_radius_pct < 100 ? 100 : analog_radius_pct;
+    return layout.analog_clk_h * scale / 100;
 }
 
 inline int client_height_for(const Layout& layout, const LayoutState& state) {
     int h = layout.bar_h;
-    if (state.show_clk) h += effective_clk_h(layout, state.clock_view);
+    if (state.show_clk) h += effective_clk_h(layout, state.clock_view, state.analog_radius_pct);
     if (state.show_sw) h += layout.sw_h;
     if (state.show_tmr) h += state.timer_count * layout.tmr_h;
     if (state.show_alarms) h += layout.alarm_header_h + (state.alarm_count > 0 ? state.alarm_count : 1) * layout.alarm_row_h;
@@ -118,7 +125,7 @@ inline int client_height_for(const Layout& layout, const LayoutState& state) {
 inline int timer_index_at_y(const Layout& layout, const LayoutState& state, int y) {
     if (!state.show_tmr) return -1;
     int top = layout.bar_h;
-    if (state.show_clk) top += effective_clk_h(layout, state.clock_view);
+    if (state.show_clk) top += effective_clk_h(layout, state.clock_view, state.analog_radius_pct);
     if (state.show_sw) top += layout.sw_h;
     if (y < top) return -1;
     int idx = (y - top) / layout.tmr_h;

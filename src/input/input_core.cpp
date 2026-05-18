@@ -60,9 +60,12 @@ void handle(HWND hwnd, int act, WndState& s) {
     if (r.open_settings) {
         auto old_theme = s.app.theme_mode;
         auto old_clock = s.app.clock_view;
+        int old_radius = s.app.analog_style.radius_pct;
         if (ui::show_settings_dialog(hwnd, s.app, (ui::FontHandle)s.fontSm.h, s.active_theme, s.layout.dpi)) {
             if (s.app.theme_mode != old_theme) apply_theme(hwnd, s);
-            if (s.app.clock_view != old_clock) resize_window(hwnd, s);
+            if (s.app.clock_view != old_clock ||
+                s.app.analog_style.radius_pct != old_radius)
+                resize_window(hwnd, s);
             save_config(hwnd, s);
         }
     }

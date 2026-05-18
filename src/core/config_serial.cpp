@@ -53,7 +53,7 @@ constexpr std::array<AnalogInt, 25> kAnalogInts = {{
     {"analog_second_opacity",     &AnalogClockStyle::second_opacity_pct, 10,  100},
     {"analog_tick_opacity",       &AnalogClockStyle::tick_opacity_pct,   10,  100},
     {"analog_face_opacity",       &AnalogClockStyle::face_opacity_pct,    0,  100},
-    {"analog_radius",             &AnalogClockStyle::radius_pct,         50,  100},
+    {"analog_radius",             &AnalogClockStyle::radius_pct,         50,  500},
 }};
 // hour_labels (enum) and show_minute_ticks (bool) handled inline.
 
