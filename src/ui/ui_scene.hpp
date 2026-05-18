@@ -289,8 +289,8 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
     int gap = layout.dpi_scale(6);
     int bh = layout.dpi_scale(28);
     int pad = layout.dpi_scale(8);
-    int bw = std::max(1, (client_w - 2 * pad - 2 * gap) / 3);
-    int x0 = pad;
+    int bw = std::clamp((client_w - 2 * pad - 2 * gap) / 3, 1, layout.dpi_scale(110));
+    int x0 = (client_w - 3 * bw - 2 * gap) / 2;
     int by = y + layout.dpi_scale(46);
     int radius = layout.dpi_scale(6);
     add_action_button(scene, ui, {x0, by, x0 + bw, by + bh}, state.stopwatch_running ? "Stop" : "Start",
@@ -314,8 +314,10 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
                        : state.stopwatch_has_lap_file   ? ui.palette.btn
                                                         : ui.palette.dim;
     const char* lap_label = state.stopwatch_lap_write_failed ? "Get Laps (!)" : "Get Laps";
+    int gbw = std::clamp(client_w - 2 * pad, 1, layout.dpi_scale(200));
+    int gbx = (client_w - gbw) / 2;
     add_action_button(scene, ui,
-                      {pad, y + layout.sw_h - gbh, client_w - pad, y + layout.sw_h},
+                      {gbx, y + layout.sw_h - gbh, gbx + gbw, y + layout.sw_h},
                       lap_label, ButtonConfig{.fill_override = lap_fill, .radius_px = radius},
                       state.stopwatch_has_lap_file ? A_SW_GET : 0, state.blink_act);
 
@@ -388,14 +390,14 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
         scene.ops.back().auto_fit = true;
     }
 
-    // Control buttons row — fill available width with a small side margin.
+    // Control buttons row — scale with window width up to a comfortable cap, then center.
     int gap = layout.dpi_scale(6);
     int bh = layout.dpi_scale(28);
     int pad = layout.dpi_scale(8);
     int by = y + layout.tmr_h - bh;
     if (timer.pomodoro) {
-        int cw3 = std::max(1, (client_w - 2 * pad - 2 * gap) / 3);
-        int cx0 = pad;
+        int cw3 = std::clamp((client_w - 2 * pad - 2 * gap) / 3, 1, layout.dpi_scale(90));
+        int cx0 = (client_w - 3 * cw3 - 2 * gap) / 2;
         add_action_button(scene, ui, {cx0, by, cx0 + cw3, by + bh}, timer.running ? "Pause" : "Start",
                           ButtonConfig{.active = timer.running, .radius_px = radius},
                           tmr_act(index, A_TMR_START), blink_act);
@@ -404,8 +406,8 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
         add_action_button(scene, ui, {cx0 + 2 * (cw3 + gap), by, cx0 + 3 * cw3 + 2 * gap, by + bh}, "Reset",
                           ButtonConfig{.radius_px = radius}, tmr_act(index, A_TMR_RST), blink_act);
     } else {
-        int cw2 = std::max(1, (client_w - 2 * pad - gap) / 2);
-        int cx0 = pad;
+        int cw2 = std::clamp((client_w - 2 * pad - gap) / 2, 1, layout.dpi_scale(140));
+        int cx0 = (client_w - 2 * cw2 - gap) / 2;
         add_action_button(scene, ui, {cx0, by, cx0 + cw2, by + bh}, timer.running ? "Pause" : "Start",
                           ButtonConfig{.active = timer.running, .radius_px = radius},
                           tmr_act(index, A_TMR_START), blink_act);
