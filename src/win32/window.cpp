@@ -115,6 +115,26 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         EndPaint(hwnd, &ps);
         return 0;
     }
+    case WM_NCHITTEST: {
+        // Extend the bottom resize grip into the client area so corners are
+        // easy to grab on a narrow window. Default NC hit-testing handles the
+        // title bar, sides, and the existing non-client border already.
+        LRESULT hit = DefWindowProcW(hwnd, msg, wp, lp);
+        if (hit == HTCLIENT) {
+            POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            ScreenToClient(hwnd, &pt);
+            RECT cr;
+            GetClientRect(hwnd, &cr);
+            int grip = s->layout.dpi_scale(10);
+            bool near_bottom = pt.y >= cr.bottom - grip;
+            bool near_left   = pt.x  <  grip;
+            bool near_right  = pt.x  >= cr.right - grip;
+            if (near_bottom && near_left)  return HTBOTTOMLEFT;
+            if (near_bottom && near_right) return HTBOTTOMRIGHT;
+            if (near_bottom)               return HTBOTTOM;
+        }
+        return hit;
+    }
     case WM_WINDOWPOSCHANGING: {
         // Enforce minimum height so the scene contents never get clipped.
         // Extra height beyond the minimum is absorbed by the clock widget.
