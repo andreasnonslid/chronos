@@ -299,6 +299,10 @@ static AnalogValueParts split_value_rect(const RECT& r) {
     return parts;
 }
 
+// Forward declarations used before their definitions appear later in the file.
+static Params* dialog_params(HWND dlg);
+static void close_value_edit(HWND dlg, Params& p);
+
 // ─── Scroll & visibility ──────────────────────────────────────────────────────
 
 // Returns the pixel y where the scrollable content area ends (top of button row).
@@ -479,8 +483,6 @@ static bool read_field(HWND dlg, int id, int& out) {
 static Params* dialog_params(HWND dlg) {
     return reinterpret_cast<Params*>(GetWindowLongPtrW(dlg, DWLP_USER));
 }
-
-static void close_value_edit(HWND dlg, Params& p);
 
 static constexpr struct { ThemeMode mode; int id; } kThemeMap[] = {
     {ThemeMode::Auto,  IDC_THEME_AUTO},
@@ -828,7 +830,12 @@ static INT_PTR on_draw_item(HWND dlg, LPARAM lp) {
 static LRESULT CALLBACK value_edit_subclass(HWND edit, UINT msg, WPARAM wp, LPARAM lp) {
     HWND parent = GetParent(edit);
     auto* p = dialog_params(parent);
-    if (!p) return DefWindowProcW(edit, msg, wp, lp);
+    if (!p || !p->orig_value_edit_proc) return DefWindowProcW(edit, msg, wp, lp);
+    if (msg == WM_GETDLGCODE) {
+        // Claim Return/Escape so the dialog manager doesn't forward them to
+        // the Apply/Cancel buttons before our WM_KEYDOWN handler runs.
+        return CallWindowProcW(p->orig_value_edit_proc, edit, msg, wp, lp) | DLGC_WANTALLKEYS;
+    }
     if (msg == WM_KEYDOWN) {
         if (wp == VK_RETURN) {
             SetFocus(parent);
@@ -891,11 +898,16 @@ static bool handle_value_edit_killfocus(HWND dlg, int id, HWND edit, Params& p) 
         if (end && *end == L'\0' && buf[0] != L'\0')
             *field = std::clamp((int)v, opt.min_value, opt.max_value);
     }
+    // Restore the stock EDIT proc before DestroyWindow so the WM_DESTROY /
+    // WM_NCDESTROY messages don't route through value_edit_subclass after we've
+    // already cleared its access to orig_value_edit_proc.
+    if (p.orig_value_edit_proc)
+        SetWindowLongPtrW(edit, GWLP_WNDPROC, (LONG_PTR)p.orig_value_edit_proc);
+    DestroyWindow(edit);
     p.value_edit_cancelled = false;
     p.editing_value_idx = -1;
     p.value_edit = nullptr;
     p.orig_value_edit_proc = nullptr;
-    DestroyWindow(edit);
     InvalidateRect(dlg, nullptr, TRUE);
     return true;
 }

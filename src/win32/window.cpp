@@ -124,9 +124,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_GETMINMAXINFO: {
         // Only enforce minimum width; height is handled by WM_WINDOWPOSCHANGING.
+        // Oversized analog clocks need the larger min_client_w too, otherwise
+        // the user could drag the window narrower and silently clip the clock.
         auto* m = (MINMAXINFO*)lp;
         DWORD ws = (DWORD)GetWindowLongW(hwnd, GWL_STYLE);
-        RECT adj{0, 0, s->layout.bar_min_client_w(), 0};
+        RECT adj{0, 0, min_client_w_for(*s), 0};
         AdjustWindowRectEx(&adj, ws, FALSE, 0);
         m->ptMinTrackSize.x = adj.right - adj.left;
         return 0;
