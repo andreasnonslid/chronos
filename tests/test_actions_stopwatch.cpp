@@ -4,12 +4,6 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
-#ifndef _WIN32
-#  include <unistd.h>
-#else
-#  include <process.h>
-#  define getpid _getpid
-#endif
 #include "actions.hpp"
 #include "app.hpp"
 #include "test_helpers.hpp"
@@ -116,18 +110,18 @@ TEST_CASE("A_SW_GET clears stale path when file is missing", "[actions]") {
     REQUIRE(app.sw_lap_file.empty());
 }
 
-// Build a temp path unique to this process + monotonic counter so neither
-// concurrent runs nor leftover artifacts from a crashed previous run can make
-// these tests flake.
+// Build a temp path unique to this run so leftover artifacts from a previous
+// crashed run cannot make these tests flake. Catch2 runs the test binary
+// sequentially within one process, so an atomic counter combined with the
+// monotonic clock at process start is enough; no PID dance needed.
 static std::filesystem::path unique_tmp(std::string_view suffix) {
     static std::atomic<unsigned long long> seq{0};
+    static const auto start_ns =
+        std::chrono::steady_clock::now().time_since_epoch().count();
     auto n = seq.fetch_add(1, std::memory_order_relaxed);
-    auto pid = static_cast<unsigned long long>(::getpid());
-    auto ns = std::chrono::steady_clock::now().time_since_epoch().count();
     return std::filesystem::temp_directory_path()
-           / (std::string{"chronos-test-"} + std::to_string(pid) + "-"
-              + std::to_string(ns) + "-" + std::to_string(n) + "-"
-              + std::string{suffix});
+           / (std::string{"chronos-test-"} + std::to_string(start_ns) + "-"
+              + std::to_string(n) + "-" + std::string{suffix});
 }
 
 TEST_CASE("actions-stopwatch: given unwritable lap-file path when A_SW_LAP dispatched"
