@@ -31,10 +31,12 @@ inline int nonclient_height(HWND hwnd) {
 // width that lets the clock actually reach the requested radius_pct.
 inline int min_client_w_for(const WndState& s) {
     int w = s.layout.bar_min_client_w();
-    if (s.app.show_clk && s.app.clock_view == ClockView::Analog &&
+    if (s.app.show_clk && clock_view_has_analog(s.app.clock_view) &&
         s.app.analog_style.radius_pct > 100) {
-        int analog_h = effective_clk_h(s.layout, ClockView::Analog, s.app.analog_style.radius_pct);
-        w = std::max(w, analog_h);
+        int analog_h = effective_clk_h(s.layout, s.app.clock_view, s.app.analog_style.radius_pct);
+        // Analog occupies half the width in mixed-with-analog views.
+        int needed = (s.app.clock_view == ClockView::Analog) ? analog_h : analog_h * 2;
+        w = std::max(w, needed);
     }
     return w;
 }
@@ -43,10 +45,13 @@ inline void resize_window(HWND hwnd, const WndState& s) {
     RECT wr;
     GetWindowRect(hwnd, &wr);
     int cur_w = wr.right - wr.left;
+    int cur_h = wr.bottom - wr.top;
     RECT cr;
     GetClientRect(hwnd, &cr);
     int nonclient_w = cur_w - cr.right;
     int min_w = min_client_w_for(s) + nonclient_w;
     int new_w = std::max(cur_w, min_w);
-    SetWindowPos(hwnd, nullptr, 0, 0, new_w, client_height(s) + nonclient_height(hwnd), SWP_NOMOVE | SWP_NOZORDER);
+    int min_h = client_height(s) + nonclient_height(hwnd);
+    int new_h = std::max(cur_h, min_h);
+    SetWindowPos(hwnd, nullptr, 0, 0, new_w, new_h, SWP_NOMOVE | SWP_NOZORDER);
 }

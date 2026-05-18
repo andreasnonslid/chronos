@@ -1,6 +1,8 @@
 #include "painting_scene.hpp"
 #include <windows.h>
+#include <algorithm>
 #include <chrono>
+#include <cwchar>
 #include <string>
 #include "actions.hpp"
 #include "app.hpp"
@@ -24,6 +26,41 @@ HFONT font_for(ui_scene::TextStyle style, const PaintCtx& ctx) {
     case ui_scene::TextStyle::Small: return ctx.res.fontSm;
     }
     return ctx.res.fontSm;
+}
+
+// Builds a font with the same face/weight as the precreated big clock font but
+// at a specific pixel height. Keeping the face/weight in one place stops the
+// autofit path from drifting away from the static path (e.g., on a future
+// font-face change).
+HFONT make_clock_font_px(int px) {
+    return CreateFontW(-px, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                       CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+}
+
+// Picks the largest font height (in pixels) whose rendering of `text` fits
+// within `rc` (both width AND height). Returns a newly-created HFONT that the
+// caller must DeleteObject.
+HFONT make_autofit_font(HDC hdc, const wchar_t* text, const RECT& rc) {
+    int rect_w = rc.right - rc.left;
+    int rect_h = rc.bottom - rc.top;
+    int max_h = std::max(8, rect_h * 9 / 10);
+    int min_h = 8;
+    int max_w = std::max(8, rect_w - 8);
+    int max_text_h = std::max(8, rect_h - 2);
+    int h = max_h;
+    while (h > min_h) {
+        HFONT f = make_clock_font_px(h);
+        HFONT old = (HFONT)SelectObject(hdc, f);
+        SIZE sz{};
+        GetTextExtentPoint32W(hdc, text, (int)wcslen(text), &sz);
+        SelectObject(hdc, old);
+        if (sz.cx <= max_w && sz.cy <= max_text_h) return f;
+        DeleteObject(f);
+        int next = h * 9 / 10;
+        if (next >= h) --next;
+        h = next;
+    }
+    return make_clock_font_px(min_h);
 }
 
 UINT text_format(ui_scene::Align align) {
@@ -52,7 +89,10 @@ void render_op(HDC hdc, const ui_scene::Op& op, PaintCtx& ctx) {
         std::wstring w = utf8_to_wide(op.text);
         UINT fmt = text_format(op.align);
         if (op.end_ellipsis) fmt |= DT_END_ELLIPSIS;
-        win_paint_text(hdc, rc, w.c_str(), font_for(op.text_style, ctx), TextPaint{.color = op.text_color}, fmt);
+        HFONT fit = op.auto_fit ? make_autofit_font(hdc, w.c_str(), rc) : nullptr;
+        win_paint_text(hdc, rc, w.c_str(), fit ? fit : font_for(op.text_style, ctx),
+                       TextPaint{.color = op.text_color}, fmt);
+        if (fit) DeleteObject(fit);
         break;
     }
     case OpKind::Button: {
@@ -96,6 +136,11 @@ void paint_all(HDC hdc, int cw, int ch, PaintCtx& ctx) {
     UiMakers ui = make_ui(ctx.theme.palette);
     auto scene_state = ui_scene::main_scene_state_from_app(ctx.app, ctx.now, st.wHour, st.wMinute, st.wSecond,
                                                            ctx.global_hotkey_ok);
+    // Absorb any extra client height (user dragged the window taller than the
+    // computed minimum) into the clock widget so it scales with the window.
+    int computed_h = ui_scene::main_scene_height(ctx.layout, scene_state);
+    if (scene_state.show_clock && ch > computed_h)
+        scene_state.extra_clock_h = ch - computed_h;
     auto scene = ui_scene::build_main_scene(ctx.layout, cw, scene_state, ui);
     paint_scene(hdc, scene, ctx);
 }

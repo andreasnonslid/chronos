@@ -44,6 +44,7 @@ struct Op {
     Align align = Align::Left;
     TextStyle text_style = TextStyle::Small;
     bool end_ellipsis = false;  // text Ops: clip with "…" when overflowing
+    bool auto_fit = false;      // text Ops: choose font size to fill the rect
     int id = 0;
 };
 
@@ -102,6 +103,10 @@ struct MainSceneState {
     bool stopwatch_has_lap_file = false;
     bool stopwatch_lap_write_failed = false;
     ClockView clock_view = ClockView::H24_HMS;
+    // Extra pixels to grant the clock widget on top of effective_clk_h, so
+    // user-driven window-height enlargement makes the clock taller rather
+    // than leaving empty space at the bottom.
+    int extra_clock_h = 0;
     std::string clock_text = "00:00:00";
     std::string stopwatch_text = "00:00.000";
     // Single-line lap summary shown below the stopwatch buttons.
@@ -220,9 +225,18 @@ inline void add_toolbar(Scene& scene, const Layout& layout, int client_w, const 
 inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, const MainSceneState& state,
                       const UiMakers& ui) {
     if (!state.show_clock) return;
-    int h = effective_clk_h(layout, state.clock_view, state.analog_style.radius_pct);
+    ClockView view = state.clock_view;
+    int h = effective_clk_h(layout, view, state.analog_style.radius_pct) + std::max(0, state.extra_clock_h);
     add_divider(scene, 0, client_w, y, ui.divider());
-    if (state.clock_view == ClockView::Analog) {
+
+    auto digital_24 = [&] { return format_clock_text(ClockView::H24_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
+    auto digital_12 = [&] { return format_clock_text(ClockView::H12_HMS, state.wall_hour, state.wall_minute, state.wall_second); };
+    auto add_digital = [&](RectI rect, std::string text) {
+        add_text(scene, rect, std::move(text), ui.text(), Align::Center, A_CLK_CYCLE, TextStyle::Big);
+        scene.ops.back().auto_fit = true;
+    };
+
+    if (view == ClockView::Analog) {
         scene.analog_clock = AnalogClockOp{
             .rect = {0, y, client_w, y + h},
             .style = state.analog_style,
@@ -231,9 +245,36 @@ inline void add_clock(Scene& scene, const Layout& layout, int client_w, int& y, 
             .second = state.wall_second,
             .id = A_CLK_CYCLE,
         };
+    } else if (view == ClockView::Mixed_AnalogDigital) {
+        int mid = client_w / 2;
+        scene.analog_clock = AnalogClockOp{
+            .rect = {0, y, mid, y + h},
+            .style = state.analog_style,
+            .hour = state.wall_hour,
+            .minute = state.wall_minute,
+            .second = state.wall_second,
+            .id = A_CLK_CYCLE,
+        };
+        add_digital({mid, y, client_w, y + h}, digital_24());
+    } else if (view == ClockView::Mixed_IntlLocal) {
+        int half = h / 2;
+        add_digital({0, y, client_w, y + half}, digital_24());
+        add_digital({0, y + half, client_w, y + h}, digital_12());
+    } else if (view == ClockView::Mixed_AnalogIntlLocal) {
+        int mid = client_w / 2;
+        int half = h / 2;
+        scene.analog_clock = AnalogClockOp{
+            .rect = {0, y, mid, y + h},
+            .style = state.analog_style,
+            .hour = state.wall_hour,
+            .minute = state.wall_minute,
+            .second = state.wall_second,
+            .id = A_CLK_CYCLE,
+        };
+        add_digital({mid, y, client_w, y + half}, digital_24());
+        add_digital({mid, y + half, client_w, y + h}, digital_12());
     } else {
-        add_text(scene, {0, y, client_w, y + h}, state.clock_text, ui.text(), Align::Center, A_CLK_CYCLE,
-                 TextStyle::Big);
+        add_digital({0, y, client_w, y + h}, state.clock_text);
     }
     y += h;
 }
@@ -402,7 +443,9 @@ inline void add_help_overlay(Scene& scene, const Layout& layout, int client_w, i
 
 inline int main_scene_height(const Layout& layout, const MainSceneState& state) {
     int h = layout.bar_h;
-    if (state.show_clock) h += effective_clk_h(layout, state.clock_view, state.analog_style.radius_pct);
+    if (state.show_clock)
+        h += effective_clk_h(layout, state.clock_view, state.analog_style.radius_pct) +
+             std::max(0, state.extra_clock_h);
     if (state.show_stopwatch) h += layout.sw_h;
     if (state.show_timers) h += (int)state.timers.size() * layout.tmr_h;
     if (state.show_alarms)
@@ -487,6 +530,9 @@ inline int hit_test(const Scene& scene, int x, int y) {
     for (auto it = scene.ops.rbegin(); it != scene.ops.rend(); ++it) {
         if (it->id != 0 && contains(it->rect, x, y)) return it->id;
     }
+    if (scene.analog_clock && scene.analog_clock->id != 0 &&
+        contains(scene.analog_clock->rect, x, y))
+        return scene.analog_clock->id;
     return 0;
 }
 

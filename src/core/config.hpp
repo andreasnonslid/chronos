@@ -10,10 +10,26 @@ enum class ThemeMode { Auto = 0, Light = 1, Dark = 2 };
 inline constexpr int THEME_MODE_COUNT = 3;
 static_assert((int)ThemeMode::Dark == THEME_MODE_COUNT - 1,
               "THEME_MODE_COUNT out of sync with ThemeMode enum");
-enum class ClockView { H24_HMS = 0, H24_HM = 1, H12_HMS = 2, H12_HM = 3, Analog = 4 };
-inline constexpr int CLOCK_VIEW_COUNT = 5;
-static_assert((int)ClockView::Analog == CLOCK_VIEW_COUNT - 1,
+// Mixed views combine two readouts in one clock area:
+//  - Mixed_AnalogDigital:    analog face (left) + 24h digital (right)
+//  - Mixed_IntlLocal:        24h digital (top) stacked on 12h digital (bottom)
+//  - Mixed_AnalogIntlLocal:  analog face (left) + 24h/12h stack (right)
+enum class ClockView {
+    H24_HMS = 0, H24_HM = 1, H12_HMS = 2, H12_HM = 3, Analog = 4,
+    Mixed_AnalogDigital = 5, Mixed_IntlLocal = 6, Mixed_AnalogIntlLocal = 7,
+};
+inline constexpr int CLOCK_VIEW_COUNT = 8;
+static_assert((int)ClockView::Mixed_AnalogIntlLocal == CLOCK_VIEW_COUNT - 1,
               "CLOCK_VIEW_COUNT out of sync with ClockView enum");
+
+inline bool clock_view_has_analog(ClockView v) {
+    return v == ClockView::Analog || v == ClockView::Mixed_AnalogDigital ||
+           v == ClockView::Mixed_AnalogIntlLocal;
+}
+inline bool clock_view_is_mixed(ClockView v) {
+    return v == ClockView::Mixed_AnalogDigital || v == ClockView::Mixed_IntlLocal ||
+           v == ClockView::Mixed_AnalogIntlLocal;
+}
 
 enum class HourLabels { None = 0, Sparse = 1, Full = 2 };
 

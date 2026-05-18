@@ -145,9 +145,23 @@ TEST_CASE("A_CLK_CYCLE cycles through all clock views", "[actions]") {
     REQUIRE(r4.resize);
 
     auto r5 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
-    REQUIRE(app.clock_view == ClockView::H24_HMS);
+    REQUIRE(app.clock_view == ClockView::Mixed_AnalogDigital);
     REQUIRE(r5.save_config);
-    REQUIRE(r5.resize);
+
+    auto r6 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::Mixed_IntlLocal);
+    REQUIRE(r6.save_config);
+    REQUIRE(r6.resize); // analog->stacked digital changes height
+
+    auto r7 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::Mixed_AnalogIntlLocal);
+    REQUIRE(r7.save_config);
+    REQUIRE(r7.resize); // stacked digital -> analog-mixed changes height
+
+    auto r8 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
+    REQUIRE(app.clock_view == ClockView::H24_HMS);
+    REQUIRE(r8.save_config);
+    REQUIRE(r8.resize);
 }
 
 TEST_CASE("A_CLK_CYCLE does not set resize between digital views", "[actions]") {
