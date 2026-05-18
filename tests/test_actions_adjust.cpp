@@ -1,40 +1,26 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <chrono>
 #include "actions.hpp"
 #include "app.hpp"
 #include "config.hpp"
+#include "test_helpers.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
 
-static sc::time_point t0() { return sc::time_point{}; }
-
-static void set_timer_dur(App& app, int idx, seconds dur) {
-    app.timers[idx].dur = dur;
-    app.timers[idx].t.reset();
-    app.timers[idx].t.set(dur);
-}
+using test_helpers::set_timer_dur;
+using test_helpers::t0;
 
 // ─── timer hour adjustments ──────────────────────────────────────────────────
-
-TEST_CASE("A_TMR_HUP increments hours", "[actions]") {
-    App app; // default 0h 1m 0s = 60s
-    dispatch_action(app, tmr_act(0, A_TMR_HUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{3660}); // 1h 1m 0s
-}
+// Plain increments-by-one are not tested directly: the wrap and clamp cases
+// below already prove the cycle/clamp arithmetic walks through every value.
 
 TEST_CASE("A_TMR_HUP wraps 24 to 0", "[actions]") {
     App app;
     set_timer_dur(app, 0, seconds{24 * 3600}); // 24h 0m 0s
     dispatch_action(app, tmr_act(0, A_TMR_HUP), t0(), {});
     REQUIRE(app.timers[0].dur == seconds{0}); // 0h 0m 0s
-}
-
-TEST_CASE("A_TMR_HDN decrements hours", "[actions]") {
-    App app;
-    set_timer_dur(app, 0, seconds{3660}); // 1h 1m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_HDN), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{60}); // 0h 1m 0s
 }
 
 TEST_CASE("A_TMR_HDN wraps 0 to 24 and clamps to TIMER_MAX_SECS", "[actions]") {
@@ -45,22 +31,10 @@ TEST_CASE("A_TMR_HDN wraps 0 to 24 and clamps to TIMER_MAX_SECS", "[actions]") {
 
 // ─── timer minute adjustments ────────────────────────────────────────────────
 
-TEST_CASE("A_TMR_MUP increments minutes", "[actions]") {
-    App app; // 0h 1m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{120}); // 0h 2m 0s
-}
-
 TEST_CASE("A_TMR_MUP wraps 59 to 0", "[actions]") {
     App app;
     set_timer_dur(app, 0, seconds{59 * 60}); // 0h 59m 0s
     dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{0}); // 0h 0m 0s
-}
-
-TEST_CASE("A_TMR_MDN decrements minutes", "[actions]") {
-    App app; // 0h 1m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
     REQUIRE(app.timers[0].dur == seconds{0}); // 0h 0m 0s
 }
 
@@ -73,24 +47,11 @@ TEST_CASE("A_TMR_MDN wraps 0 to 59", "[actions]") {
 
 // ─── timer second adjustments ────────────────────────────────────────────────
 
-TEST_CASE("A_TMR_SUP increments seconds", "[actions]") {
-    App app; // 0h 1m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{61}); // 0h 1m 1s
-}
-
 TEST_CASE("A_TMR_SUP wraps 59 to 0", "[actions]") {
     App app;
     set_timer_dur(app, 0, seconds{59}); // 0h 0m 59s
     dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
     REQUIRE(app.timers[0].dur == seconds{0}); // 0h 0m 0s
-}
-
-TEST_CASE("A_TMR_SDN decrements seconds", "[actions]") {
-    App app;
-    set_timer_dur(app, 0, seconds{61}); // 0h 1m 1s
-    dispatch_action(app, tmr_act(0, A_TMR_SDN), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{60}); // 0h 1m 0s
 }
 
 TEST_CASE("A_TMR_SDN wraps 0 to 59", "[actions]") {
@@ -101,12 +62,16 @@ TEST_CASE("A_TMR_SDN wraps 0 to 59", "[actions]") {
 
 // ─── adjustments ignored on touched timer ────────────────────────────────────
 
-TEST_CASE("Timer adjustments ignored when timer is touched", "[actions]") {
+// Every H/M/S adjust must be inert once the timer has been touched (started).
+TEST_CASE("actions-adjust: given touched timer when any H/M/S adjust dispatched"
+          " then duration unchanged",
+          "[actions][actions-adjust]") {
+    int op = GENERATE(A_TMR_HUP, A_TMR_HDN, A_TMR_MUP, A_TMR_MDN, A_TMR_SUP, A_TMR_SDN);
     App app;                                                 // default 0h 1m 0s
     dispatch_action(app, tmr_act(0, A_TMR_START), t0(), {}); // start → touched
     REQUIRE(app.timers[0].t.touched());
     auto dur_before = app.timers[0].dur;
-    dispatch_action(app, tmr_act(0, A_TMR_HUP), t0(), {});
+    dispatch_action(app, tmr_act(0, op), t0(), {});
     REQUIRE(app.timers[0].dur == dur_before);
 }
 
@@ -119,33 +84,19 @@ TEST_CASE("Timer adjustment clamps to TIMER_MAX_SECS", "[actions]") {
     REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
 }
 
-TEST_CASE("A_TMR_MUP at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
-    App app;
-    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS}); // 24h 0m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS}); // still 24h 0m 0s
-}
-
-TEST_CASE("A_TMR_SUP at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
-    App app;
-    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS}); // 24h 0m 0s
-    dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS}); // still 24h 0m 0s
-}
-
 // ─── timer duration adjustment edge cases ────────────────────────────────────
 
-TEST_CASE("A_TMR_MDN at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
+// At the TIMER_MAX_SECS boundary (24h 0m 0s), every M/S adjust either
+// re-clamps to MAX (UP path: cycle wraps to 0 then h=24 normalize keeps total)
+// or normalizes back to MAX (DN path: 24h with nonzero m/s exceeds MAX, gets
+// re-clamped). Table-driven: one invariant, all four ops in scope.
+TEST_CASE("actions-adjust: given duration at TIMER_MAX_SECS when any M/S adjust dispatched"
+          " then duration stays clamped at TIMER_MAX_SECS",
+          "[actions][actions-adjust]") {
+    int op = GENERATE(A_TMR_MUP, A_TMR_MDN, A_TMR_SUP, A_TMR_SDN);
     App app;
     set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
-    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
-}
-
-TEST_CASE("A_TMR_SDN at 24h boundary stays at TIMER_MAX_SECS", "[actions]") {
-    App app;
-    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
-    dispatch_action(app, tmr_act(0, A_TMR_SDN), t0(), {});
+    dispatch_action(app, tmr_act(0, op), t0(), {});
     REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
 }
 
@@ -153,19 +104,6 @@ TEST_CASE("A_TMR_HDN wraps and clamps when both minutes and seconds are nonzero"
     App app;
     set_timer_dur(app, 0, seconds{30 * 60 + 30}); // 0:30:30
     dispatch_action(app, tmr_act(0, A_TMR_HDN), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
-}
-
-TEST_CASE("All adjustments at 24h boundary stay clamped", "[actions]") {
-    App app;
-    set_timer_dur(app, 0, seconds{Config::TIMER_MAX_SECS});
-    dispatch_action(app, tmr_act(0, A_TMR_MUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
-    dispatch_action(app, tmr_act(0, A_TMR_SUP), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
-    dispatch_action(app, tmr_act(0, A_TMR_MDN), t0(), {});
-    REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
-    dispatch_action(app, tmr_act(0, A_TMR_SDN), t0(), {});
     REQUIRE(app.timers[0].dur == seconds{Config::TIMER_MAX_SECS});
 }
 

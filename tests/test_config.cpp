@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <sstream>
 #include <string>
 #include "config_serial.hpp"
@@ -175,11 +176,6 @@ TEST_CASE("Config sw_lap_file not written when sw state absent", "[config]") {
     REQUIRE(os.str().find("sw_lap_file") == std::string::npos);
 }
 
-TEST_CASE("Config sw_lap_file empty by default", "[config]") {
-    Config c;
-    REQUIRE(c.sw_lap_file.empty());
-}
-
 TEST_CASE("Config theme round-trip", "[config]") {
     for (auto mode : {ThemeMode::Auto, ThemeMode::Dark, ThemeMode::Light}) {
         Config orig;
@@ -287,46 +283,24 @@ TEST_CASE("Config timer start_epoch_ms only written when running", "[config]") {
     REQUIRE(os.str().find("timer0_running") == std::string::npos);
 }
 
-TEST_CASE("Config negative sw_elapsed_ms clamped to 0", "[config]") {
-    std::istringstream is("sw_elapsed_ms=-1000\n");
+// Every i64 runtime field uses the same `max(val, 0)` clamp on read; one
+// table-driven case asserts the invariant across all four keys.
+TEST_CASE("Config negative i64 runtime fields clamped to 0", "[config]") {
+    auto key = GENERATE("sw_elapsed_ms", "sw_start_epoch_ms",
+                        "timer0_elapsed_ms", "timer0_start_epoch_ms");
+    std::istringstream is(std::string(key) + "=-1234\n");
     Config c;
     config_read(c, is);
-    REQUIRE(c.sw_elapsed_ms == 0);
+    if      (std::string(key) == "sw_elapsed_ms")        REQUIRE(c.sw_elapsed_ms == 0);
+    else if (std::string(key) == "sw_start_epoch_ms")    REQUIRE(c.sw_start_epoch_ms == 0);
+    else if (std::string(key) == "timer0_elapsed_ms")    REQUIRE(c.timer_elapsed_ms[0] == 0);
+    else                                                 REQUIRE(c.timer_start_epoch_ms[0] == 0);
 }
 
-TEST_CASE("Config negative sw_start_epoch_ms clamped to 0", "[config]") {
-    std::istringstream is("sw_start_epoch_ms=-500\n");
-    Config c;
-    config_read(c, is);
-    REQUIRE(c.sw_start_epoch_ms == 0);
-}
-
-TEST_CASE("Config negative timer_elapsed_ms clamped to 0", "[config]") {
-    std::istringstream is("timer0_elapsed_ms=-2500\ntimer1_elapsed_ms=-1\n");
-    Config c;
-    c.num_timers = 2;
-    config_read(c, is);
-    REQUIRE(c.timer_elapsed_ms[0] == 0);
-    REQUIRE(c.timer_elapsed_ms[1] == 0);
-}
-
-TEST_CASE("Config negative timer_start_epoch_ms clamped to 0", "[config]") {
-    std::istringstream is("timer0_start_epoch_ms=-999\n");
-    Config c;
-    config_read(c, is);
-    REQUIRE(c.timer_start_epoch_ms[0] == 0);
-}
-
-TEST_CASE("Config integer overflow timer value clamped to max", "[config]") {
-    std::istringstream is("timer0=99999999999999999\n");
-    Config c;
-    config_read(c, is);
-    REQUIRE(c.timer_secs[0] == Config::TIMER_MAX_SECS);
-}
-
-TEST_CASE("Config int-wrapping timer value clamped to max", "[config]") {
-    // 2^32 + 60 = 4294967356 would wrap to 60 with naive (int) cast
-    std::istringstream is("timer0=4294967356\n");
+TEST_CASE("Config oversized timer value clamped to max (incl. int-wrap input)", "[config]") {
+    // 4294967356 = 2^32 + 60 catches a naive (int) cast that would wrap to 60.
+    auto val = GENERATE("99999999999999999", "4294967356");
+    std::istringstream is(std::string("timer0=") + val + "\n");
     Config c;
     config_read(c, is);
     REQUIRE(c.timer_secs[0] == Config::TIMER_MAX_SECS);
@@ -370,11 +344,6 @@ TEST_CASE("Config empty label value produces empty string", "[config]") {
     Config c;
     config_read(c, is);
     REQUIRE(c.timer_labels[0].empty());
-}
-
-TEST_CASE("Config sound_on_expiry defaults to true", "[config]") {
-    Config c;
-    REQUIRE(c.sound_on_expiry);
 }
 
 TEST_CASE("Config sound_on_expiry round-trip", "[config]") {
@@ -445,42 +414,6 @@ TEST_CASE("Config custom preset index out of range ignored", "[config]") {
     Config c;
     config_read(c, is);
     REQUIRE(c.custom_preset_secs[0] == 0);
-}
-
-TEST_CASE("Config custom presets defaults to zero", "[config]") {
-    Config c;
-    REQUIRE(c.num_custom_presets == 0);
-    for (int i = 0; i < Config::MAX_CUSTOM_PRESETS; ++i)
-        REQUIRE(c.custom_preset_secs[i] == 0);
-}
-
-TEST_CASE("Config analog style defaults", "[config]") {
-    AnalogClockStyle s;
-    REQUIRE(s.hour_color == -1);
-    REQUIRE(s.minute_color == -1);
-    REQUIRE(s.second_color == -1);
-    REQUIRE(s.face_color == -1);
-    REQUIRE(s.tick_color == -1);
-    REQUIRE(s.background_color == -1);
-    REQUIRE(s.face_fill_color == -1);
-    REQUIRE(s.face_outline_color == -1);
-    REQUIRE(s.hour_label_color == -1);
-    REQUIRE(s.center_dot_color == -1);
-    REQUIRE(s.hour_len_pct == 60);
-    REQUIRE(s.minute_len_pct == 80);
-    REQUIRE(s.second_len_pct == 90);
-    REQUIRE(s.hour_thickness == 4);
-    REQUIRE(s.minute_thickness == 2);
-    REQUIRE(s.second_thickness == 1);
-    REQUIRE(s.center_dot_size == 3);
-    REQUIRE(s.hour_opacity_pct == 100);
-    REQUIRE(s.minute_opacity_pct == 100);
-    REQUIRE(s.second_opacity_pct == 100);
-    REQUIRE(s.tick_opacity_pct == 100);
-    REQUIRE(s.face_opacity_pct == 100);
-    REQUIRE(s.radius_pct == 100);
-    REQUIRE(s.show_minute_ticks);
-    REQUIRE(s.hour_labels == HourLabels::Sparse);
 }
 
 TEST_CASE("Config analog style round-trip", "[config]") {

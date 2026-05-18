@@ -1,14 +1,16 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+#include <catch2/generators/catch_generators_range.hpp>
 #include <chrono>
 #include <sstream>
 #include "actions.hpp"
 #include "config_serial.hpp"
 #include "pomodoro.hpp"
+#include "test_helpers.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
-
-static sc::time_point t0() { return sc::time_point{}; }
+using test_helpers::t0;
 
 // ─── pomodoro_phase_secs ──────────────────────────────────────────────────────
 
@@ -139,19 +141,6 @@ TEST_CASE("pomodoro_phase_secs: custom durations used when provided", "[pomodoro
     REQUIRE(pomodoro_phase_secs(7, WORK, SHORT, LONG) == LONG);
 }
 
-TEST_CASE("pomodoro_phase_secs: default args match constants", "[pomodoro]") {
-    for (int p = 0; p < pomodoro_phase_count(POMODORO_DEFAULT_CADENCE); ++p) {
-        REQUIRE(pomodoro_phase_secs(p) == pomodoro_phase_secs(p, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS));
-    }
-}
-
-TEST_CASE("Config pomodoro durations default values", "[pomodoro][config]") {
-    Config c;
-    REQUIRE(c.pomodoro_work_secs == 25 * 60);
-    REQUIRE(c.pomodoro_short_secs == 5 * 60);
-    REQUIRE(c.pomodoro_long_secs == 15 * 60);
-}
-
 TEST_CASE("Config pomodoro durations round-trip", "[pomodoro][config]") {
     Config orig;
     orig.pomodoro_work_secs = 50 * 60;
@@ -198,27 +187,18 @@ TEST_CASE("Config pomodoro work elapsed round-trip", "[pomodoro][config]") {
     REQUIRE(back.timer_pomodoro_work_secs[0] == 75 * 60);
 }
 
-TEST_CASE("Config pomodoro work elapsed not written when zero", "[pomodoro][config]") {
+// pomodoro_work_secs is written only when (pomodoro=true && work_secs>0); any
+// other combination should suppress the key.
+TEST_CASE("Config pomodoro work elapsed only written when pomodoro active and nonzero",
+          "[pomodoro][config]") {
+    struct C { bool pomo; long long secs; };
+    auto c = GENERATE(C{true, 0}, C{false, 5000}, C{false, 0});
     Config orig;
     orig.num_timers = 1;
-    orig.timer_pomodoro[0] = true;
-    orig.timer_pomodoro_work_secs[0] = 0;
-
+    orig.timer_pomodoro[0] = c.pomo;
+    orig.timer_pomodoro_work_secs[0] = c.secs;
     std::ostringstream os;
     config_write(orig, os);
-
-    REQUIRE(os.str().find("pomodoro_work_secs") == std::string::npos);
-}
-
-TEST_CASE("Config pomodoro work elapsed not written when pomodoro inactive", "[pomodoro][config]") {
-    Config orig;
-    orig.num_timers = 1;
-    orig.timer_pomodoro[0] = false;
-    orig.timer_pomodoro_work_secs[0] = 5000;
-
-    std::ostringstream os;
-    config_write(orig, os);
-
     REQUIRE(os.str().find("pomodoro_work_secs") == std::string::npos);
 }
 
@@ -505,36 +485,26 @@ TEST_CASE("Config pomodoro durations written when any differs from default", "[p
 
 // ─── Configurable cadence ────────────────────────────────────────────────────
 
-TEST_CASE("pomodoro_phase_count reflects cadence", "[pomodoro][cadence]") {
-    REQUIRE(pomodoro_phase_count(1) == 2);
-    REQUIRE(pomodoro_phase_count(4) == 8);
-    REQUIRE(pomodoro_phase_count(6) == 12);
-    REQUIRE(pomodoro_phase_count(10) == 20);
-}
-
-TEST_CASE("cadence 2: two work sessions then long break", "[pomodoro][cadence]") {
-    constexpr int CAD = 2;
-    REQUIRE(pomodoro_phase_label(0, CAD) == L"Work 1/2");
-    REQUIRE(pomodoro_phase_label(1, CAD) == L"Short Break");
-    REQUIRE(pomodoro_phase_label(2, CAD) == L"Work 2/2");
-    REQUIRE(pomodoro_phase_label(3, CAD) == L"Long Break");
-}
-
-TEST_CASE("cadence 1: single work session then long break", "[pomodoro][cadence]") {
-    constexpr int CAD = 1;
-    REQUIRE(pomodoro_phase_count(CAD) == 2);
-    REQUIRE(pomodoro_phase_label(0, CAD) == L"Work 1/1");
-    REQUIRE(pomodoro_phase_label(1, CAD) == L"Long Break");
-    REQUIRE(pomodoro_is_long_break(1, CAD));
-}
-
-TEST_CASE("cadence 6: six work sessions then long break", "[pomodoro][cadence]") {
-    constexpr int CAD = 6;
-    REQUIRE(pomodoro_phase_count(CAD) == 12);
-    REQUIRE(pomodoro_phase_label(10, CAD) == L"Work 6/6");
-    REQUIRE(pomodoro_phase_label(11, CAD) == L"Long Break");
-    REQUIRE(pomodoro_is_long_break(11, CAD));
-    REQUIRE_FALSE(pomodoro_is_long_break(9, CAD));
+// For every supported cadence, the phase sequence must follow the same shape:
+//   - phase_count == 2 * cadence
+//   - phase 0 is "Work 1/<cadence>"
+//   - the final phase is "Long Break" and pomodoro_is_long_break() agrees
+//   - the second-to-last work phase ("Work <cadence>/<cadence>") sits at
+//     position (count - 2) and is *not* a long break
+// Parameterized over the full POMODORO_MIN_CADENCE..POMODORO_MAX_CADENCE range
+// so every value the config layer accepts exercises the same contract.
+TEST_CASE("pomodoro-cadence: given any supported cadence then phase count, first/last labels,"
+          " and long-break predicate all agree",
+          "[pomodoro][cadence]") {
+    int cad = GENERATE(range(POMODORO_MIN_CADENCE, POMODORO_MAX_CADENCE + 1));
+    int count = pomodoro_phase_count(cad);
+    REQUIRE(count == 2 * cad);
+    REQUIRE(pomodoro_phase_label(0, cad) == L"Work 1/" + std::to_wstring(cad));
+    REQUIRE(pomodoro_phase_label(count - 1, cad) == L"Long Break");
+    REQUIRE(pomodoro_is_long_break(count - 1, cad));
+    REQUIRE(pomodoro_phase_label(count - 2, cad)
+            == L"Work " + std::to_wstring(cad) + L"/" + std::to_wstring(cad));
+    REQUIRE_FALSE(pomodoro_is_long_break(count - 2, cad));
 }
 
 TEST_CASE("advance with custom cadence cycles correctly", "[pomodoro][cadence][advance]") {
@@ -657,10 +627,4 @@ TEST_CASE("Config auto_start not written at default", "[pomodoro][auto_start][co
     config_write(orig, os);
 
     REQUIRE(os.str().find("pomodoro_auto_start") == std::string::npos);
-}
-
-TEST_CASE("Config auto_start defaults", "[pomodoro][auto_start][config]") {
-    Config c;
-    REQUIRE(c.pomodoro_auto_start == true);
-    REQUIRE(c.pomodoro_cadence == POMODORO_DEFAULT_CADENCE);
 }

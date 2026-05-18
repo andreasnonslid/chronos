@@ -3,18 +3,14 @@
 #include "actions.hpp"
 #include "app.hpp"
 #include "config.hpp"
+#include "test_helpers.hpp"
 
 using namespace std::chrono;
 using sc = steady_clock;
 
-static sc::time_point t0() { return sc::time_point{}; }
-static sc::time_point at_ms(int ms) { return t0() + milliseconds(ms); }
-
-static void set_timer_dur(App& app, int idx, seconds dur) {
-    app.timers[idx].dur = dur;
-    app.timers[idx].t.reset();
-    app.timers[idx].t.set(dur);
-}
+using test_helpers::at_ms;
+using test_helpers::set_timer_dur;
+using test_helpers::t0;
 
 // ─── timer start / pause / resume ────────────────────────────────────────────
 
