@@ -117,24 +117,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_NCHITTEST: {
-        // Extend resize grips into the client area on all sides so the corners
-        // and edges remain reachable on a narrow window. The NC border handles
-        // the outer frame; this covers the inner client-area strip.
         LRESULT hit = DefWindowProcW(hwnd, msg, wp, lp);
+        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+        ScreenToClient(hwnd, &pt);
+        RECT cr;
+        GetClientRect(hwnd, &cr);
+        int corner = s->layout.dpi_scale(10);
+        int edge   = s->layout.dpi_scale(4);
+        bool near_left   = pt.x <  corner;
+        bool near_right  = pt.x >= cr.right - corner;
+        bool near_bottom = pt.y >= cr.bottom - corner;
+        // Corner overrides run unconditionally: DefWindowProc can return HTRIGHT
+        // or HTBOTTOM at a geometric corner position, preventing diagonal resize.
+        if (near_bottom && near_left)  return HTBOTTOMLEFT;
+        if (near_bottom && near_right) return HTBOTTOMRIGHT;
+        // Edge overrides only extend the grip into the client area.
         if (hit == HTCLIENT) {
-            POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
-            ScreenToClient(hwnd, &pt);
-            RECT cr;
-            GetClientRect(hwnd, &cr);
-            int grip = s->layout.dpi_scale(10);
-            bool near_bottom = pt.y >= cr.bottom - grip;
-            bool near_left   = pt.x  <  grip;
-            bool near_right  = pt.x  >= cr.right - grip;
-            if (near_bottom && near_left)  return HTBOTTOMLEFT;
-            if (near_bottom && near_right) return HTBOTTOMRIGHT;
-            if (near_bottom)               return HTBOTTOM;
-            if (near_left)                 return HTLEFT;
-            if (near_right)                return HTRIGHT;
+            if (pt.y >= cr.bottom - edge) return HTBOTTOM;
+            if (near_left)                return HTLEFT;
+            if (near_right)               return HTRIGHT;
         }
         return hit;
     }
