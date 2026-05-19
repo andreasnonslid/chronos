@@ -19,3 +19,7 @@ clean:
 
 run: build
     build/chronos.exe
+
+arch-lint:
+    python3 scripts/check_layer_deps.py
+

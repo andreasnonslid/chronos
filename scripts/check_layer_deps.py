@@ -1,64 +1,84 @@
 #!/usr/bin/env python3
-from pathlib import Path
+"""Enforce architectural layer include boundaries.
+
+Default mode: fail only on *new* violations while allowing a documented baseline.
+Strict mode: fail on any violation, including baseline entries.
+"""
+
+from __future__ import annotations
+
 import argparse
 import re
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*[<\"]([^\">]+)[\">]')
-
-FORBIDDEN_BY_DIR = {
-    "core": ["windows.h", "dwmapi.h", "X11/", "src/win32/", "src/linux/"],
-    "ui": ["windows.h", "dwmapi.h", "X11/", "src/win32/", "src/linux/"],
-    "win32": ["src/linux/"],
-    "linux": ["src/win32/"],
-}
-
-BASELINE_ALLOW = {
-    "src/core/encoding.cpp:5:windows.h",
-    "src/ui/icon.hpp:2:windows.h",
-    "src/ui/paint_ctx.hpp:2:windows.h",
-    "src/ui/theme.hpp:2:windows.h",
-}
-
 TARGET_EXTS = {".hpp", ".h", ".cpp", ".cc", ".cxx"}
 
+# Keyed by first directory under src/.
+FORBIDDEN_BY_LAYER: dict[str, tuple[str, ...]] = {
+    "core": ("windows.h", "dwmapi.h", "X11/", "src/win32/", "src/linux/"),
+    "ui": ("windows.h", "dwmapi.h", "X11/", "src/win32/", "src/linux/"),
+    "win32": ("src/linux/",),
+    "linux": ("src/win32/",),
+}
 
-def layer_of(path: Path) -> str | None:
+# Existing violations tracked during migration.
+# Format: (<repo-relative path>, <included header>)
+BASELINE_ALLOW: set[tuple[str, str]] = {
+    ("src/core/encoding.cpp", "windows.h"),
+    ("src/ui/icon.hpp", "windows.h"),
+    ("src/ui/paint_ctx.hpp", "windows.h"),
+    ("src/ui/theme.hpp", "windows.h"),
+}
+
+
+def detect_layer(path: Path) -> str | None:
     parts = path.relative_to(SRC).parts
     return parts[0] if parts else None
 
 
+def iter_sources(root: Path):
+    for path in root.rglob("*"):
+        if path.suffix in TARGET_EXTS and path.is_file():
+            yield path
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--strict", action="store_true", help="Fail for all violations including baseline allowlist")
+    parser = argparse.ArgumentParser(description="Check forbidden include edges by source layer.")
+    parser.add_argument("--strict", action="store_true", help="Fail on all violations, including baseline allowlist entries.")
     args = parser.parse_args()
 
-    violations: list[str] = []
+    all_violations: list[str] = []
     new_violations: list[str] = []
 
-    for path in SRC.rglob("*"):
-        if path.suffix not in TARGET_EXTS:
+    for path in iter_sources(SRC):
+        layer = detect_layer(path)
+        if layer not in FORBIDDEN_BY_LAYER:
             continue
-        layer = layer_of(path)
-        if layer not in FORBIDDEN_BY_DIR:
-            continue
-        forbidden_patterns = FORBIDDEN_BY_DIR[layer]
-        for idx, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), start=1):
+
+        forbidden = FORBIDDEN_BY_LAYER[layer]
+        rel = path.relative_to(ROOT).as_posix()
+        text = path.read_text(encoding="utf-8", errors="ignore")
+
+        for lineno, line in enumerate(text.splitlines(), start=1):
             m = INCLUDE_RE.match(line)
             if not m:
                 continue
-            inc = m.group(1)
-            for pattern in forbidden_patterns:
-                if pattern in inc:
-                    rel = path.relative_to(ROOT)
-                    key = f"{rel}:{idx}:{inc}"
-                    msg = f"{rel}:{idx}: forbidden include '{inc}' (matched '{pattern}')"
-                    violations.append(msg)
-                    if key not in BASELINE_ALLOW:
-                        new_violations.append(msg)
-                    break
+
+            include = m.group(1)
+            matched = next((pat for pat in forbidden if pat in include), None)
+            if not matched:
+                continue
+
+            msg = f"{rel}:{lineno}: forbidden include '{include}' (matched '{matched}')"
+            all_violations.append(msg)
+
+            if (rel, include) not in BASELINE_ALLOW:
+                new_violations.append(msg)
 
     if new_violations:
         print("New layer dependency violations found:")
@@ -66,17 +86,17 @@ def main() -> int:
             print(f"- {v}")
         return 1
 
-    if violations and not args.strict:
-        print("Layer dependency audit passed with baseline exceptions:")
-        for v in violations:
-            print(f"- {v}")
-        return 0
-
-    if violations and args.strict:
+    if all_violations and args.strict:
         print("Layer dependency violations found:")
-        for v in violations:
+        for v in all_violations:
             print(f"- {v}")
         return 1
+
+    if all_violations:
+        print("Layer dependency audit passed with baseline exceptions:")
+        for v in all_violations:
+            print(f"- {v}")
+        return 0
 
     print("Layer dependency audit passed.")
     return 0

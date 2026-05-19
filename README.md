@@ -106,10 +106,16 @@ Linux builds use an experimental X11/Xlib backend that renders the shared main C
 
 ### Architecture guardrails
 
-Run the layer dependency audit script to catch forbidden include edges early:
+Run the dependency audit to detect forbidden include edges:
 
 ```
 python3 scripts/check_layer_deps.py
+```
+
+Use strict mode to fail on all known violations during cleanup work:
+
+```
+python3 scripts/check_layer_deps.py --strict
 ```
 
 Rules and rationale are documented in [`docs/ARCHITECTURE_GUARDRAILS.md`](docs/ARCHITECTURE_GUARDRAILS.md).
