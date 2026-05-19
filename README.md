@@ -103,6 +103,17 @@ The primary application is the **Windows** desktop UI, implemented with Win32 an
 
 Linux builds use an experimental X11/Xlib backend that renders the shared main Chronos scene through a lightweight X11 adapter. It now drives the same `App` state and action dispatcher for core keyboard and mouse interactions (start/stop stopwatch, laps, reset, timer start/reset/add/remove, clock/theme toggles) while the platform layer is being split out. Windows remains the primary, fully native desktop UI with dialogs, tray integration, label editing, and full mouse handling. The logic-portable layer (timers, stopwatch, config serialization, Pomodoro state machine, formatting) has no Win32 dependencies and compiles on Linux. CI runs the unit test suite on Linux to verify this layer independently of the Windows UI.
 
+
+### Architecture guardrails
+
+Run the layer dependency audit script to catch forbidden include edges early:
+
+```
+python3 scripts/check_layer_deps.py
+```
+
+Rules and rationale are documented in [`docs/ARCHITECTURE_GUARDRAILS.md`](docs/ARCHITECTURE_GUARDRAILS.md).
+
 ### Debugging
 
 Run with `--debug` to write diagnostic logs to `debug.log` next to the executable.
