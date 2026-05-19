@@ -83,6 +83,19 @@ cmake --build build
 ./build/chronos_tests
 ```
 
+
+Catch2 dependency options:
+
+1. **Bundled submodule (preferred):** place Catch2 at `third_party/Catch2` (for example via git submodule).
+2. **System package:** install Catch2 so `find_package(Catch2 3 CONFIG)` succeeds.
+3. **Auto-fetch fallback:** CMake downloads Catch2 v3.5.2 when `CHRONOS_FETCH_CATCH2=ON` (default).
+
+For offline or hermetic builds, disable fetch and require vendored/system Catch2:
+
+```
+cmake --preset test -DCHRONOS_FETCH_CATCH2=OFF
+```
+
 Other presets for development:
 
 | Preset | Purpose |

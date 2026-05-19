@@ -108,14 +108,33 @@ add_custom_target(copy_compile_commands ALL
 )
 
 option(BUILD_TESTS "Build unit tests" OFF)
+option(CHRONOS_USE_BUNDLED_CATCH2 "Prefer third_party/Catch2 when present" ON)
+option(CHRONOS_FETCH_CATCH2 "Allow downloading Catch2 when not vendored" ON)
+
 if(BUILD_TESTS)
     enable_testing()
-    include(FetchContent)
-    FetchContent_Declare(Catch2
-        URL      https://github.com/catchorg/Catch2/archive/refs/tags/v3.5.2.tar.gz
-        URL_HASH SHA256=269543a49eb76f40b3f93ff231d4c24c27a7e16c90e47d2e45bcc564de470c6e
-    )
-    FetchContent_MakeAvailable(Catch2)
+
+    set(CHRONOS_CATCH2_SOURCE_DIR "${CMAKE_SOURCE_DIR}/third_party/Catch2")
+
+    if(CHRONOS_USE_BUNDLED_CATCH2 AND EXISTS "${CHRONOS_CATCH2_SOURCE_DIR}/CMakeLists.txt")
+        message(STATUS "Using bundled Catch2 from third_party/Catch2")
+        add_subdirectory("${CHRONOS_CATCH2_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/_deps/catch2-build" EXCLUDE_FROM_ALL)
+        set(catch2_SOURCE_DIR "${CHRONOS_CATCH2_SOURCE_DIR}")
+    else()
+        find_package(Catch2 3 CONFIG QUIET)
+        if(NOT Catch2_FOUND)
+            if(CHRONOS_FETCH_CATCH2)
+                include(FetchContent)
+                FetchContent_Declare(Catch2
+                    URL      https://github.com/catchorg/Catch2/archive/refs/tags/v3.5.2.tar.gz
+                    URL_HASH SHA256=269543a49eb76f40b3f93ff231d4c24c27a7e16c90e47d2e45bcc564de470c6e
+                )
+                FetchContent_MakeAvailable(Catch2)
+            else()
+                message(FATAL_ERROR "Catch2 not found. Provide third_party/Catch2, install Catch2 via package manager, or set CHRONOS_FETCH_CATCH2=ON")
+            endif()
+        endif()
+    endif()
 
     add_executable(chronos_tests
         tests/test_stopwatch.cpp
