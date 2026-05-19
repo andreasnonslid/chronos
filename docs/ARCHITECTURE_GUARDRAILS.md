@@ -25,12 +25,13 @@ Forbidden includes:
 Run:
 
 ```bash
-python3 scripts/check_layer_deps.py
+python3 scripts/check_layer_deps.py --fail-on-stale-baseline
 ```
 
 Modes:
 
 - **Default mode**: fails only on newly introduced violations, while allowing the documented migration baseline.
+- **Baseline hygiene mode** (`--fail-on-stale-baseline`): fails when allowlist entries are obsolete so baseline debt is actively reduced.
 - **Strict mode** (`--strict`): fails on every violation, including baseline entries.
 
 ## Cleanup strategy

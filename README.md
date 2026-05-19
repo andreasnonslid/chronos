@@ -122,7 +122,7 @@ Linux builds use an experimental X11/Xlib backend that renders the shared main C
 Run the dependency audit to detect forbidden include edges:
 
 ```
-python3 scripts/check_layer_deps.py
+python3 scripts/check_layer_deps.py --fail-on-stale-baseline
 ```
 
 Use strict mode to fail on all known violations during cleanup work:
@@ -132,6 +132,13 @@ python3 scripts/check_layer_deps.py --strict
 ```
 
 Rules and rationale are documented in [`docs/ARCHITECTURE_GUARDRAILS.md`](docs/ARCHITECTURE_GUARDRAILS.md).
+
+Shortcuts:
+
+```
+just arch-lint
+just arch-lint-strict
+```
 
 ### Debugging
 
