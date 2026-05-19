@@ -286,9 +286,10 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
     add_text(scene, {0, y + layout.dpi_scale(4), client_w, y + layout.dpi_scale(44)}, state.stopwatch_text, ui.text(),
              Align::Center, 0, TextStyle::Big);
 
-    int bw = layout.dpi_scale(76);
     int gap = layout.dpi_scale(6);
     int bh = layout.dpi_scale(28);
+    int pad = layout.dpi_scale(8);
+    int bw = std::clamp((client_w - 2 * pad - 2 * gap) / 3, 1, layout.dpi_scale(110));
     int x0 = (client_w - 3 * bw - 2 * gap) / 2;
     int by = y + layout.dpi_scale(46);
     int radius = layout.dpi_scale(6);
@@ -308,14 +309,15 @@ inline void add_stopwatch(Scene& scene, const Layout& layout, int client_w, int&
 
     // "Get Laps" button: fill expresses state (failed/enabled/disabled);
     // action id is 0 when no lap file exists so input ignores the click.
-    int gbw = layout.dpi_scale(100);
     int gbh = layout.dpi_scale(18);
     UiColor lap_fill = state.stopwatch_lap_write_failed ? ui.palette.expire
                        : state.stopwatch_has_lap_file   ? ui.palette.btn
                                                         : ui.palette.dim;
     const char* lap_label = state.stopwatch_lap_write_failed ? "Get Laps (!)" : "Get Laps";
+    int gbw = std::clamp(client_w - 2 * pad, 1, layout.dpi_scale(200));
+    int gbx = (client_w - gbw) / 2;
     add_action_button(scene, ui,
-                      {(client_w - gbw) / 2, y + layout.sw_h - gbh, (client_w + gbw) / 2, y + layout.sw_h},
+                      {gbx, y + layout.sw_h - gbh, gbx + gbw, y + layout.sw_h},
                       lap_label, ButtonConfig{.fill_override = lap_fill, .radius_px = radius},
                       state.stopwatch_has_lap_file ? A_SW_GET : 0, state.blink_act);
 
@@ -336,6 +338,11 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
     }
 
     auto metrics = TimerMetrics::from(layout);
+    // Spread columns to 1/4, 2/4, 3/4 of the window width so extra space is used.
+    int orig_gap = metrics.col_gap;
+    metrics.col_gap = std::max(orig_gap, client_w / 4);
+    metrics.abw = std::min(metrics.abw * metrics.col_gap / orig_gap,
+                           metrics.col_gap - layout.dpi_scale(6));
     int hh_cx = client_w / 2 - metrics.col_gap;
     int mm_cx = client_w / 2;
     int ss_cx = client_w / 2 + metrics.col_gap;
@@ -359,7 +366,7 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
     if (!timer.touched && !timer.pomodoro) {
         // Idle non-pomodoro: three editable columns + arrow buttons.
         emit_arrows(metrics.up_off, "▲", A_TMR_HUP, A_TMR_MUP, A_TMR_SUP);
-        int field_half = layout.dpi_scale(22);
+        int field_half = layout.dpi_scale(22) * metrics.col_gap / orig_gap;
         int field_top = y + metrics.td_off;
         int field_bottom = field_top + layout.dpi_scale(40);
         struct Field { int cx; const std::string& text; };
@@ -367,7 +374,7 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
         for (const auto& f : fields)
             add_text(scene, {f.cx - field_half, field_top, f.cx + field_half, field_bottom},
                      f.text, ui.text(), Align::Center, 0, TextStyle::Big);
-        int sep_w = layout.dpi_scale(8);
+        int sep_w = layout.dpi_scale(8) * metrics.col_gap / orig_gap;
         int sep1_cx = (hh_cx + mm_cx) / 2;
         int sep2_cx = (mm_cx + ss_cx) / 2;
         add_text(scene, {sep1_cx - sep_w / 2, field_top, sep1_cx + sep_w / 2, field_bottom}, ":",
@@ -380,14 +387,16 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
         add_text(scene,
                  {0, y + metrics.up_off + layout.dpi_scale(20), client_w, y + metrics.dn_off + metrics.abh},
                  timer.readout, ui.text(TextConfig{.tone = timer.readout_tone}), Align::Center, 0, TextStyle::Large);
+        scene.ops.back().auto_fit = true;
     }
 
-    // Control buttons row.
+    // Control buttons row — scale with window width up to a comfortable cap, then center.
     int gap = layout.dpi_scale(6);
     int bh = layout.dpi_scale(28);
+    int pad = layout.dpi_scale(8);
     int by = y + layout.tmr_h - bh;
     if (timer.pomodoro) {
-        int cw3 = layout.dpi_scale(58);
+        int cw3 = std::clamp((client_w - 2 * pad - 2 * gap) / 3, 1, layout.dpi_scale(90));
         int cx0 = (client_w - 3 * cw3 - 2 * gap) / 2;
         add_action_button(scene, ui, {cx0, by, cx0 + cw3, by + bh}, timer.running ? "Pause" : "Start",
                           ButtonConfig{.active = timer.running, .radius_px = radius},
@@ -397,7 +406,7 @@ inline void add_timer(Scene& scene, const Layout& layout, int client_w, int& y, 
         add_action_button(scene, ui, {cx0 + 2 * (cw3 + gap), by, cx0 + 3 * cw3 + 2 * gap, by + bh}, "Reset",
                           ButtonConfig{.radius_px = radius}, tmr_act(index, A_TMR_RST), blink_act);
     } else {
-        int cw2 = layout.dpi_scale(86);
+        int cw2 = std::clamp((client_w - 2 * pad - gap) / 2, 1, layout.dpi_scale(140));
         int cx0 = (client_w - 2 * cw2 - gap) / 2;
         add_action_button(scene, ui, {cx0, by, cx0 + cw2, by + bh}, timer.running ? "Pause" : "Start",
                           ButtonConfig{.active = timer.running, .radius_px = radius},

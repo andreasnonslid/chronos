@@ -121,7 +121,7 @@ std::optional<LRESULT> dispatch_mouse(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp,
             RECT cr;
             GetClientRect(hwnd, &cr);
             int cw = cr.right;
-            int col_gap = TimerMetrics::from(s.layout).col_gap;
+            int col_gap = std::max(TimerMetrics::from(s.layout).col_gap, cw / 4);
             int sep1 = cw / 2 - col_gap / 2;
             int sep2 = cw / 2 + col_gap / 2;
             int off;

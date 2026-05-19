@@ -1,5 +1,6 @@
 #include "window.hpp"
 #include <windows.h>
+#include <windowsx.h>
 #include <shellapi.h>
 #include <memory>
 #include "debug.hpp"
@@ -114,6 +115,40 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         BitBlt(hdc, 0, 0, cr.right, cr.bottom, s->mdc, 0, 0, SRCCOPY);
         EndPaint(hwnd, &ps);
         return 0;
+    }
+    case WM_NCHITTEST: {
+        // Let DWM handle snap-layout regions and caption glass first.
+        LRESULT dh = 0;
+        if (DwmDefWindowProc(hwnd, msg, wp, lp, &dh)) return dh;
+
+        // Use window-rect + raw screen coordinates — NOT ScreenToClient+GetClientRect.
+        // On Windows 10/11 WS_THICKFRAME windows carry an invisible ~8 px resize
+        // border outside the visible window; GetWindowRect includes it, GetClientRect
+        // does not, so the old approach silently missed the outer resize strip.
+        POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+        RECT wr;
+        GetWindowRect(hwnd, &wr);
+        // grip: invisible border (~8 px) + a few px of client-area extension
+        int grip   = s->layout.dpi_scale(12);
+        // corner: wider zone so diagonal resize is easy to hit
+        int corner = s->layout.dpi_scale(20);
+
+        bool on_left     = pt.x <  wr.left   + grip;
+        bool on_right    = pt.x >= wr.right  - grip;
+        bool on_bottom   = pt.y >= wr.bottom - grip;
+        bool near_left   = pt.x <  wr.left   + corner;
+        bool near_right  = pt.x >= wr.right  - corner;
+        bool near_bottom = pt.y >= wr.bottom - corner;
+
+        if (on_bottom && near_left)   return HTBOTTOMLEFT;
+        if (on_bottom && near_right)  return HTBOTTOMRIGHT;
+        if (on_left   && near_bottom) return HTBOTTOMLEFT;
+        if (on_right  && near_bottom) return HTBOTTOMRIGHT;
+        if (on_bottom) return HTBOTTOM;
+        if (on_left)   return HTLEFT;
+        if (on_right)  return HTRIGHT;
+
+        return DefWindowProcW(hwnd, msg, wp, lp);
     }
     case WM_WINDOWPOSCHANGING: {
         // Enforce minimum height so the scene contents never get clipped.
