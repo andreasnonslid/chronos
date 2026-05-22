@@ -9,6 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Install MSYS2 + toolchain
@@ -71,6 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Install dependencies
@@ -114,6 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Install dependencies
@@ -157,6 +160,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Install dependencies
@@ -214,6 +218,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Install dependencies
@@ -257,6 +262,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Install dependencies
@@ -302,6 +308,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Install dependencies
@@ -333,6 +340,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install cppcheck
         run: sudo apt-get install -y cppcheck
