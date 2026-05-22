@@ -92,7 +92,7 @@ Catch2 dependency options:
 
 For offline or hermetic builds, disable fetch and require vendored/system Catch2:
 
-```
+```bash
 cmake --preset test -DCHRONOS_FETCH_CATCH2=OFF
 ```
 
@@ -121,13 +121,13 @@ Linux builds use an experimental X11/Xlib backend that renders the shared main C
 
 Run the dependency audit to detect forbidden include edges:
 
-```
+```bash
 python3 scripts/check_layer_deps.py --fail-on-stale-baseline
 ```
 
 Use strict mode to fail on all known violations during cleanup work:
 
-```
+```bash
 python3 scripts/check_layer_deps.py --strict
 ```
 

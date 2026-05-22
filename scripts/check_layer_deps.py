@@ -22,6 +22,8 @@ TARGET_EXTS = {".hpp", ".h", ".cpp", ".cc", ".cxx"}
 FORBIDDEN_BY_LAYER: dict[str, tuple[str, ...]] = {
     "core": ("windows.h", "dwmapi.h", "X11/", "src/win32/", "src/linux/"),
     "ui": ("windows.h", "dwmapi.h", "X11/", "src/win32/", "src/linux/"),
+    "painting": ("windows.h", "dwmapi.h", "X11/", "src/win32/", "src/linux/"),
+    "input": ("windows.h", "dwmapi.h", "X11/", "src/linux/"),
     "win32": ("src/linux/",),
     "linux": ("src/win32/",),
 }
