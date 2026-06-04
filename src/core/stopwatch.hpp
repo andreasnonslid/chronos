@@ -24,7 +24,7 @@ struct Stopwatch {
     void lap(tp now) {
         CHRONOS_ASSERT(running_);
         if (laps_.size() < MAX_LAPS) {
-            dur current = elapsed(now);
+            const dur current = elapsed(now);
             laps_.push_back(current - last_lap_elapsed_);
             last_lap_elapsed_ = current;
         }

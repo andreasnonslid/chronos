@@ -60,7 +60,7 @@ int  tmr_act(int i, int off);
 struct TmrDecoded { int idx; int off; };
 inline std::optional<TmrDecoded> tmr_decode(int act) {
     if (act < A_TMR_BASE || act >= A_ALARM_DEL) return std::nullopt;
-    int rel = act - A_TMR_BASE;
+    const int rel = act - A_TMR_BASE;
     return TmrDecoded{rel / TMR_STRIDE, rel % TMR_STRIDE};
 }
 

@@ -139,7 +139,7 @@ bool config_write(const Config& c, std::ostream& f) {
             if (!a.enabled) f << std::format("alarm{}_enabled=0\n", i);
         }
     }
-    Config def;
+    const Config def;
     if (c.pomodoro_work_secs  != def.pomodoro_work_secs ||
         c.pomodoro_short_secs != def.pomodoro_short_secs ||
         c.pomodoro_long_secs  != def.pomodoro_long_secs)
@@ -262,7 +262,7 @@ void normalize_alarm_dates(std::vector<Alarm>& alarms) {
     for (auto& a : alarms) {
         if (a.schedule != AlarmSchedule::Date) continue;
         int max_day = 31;
-        int mo = a.date_month, yr = a.date_year;
+        const int mo = a.date_month, yr = a.date_year;
         if (mo == 4 || mo == 6 || mo == 9 || mo == 11) max_day = 30;
         else if (mo == 2) max_day = (yr % 4 == 0 && (yr % 100 != 0 || yr % 400 == 0)) ? 29 : 28;
         if (a.date_day > max_day) a.date_day = max_day;
@@ -276,8 +276,8 @@ bool config_read(Config& c, std::istream& f) {
     for (std::string line; std::getline(f, line);) {
         auto eq = line.find('=');
         if (eq == std::string::npos) continue;
-        std::string_view key{line.data(), eq};
-        std::string_view rest{line.data() + eq + 1, line.size() - eq - 1};
+        const std::string_view key{line.data(), eq};
+        const std::string_view rest{line.data() + eq + 1, line.size() - eq - 1};
 
         if (read_string_key(c, key, rest)) continue;
         long long val;
@@ -297,7 +297,7 @@ bool config_read(Config& c, std::istream& f) {
 
         if      (key == "show_alarms")         c.show_alarms = val != 0;
         else if (key == "num_alarms") {
-            int n = clamp_int(val, 0, ALARM_MAX_COUNT);
+            const int n = clamp_int(val, 0, ALARM_MAX_COUNT);
             if (n > (int)c.alarms.size()) c.alarms.resize(n);
         }
         else if (key == "clock_view")          c.clock_view = (ClockView)clamp_int(val, 0, CLOCK_VIEW_COUNT - 1);

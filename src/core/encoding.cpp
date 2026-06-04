@@ -34,7 +34,8 @@ static_assert(sizeof(wchar_t) == 4, "Non-Windows encoding assumes wchar_t is UTF
 std::string wide_to_utf8(const std::wstring& w) {
     std::string out;
     out.reserve(w.size());
-    for (wchar_t wc : w) {
+    for (const wchar_t wc : w) {
+        if (wc < 0) continue;  // skip invalid (negative) code points
         auto cp = static_cast<uint32_t>(wc);
         if (cp < 0x80) {
             out += static_cast<char>(cp);
@@ -61,7 +62,7 @@ std::wstring utf8_to_wide(const std::string& s) {
     const auto* us = reinterpret_cast<const unsigned char*>(s.data());
     size_t i = 0;
     while (i < s.size()) {
-        unsigned char c = us[i++];
+        const unsigned char c = us[i++];
         uint32_t cp;
         int extra;
         if (c < 0x80)      { cp = c;        extra = 0; }

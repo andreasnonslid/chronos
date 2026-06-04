@@ -194,8 +194,8 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
             if (app.sw_lap_file.empty()) {
                 auto tp = std::chrono::system_clock::now();
                 auto days = std::chrono::floor<std::chrono::days>(tp);
-                std::chrono::year_month_day ymd{days};
-                std::chrono::hh_mm_ss hms{std::chrono::floor<std::chrono::milliseconds>(tp - days)};
+                const std::chrono::year_month_day ymd{days};
+                const std::chrono::hh_mm_ss hms{std::chrono::floor<std::chrono::milliseconds>(tp - days)};
                 auto lap_name = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt", (int)ymd.year(),
                                             (unsigned)ymd.month(), (unsigned)ymd.day(), hms.hours().count(),
                                             hms.minutes().count(), hms.seconds().count(), hms.subseconds().count());
@@ -250,7 +250,7 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
         // digital) needs a window resize. Compare effective heights at a
         // baseline radius — the actual height also depends on analog_style,
         // but width-changes here are dominated by view kind.
-        Layout probe;
+        const Layout probe;
         if (effective_clk_h(probe, old_view, app.analog_style.radius_pct) !=
             effective_clk_h(probe, app.clock_view, app.analog_style.radius_pct))
             r.resize = true;
@@ -275,14 +275,14 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
         break;
     default:
         if (act >= A_ALARM_DEL && act < A_ALARM_DEL + ALARM_MAX_COUNT) {
-            int i = act - A_ALARM_DEL;
+            const int i = act - A_ALARM_DEL;
             if (i >= 0 && i < (int)app.alarms.size()) {
                 app.alarms.erase(app.alarms.begin() + i);
                 r.resize = true;
                 r.save_config = true;
             }
         } else if (act >= A_ALARM_TOGGLE && act < A_ALARM_TOGGLE + ALARM_MAX_COUNT) {
-            int i = act - A_ALARM_TOGGLE;
+            const int i = act - A_ALARM_TOGGLE;
             if (i >= 0 && i < (int)app.alarms.size()) {
                 app.alarms[i].enabled = !app.alarms[i].enabled;
                 r.save_config = true;
