@@ -5,7 +5,7 @@
 #include <windows.h>
 #endif
 
-// ─── UTF-8 / wide string conversion ──────────────────────────────────────────
+// ─── UTF-8 / wide string conversion ────────────────────────────────────────────
 // On Windows: delegates to WideCharToMultiByte / MultiByteToWideChar (UTF-16).
 // On other platforms: manual UTF-32 ↔ UTF-8 (wchar_t is 4 bytes / UTF-32).
 
@@ -34,7 +34,8 @@ static_assert(sizeof(wchar_t) == 4, "Non-Windows encoding assumes wchar_t is UTF
 std::string wide_to_utf8(const std::wstring& w) {
     std::string out;
     out.reserve(w.size());
-    for (wchar_t wc : w) {
+    for (const wchar_t wc : w) {
+        if (wc < 0) continue;  // skip invalid (negative) code points
         auto cp = static_cast<uint32_t>(wc);
         if (cp < 0x80) {
             out += static_cast<char>(cp);
@@ -61,7 +62,7 @@ std::wstring utf8_to_wide(const std::string& s) {
     const auto* us = reinterpret_cast<const unsigned char*>(s.data());
     size_t i = 0;
     while (i < s.size()) {
-        unsigned char c = us[i++];
+        const unsigned char c = us[i++];
         uint32_t cp;
         int extra;
         if (c < 0x80)      { cp = c;        extra = 0; }
@@ -69,7 +70,7 @@ std::wstring utf8_to_wide(const std::string& s) {
         else if (c < 0xE0) { cp = c & 0x1F; extra = 1; }
         else if (c < 0xF0) { cp = c & 0x0F; extra = 2; }
         else if (c < 0xF5) { cp = c & 0x07; extra = 3; }
-        else               continue; // invalid lead byte (0xF5–0xFF), skip
+        else               continue; // invalid lead byte (0xF5– 0xFF), skip
         int got = 0;
         while (got < extra && i < s.size()) {
             cp = (cp << 6) | (us[i++] & 0x3F);

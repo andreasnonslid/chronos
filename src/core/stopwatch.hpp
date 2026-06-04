@@ -24,7 +24,7 @@ struct Stopwatch {
     void lap(tp now) {
         CHRONOS_ASSERT(running_);
         if (laps_.size() < MAX_LAPS) {
-            dur current = elapsed(now);
+            const dur current = elapsed(now);
             laps_.push_back(current - last_lap_elapsed_);
             last_lap_elapsed_ = current;
         }
@@ -38,31 +38,23 @@ struct Stopwatch {
         laps_.clear();
     }
 
-    dur elapsed(tp now) const {
-        if (running_) return accumulated_ + (now - start_time_);
-        return accumulated_;
-    }
-
     bool is_running() const { return running_; }
+    bool touched() const { return running_ || accumulated_.count() != 0 || !laps_.empty(); }
 
-    void restore(dur accumulated, bool running, tp now) {
-        reset();
-        accumulated_ = accumulated;
-        last_lap_elapsed_ = accumulated;
-        if (running) {
-            start_time_ = now;
-            running_ = true;
-        }
+    dur elapsed(tp now) const {
+        return accumulated_ + (running_ ? now - start_time_ : dur{});
     }
+
+    dur total_elapsed(tp now) const { return elapsed(now); }
 
     const std::vector<dur>& laps() const { return laps_; }
 
     dur cumulative() const { return last_lap_elapsed_; }
 
-  private:
+private:
     bool running_ = false;
-    tp start_time_ = {};
-    dur last_lap_elapsed_ = {};
-    dur accumulated_ = {};
+    tp   start_time_{};
+    dur  accumulated_{};
+    dur  last_lap_elapsed_{};
     std::vector<dur> laps_;
 };

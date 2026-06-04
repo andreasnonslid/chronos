@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.20.1] — 2026-06-04
+
+### Fixed
+- `wide_to_utf8` (Linux path) now skips negative `wchar_t` code points instead of silently producing invalid UTF-8; `wc` in the range-for is now `const` (`bugprone-signed-char-misuse`, `encoding.cpp:38`) (#413)
+- 14 variables across `actions.cpp`, `actions.hpp`, `config_serial.cpp`, `encoding.cpp`, and `stopwatch.hpp` that are assigned once and never mutated are now `const` (`misc-const-correctness`) (#413)
+
 ## [1.20.0] — 2026-06-04
 
 ### Changed
@@ -321,7 +327,8 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.20.0...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.20.1...HEAD
+[1.20.1]: https://github.com/andreasnonslid/chronos/compare/v1.20.0...v1.20.1
 [1.20.0]: https://github.com/andreasnonslid/chronos/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/andreasnonslid/chronos/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/andreasnonslid/chronos/compare/v1.17.1...v1.18.0
