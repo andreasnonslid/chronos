@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.18.0] — 2026-06-04
+
+### Added
+- Inline editing for analog clock value settings — click a numeric field in the analog clock settings panel to type a value directly; Enter confirms, Escape cancels (#403)
+
 ## [1.17.1] — 2026-05-17
 
 ### Added
@@ -302,7 +307,8 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.17.1...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/andreasnonslid/chronos/compare/v1.17.1...v1.18.0
 [1.17.1]: https://github.com/andreasnonslid/chronos/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/andreasnonslid/chronos/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/andreasnonslid/chronos/compare/v1.15.0...v1.16.0
