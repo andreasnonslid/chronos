@@ -23,21 +23,19 @@ function(chronos_use_lld target)
     endif()
 endfunction()
 
-# All sources use bare #include "foo.hpp" names; the include directories
-# below let the preprocessor find headers regardless of which subdir they
-# live in. Adding a new file = drop it in the right subdir, no include edits.
+# ─── Include directories ──────────────────────────────────────────────────────
+
 set(CHRONOS_INCLUDE_DIRS
     src
     src/core
     src/ui
+    src/platform
     src/input
     src/painting
-    src/win32
-    src/linux
 )
 
-# Logic-portable sources shared by the desktop app and unit tests.
-# Keep Windows.h-dependent files in the platform sections below.
+# ─── Core library (pure logic, no platform deps) ──────────────────────────────
+
 set(CHRONOS_CORE_SOURCES
     src/core/actions.cpp
     src/core/config_serial.cpp
@@ -50,53 +48,77 @@ target_include_directories(chronos_core PUBLIC ${CHRONOS_INCLUDE_DIRS})
 target_link_libraries(chronos_core PUBLIC chronos_project_options)
 set_target_properties(chronos_core PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 
-set(CHRONOS_APP_SOURCES src/main.cpp)
+# ─── Dear ImGui ───────────────────────────────────────────────────────────────
+
+set(IMGUI_DIR "${CMAKE_SOURCE_DIR}/third_party/imgui")
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+add_library(imgui STATIC ${IMGUI_SOURCES})
+target_include_directories(imgui PUBLIC
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
+
+# ─── SDL2 + OpenGL ───────────────────────────────────────────────────────────
+
+find_package(SDL2 REQUIRED)
+find_package(OpenGL REQUIRED)
+
+target_include_directories(imgui PUBLIC ${SDL2_INCLUDE_DIRS})
+target_link_libraries(imgui PUBLIC ${SDL2_LIBRARIES} OpenGL::GL)
+
+# Suppress warnings in vendored ImGui
+target_compile_options(imgui PRIVATE -w)
+
+# ─── Platform app sources (cross-platform ImGui layer) ────────────────────────
+
+set(CHRONOS_APP_SOURCES
+    src/platform/config_io.cpp
+    src/platform/analog_clock_imgui.cpp
+    src/platform/ui_app.cpp
+    src/platform/main_loop.cpp
+)
+
+# Screenshot support (opt-in via -DCHRONOS_SCREENSHOT=ON)
+option(CHRONOS_SCREENSHOT "Enable --screenshot flag to save a PNG frame" ON)
 
 if(WIN32)
-    list(APPEND CHRONOS_APP_SOURCES
-        src/win32/config_io.cpp
-        src/win32/dialog_style.cpp
-        src/input/input_core.cpp
-        src/input/input_keyboard.cpp
-        src/input/input_label_edit.cpp
-        src/input/input_mouse.cpp
-        src/painting/painting_analog.cpp
-        src/painting/painting_scene.cpp
-        src/win32/polling.cpp
-        src/win32/window.cpp
-        src/win32/alarm_dialog.cpp
-        src/win32/pomodoro_dialog.cpp
-        src/win32/ui_windows_app.cpp
-        src/win32/ui_windows_settings_dialog.cpp
-    )
     add_executable(chronos WIN32 ${CHRONOS_APP_SOURCES})
-
-    target_link_libraries(chronos PRIVATE chronos_core)
-    set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
-
     target_compile_definitions(chronos PRIVATE
-        WIN32_LEAN_AND_MEAN
-        NOMINMAX
-        UNICODE
-        _UNICODE
+        WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE
     )
-
     target_link_options(chronos PRIVATE
-        -static-libstdc++
-        -static-libgcc
+        -static-libstdc++ -static-libgcc
     )
     chronos_use_lld(chronos)
-
     target_link_libraries(chronos PRIVATE
+        chronos_core imgui
         -Wl,-Bstatic winpthread -Wl,-Bdynamic
-        gdi32 user32 dwmapi shell32 advapi32
+        shell32 advapi32
     )
-elseif(UNIX AND NOT APPLE)
-    find_package(X11 REQUIRED)
-    list(APPEND CHRONOS_APP_SOURCES src/linux/ui_linux.cpp)
+else()
     add_executable(chronos ${CHRONOS_APP_SOURCES})
-    target_link_libraries(chronos PRIVATE chronos_core X11::X11)
-    set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+    target_link_libraries(chronos PRIVATE chronos_core imgui)
+    chronos_use_lld(chronos)
+endif()
+
+set_target_properties(chronos PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+target_include_directories(chronos PRIVATE
+    ${CHRONOS_INCLUDE_DIRS}
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+    third_party
+)
+
+if(CHRONOS_SCREENSHOT)
+    target_compile_definitions(chronos PRIVATE CHRONOS_SCREENSHOT)
 endif()
 
 # Copy compile_commands.json to repo root after build so all editors find it
@@ -106,6 +128,8 @@ add_custom_target(copy_compile_commands ALL
         ${CMAKE_SOURCE_DIR}/compile_commands.json
     COMMENT "Copying compile_commands.json to repo root"
 )
+
+# ─── Tests ────────────────────────────────────────────────────────────────────
 
 option(BUILD_TESTS "Build unit tests" OFF)
 option(CHRONOS_USE_BUNDLED_CATCH2 "Prefer third_party/Catch2 when present" ON)
@@ -131,7 +155,7 @@ if(BUILD_TESTS)
                 )
                 FetchContent_MakeAvailable(Catch2)
             else()
-                message(FATAL_ERROR "Catch2 not found. Provide third_party/Catch2, install Catch2 via package manager, or set CHRONOS_FETCH_CATCH2=ON")
+                message(FATAL_ERROR "Catch2 not found.")
             endif()
         endif()
     endif()
@@ -155,14 +179,10 @@ if(BUILD_TESTS)
     chronos_use_lld(chronos_tests)
     if(WIN32)
         target_compile_definitions(chronos_tests PRIVATE
-            WIN32_LEAN_AND_MEAN
-            NOMINMAX
-            UNICODE
-            _UNICODE
+            WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE
         )
         target_link_options(chronos_tests PRIVATE
-            -static-libstdc++
-            -static-libgcc
+            -static-libstdc++ -static-libgcc
         )
     endif()
 
