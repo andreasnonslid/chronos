@@ -83,6 +83,19 @@ cmake --build build
 ./build/chronos_tests
 ```
 
+
+Catch2 dependency options:
+
+1. **Bundled submodule (preferred):** place Catch2 at `third_party/Catch2` (for example via git submodule).
+2. **System package:** install Catch2 so `find_package(Catch2 3 CONFIG)` succeeds.
+3. **Auto-fetch fallback:** CMake downloads Catch2 v3.5.2 when `CHRONOS_FETCH_CATCH2=ON` (default).
+
+For offline or hermetic builds, disable fetch and require vendored/system Catch2:
+
+```bash
+cmake --preset test -DCHRONOS_FETCH_CATCH2=OFF
+```
+
 Other presets for development:
 
 | Preset | Purpose |
@@ -102,6 +115,30 @@ Any editor using clangd (Neovim, VS Code with clangd extension, etc.) gets full 
 The primary application is the **Windows** desktop UI, implemented with Win32 and GDI.
 
 Linux builds use an experimental X11/Xlib backend that renders the shared main Chronos scene through a lightweight X11 adapter. It now drives the same `App` state and action dispatcher for core keyboard and mouse interactions (start/stop stopwatch, laps, reset, timer start/reset/add/remove, clock/theme toggles) while the platform layer is being split out. Windows remains the primary, fully native desktop UI with dialogs, tray integration, label editing, and full mouse handling. The logic-portable layer (timers, stopwatch, config serialization, Pomodoro state machine, formatting) has no Win32 dependencies and compiles on Linux. CI runs the unit test suite on Linux to verify this layer independently of the Windows UI.
+
+
+### Architecture guardrails
+
+Run the dependency audit to detect forbidden include edges:
+
+```bash
+python3 scripts/check_layer_deps.py --fail-on-stale-baseline
+```
+
+Use strict mode to fail on all known violations during cleanup work:
+
+```bash
+python3 scripts/check_layer_deps.py --strict
+```
+
+Rules and rationale are documented in [`docs/ARCHITECTURE_GUARDRAILS.md`](docs/ARCHITECTURE_GUARDRAILS.md).
+
+Shortcuts:
+
+```
+just arch-lint
+just arch-lint-strict
+```
 
 ### Debugging
 

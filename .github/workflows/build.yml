@@ -4,6 +4,15 @@ on:
   workflow_call:
 
 jobs:
+
+  architecture-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate layer boundaries
+        run: python3 scripts/check_layer_deps.py --fail-on-stale-baseline
+
   build-and-test:
     runs-on: windows-latest
     steps:
