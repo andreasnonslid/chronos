@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Alarm list no longer paints a striped/elevated background on every other row; newly added rows look identical to existing rows and no longer read as "highlighted" (#421)
+
 ## [1.20.1] — 2026-06-04
 
 ### Fixed

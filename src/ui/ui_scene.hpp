@@ -493,9 +493,6 @@ inline void add_alarms(Scene& scene, const Layout& layout, int client_w, int& y,
     for (int i = 0; i < (int)state.alarms.size(); ++i) {
         const auto& alarm = state.alarms[i];
         int row_bottom = y + layout.alarm_row_h;
-        // Striped row background on every other entry.
-        if (i % 2 == 1)
-            add_fill(scene, {0, y, client_w, row_bottom}, ui.surface(SurfaceConfig{.elevated = true}));
 
         int row_mid = y + layout.alarm_row_h / 2;
         int del_x = client_w - pad - del_w;
