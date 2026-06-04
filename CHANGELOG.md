@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.20.0] — 2026-06-04
+
+### Changed
+- Stopwatch and timer control rows use a responsive layout — labels and controls reflow at narrow window widths rather than clipping (#408)
+
+### Internal
+- Architecture guardrails document (`docs/ARCHITECTURE_GUARDRAILS.md`) and `scripts/check_layer_deps.py` audit script codify allowed cross-layer include edges; CI runs the script on every push (#411)
+- CI: Catch2 v3.8.1 added as a git submodule; valgrind, clang-tidy, and cppcheck analysis jobs added to the build workflow, scoped to `src/core/` (#412)
+
 ## [1.19.0] — 2026-06-04
 
 ### Added
@@ -312,7 +321,8 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.19.0...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/andreasnonslid/chronos/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/andreasnonslid/chronos/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/andreasnonslid/chronos/compare/v1.17.1...v1.18.0
 [1.17.1]: https://github.com/andreasnonslid/chronos/compare/v1.17.0...v1.17.1
