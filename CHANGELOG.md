@@ -5,6 +5,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.19.0] — 2026-06-04
+
+### Added
+- Mixed clock view modes — three new `ClockView` options pair the analog face with a 24h+seconds, 24h, or 12h+seconds digital readout; all six views cycle through the top-bar clock button and the Settings → Clock tab (#407)
+
 ## [1.18.0] — 2026-06-04
 
 ### Added
@@ -307,7 +312,8 @@ Initial public release.
 - `--debug` flag writing diagnostic logs to `debug.log`
 - MIT license
 
-[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.18.0...HEAD
+[Unreleased]: https://github.com/andreasnonslid/chronos/compare/v1.19.0...HEAD
+[1.19.0]: https://github.com/andreasnonslid/chronos/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/andreasnonslid/chronos/compare/v1.17.1...v1.18.0
 [1.17.1]: https://github.com/andreasnonslid/chronos/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/andreasnonslid/chronos/compare/v1.16.0...v1.17.0
