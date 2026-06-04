@@ -276,8 +276,9 @@ bool config_read(Config& c, std::istream& f) {
     for (std::string line; std::getline(f, line);) {
         auto eq = line.find('=');
         if (eq == std::string::npos) continue;
-        std::string_view key{line.data(), eq};
-        std::string_view rest{line.data() + eq + 1, line.size() - eq - 1};
+        std::string_view sv{line};
+        std::string_view key = sv.substr(0, eq);
+        std::string_view rest = sv.substr(eq + 1);
 
         if (read_string_key(c, key, rest)) continue;
         long long val;
