@@ -70,6 +70,11 @@ void save_config(App& app, const std::filesystem::path& path) {
     auto now_steady  = steady_clock::now();
     auto now_wall_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 
+    cfg.sw_running = app.sw.is_running();
+    cfg.sw_elapsed_ms = duration_cast<milliseconds>(app.sw.elapsed(now_steady)).count();
+    if (cfg.sw_running) cfg.sw_start_epoch_ms = now_wall_ms;
+    if (!app.sw_lap_file.empty()) cfg.sw_lap_file = wide_to_utf8(app.sw_lap_file.wstring());
+
     for (int i = 0; i < cfg.num_timers; ++i) {
         const auto& ts = app.timers[i];
         cfg.timer_secs[i]     = (int)duration_cast<seconds>(ts.dur).count();
@@ -128,6 +133,20 @@ bool load_config(App& app, const std::filesystem::path& path) {
     auto now_steady  = steady_clock::now();
     auto now_wall_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 
+    if (cfg.sw_elapsed_ms > 0 || cfg.sw_running) {
+        long long actual_ms = cfg.sw_elapsed_ms;
+        if (cfg.sw_running && cfg.sw_start_epoch_ms > 0) {
+            long long delta = now_wall_ms - cfg.sw_start_epoch_ms;
+            if (delta > 0) actual_ms += delta;
+        }
+        app.sw.restore(milliseconds{std::max(actual_ms, 0LL)}, cfg.sw_running, now_steady);
+        if (!cfg.sw_lap_file.empty()) {
+            auto p = std::filesystem::path{utf8_to_wide(cfg.sw_lap_file)};
+            std::error_code ec;
+            if (std::filesystem::exists(p, ec)) app.sw_lap_file = std::move(p);
+        }
+    }
+
     for (int i = 0; i < nt; ++i) {
         auto& ts = app.timers[i];
         ts.dur    = seconds{std::max(1, cfg.timer_secs[i])};
@@ -144,11 +163,10 @@ bool load_config(App& app, const std::filesystem::path& path) {
                 long long delta = now_wall_ms - cfg.timer_start_epoch_ms[i];
                 if (delta > 0) elapsed_ms += delta;
             }
-            elapsed_ms = std::clamp(elapsed_ms, 0LL,
-                                    (long long)duration_cast<milliseconds>(ts.dur).count());
-            long long rem_ms = duration_cast<milliseconds>(ts.dur).count() - elapsed_ms;
-            ts.t.set(milliseconds{rem_ms});
-            if (cfg.timer_running[i] && rem_ms > 0) ts.t.start(now_steady);
+            long long dur_ms = (long long)duration_cast<milliseconds>(ts.dur).count();
+            elapsed_ms = std::clamp(elapsed_ms, 0LL, dur_ms);
+            bool actually_running = cfg.timer_running[i] && elapsed_ms < dur_ms;
+            ts.t.restore(ts.dur, milliseconds{elapsed_ms}, actually_running, now_steady);
         }
     }
     return true;

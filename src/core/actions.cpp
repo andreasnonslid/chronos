@@ -205,6 +205,7 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
         } else {
             app.sw.stop(now);
         }
+        r.save_config = true;
         break;
     case A_SW_LAP:
         if (app.sw.is_running()) {
@@ -220,11 +221,13 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
                     app.lap_write_failed = true;
                 }
             }
+            r.save_config = true;
         }
         break;
     case A_SW_RESET:
         app.sw.reset();
         app.sw_lap_file.clear();
+        r.save_config = true;
         break;
     case A_SW_GET:
         if (!app.sw_lap_file.empty()) {

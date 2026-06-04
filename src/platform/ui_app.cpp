@@ -151,11 +151,34 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal) {
 
         if (clock_view_is_mixed(app.clock_view)) {
             ImGui::SameLine();
-            std::string txt = format_clock_text(app.clock_view, h, m, s);
             ImGui::SetWindowFontScale(1.6f);
-            ImGui::TextUnformatted(txt.c_str());
+            // Mixed_AnalogIntlLocal shows 24h/12h stacked; others just 24h
+            if (app.clock_view == ClockView::Mixed_AnalogIntlLocal) {
+                int h12 = h % 12; if (h12 == 0) h12 = 12;
+                ImGui::Text("%02d:%02d:%02d\n%d:%02d:%02d %s",
+                    h, m, s, h12, m, s, h < 12 ? "AM" : "PM");
+            } else {
+                std::string txt = format_clock_text(app.clock_view, h, m, s);
+                ImGui::TextUnformatted(txt.c_str());
+            }
             ImGui::SetWindowFontScale(1.f);
         }
+    } else if (app.clock_view == ClockView::Mixed_IntlLocal) {
+        // 24h on top, 12h below — both lines clickable to cycle
+        int h12 = h % 12; if (h12 == 0) h12 = 12;
+        std::string txt24 = std::format("{:02}:{:02}:{:02}", h, m, s);
+        std::string txt12 = std::format("{}:{:02}:{:02} {}", h12, m, s, h < 12 ? "AM" : "PM");
+        float avail = ImGui::GetContentRegionAvail().x;
+        ImGui::SetWindowFontScale(1.8f);
+        float tw24 = ImGui::CalcTextSize(txt24.c_str()).x;
+        if (tw24 < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw24) / 2.f);
+        if (ImGui::Selectable(txt24.c_str(), false, 0, {tw24, 0}))
+            dispatch_action(app, A_CLK_CYCLE, now, {});
+        float tw12 = ImGui::CalcTextSize(txt12.c_str()).x;
+        if (tw12 < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw12) / 2.f);
+        if (ImGui::Selectable(txt12.c_str(), false, 0, {tw12, 0}))
+            dispatch_action(app, A_CLK_CYCLE, now, {});
+        ImGui::SetWindowFontScale(1.f);
     } else {
         std::string txt = format_clock_text(app.clock_view, h, m, s);
         float scale = 2.2f;
@@ -209,10 +232,11 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
         auto& ts = app.timers[i];
         bool running = ts.t.is_running();
         bool expired = ts.t.touched() && ts.t.expired(now);
+        bool untouched = !ts.t.touched();
 
         ImGui::PushID(i);
 
-        // Label
+        // Label / pomodoro phase
         std::string lbl = ts.label.empty() ? std::format("Timer {}", i + 1) : ws(ts.label);
         ImGui::TextUnformatted(lbl.c_str());
         ImGui::SameLine();
@@ -240,6 +264,22 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
             dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_RST, now, {});
         ImGui::SameLine();
 
+        // Pomodoro toggle (only when untouched)
+        if (untouched) {
+            if (ts.pomodoro) ImGui::PushStyleColor(ImGuiCol_Button, to_v4(pal.active));
+            if (ImGui::SmallButton("Pomo"))
+                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_POMO, now, {});
+            if (ts.pomodoro) ImGui::PopStyleColor();
+            ImGui::SameLine();
+        }
+
+        // Pomodoro skip (when running pomodoro)
+        if (ts.pomodoro && ts.t.touched()) {
+            if (ImGui::SmallButton("Skip"))
+                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_SKIP, now, {});
+            ImGui::SameLine();
+        }
+
         // Remove timer
         if ((int)app.timers.size() > 1 && ImGui::SmallButton("-")) {
             dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_DEL, now, {});
@@ -247,7 +287,30 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
             break;
         }
 
-        // Progress bar for running timers
+        // Duration editing row (when untouched and not pomodoro)
+        if (untouched && !ts.pomodoro) {
+            auto adj_btn = [&](const char* label, int off) {
+                if (ImGui::SmallButton(label)) {
+                    auto r = dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + off, now, {});
+                    if (r.save_config) ui.dirty = true;
+                }
+            };
+            ImGui::SetWindowFontScale(0.85f);
+            adj_btn("-H", A_TMR_HDN); ImGui::SameLine();
+            ImGui::TextUnformatted("H"); ImGui::SameLine();
+            adj_btn("+H", A_TMR_HUP); ImGui::SameLine();
+            ImGui::Spacing(); ImGui::SameLine();
+            adj_btn("-M", A_TMR_MDN); ImGui::SameLine();
+            ImGui::TextUnformatted("M"); ImGui::SameLine();
+            adj_btn("+M", A_TMR_MUP); ImGui::SameLine();
+            ImGui::Spacing(); ImGui::SameLine();
+            adj_btn("-S", A_TMR_SDN); ImGui::SameLine();
+            ImGui::TextUnformatted("S"); ImGui::SameLine();
+            adj_btn("+S", A_TMR_SUP);
+            ImGui::SetWindowFontScale(1.f);
+        }
+
+        // Progress bar for running/touched timers
         if (ts.t.touched()) {
             float dur_ms = (float)duration_cast<milliseconds>(ts.dur).count();
             float rem_ms = (float)duration_cast<milliseconds>(ts.t.remaining(now)).count();
@@ -265,8 +328,10 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
 
     // Add timer button
     if ((int)app.timers.size() < Config::MAX_TIMERS) {
-        if (ImGui::SmallButton("+ Timer"))
-            dispatch_action(app, A_TMR_BASE + 0 * TMR_STRIDE + A_TMR_ADD, steady_clock::now(), {});
+        if (ImGui::SmallButton("+ Timer")) {
+            int last = (int)app.timers.size() - 1;
+            dispatch_action(app, A_TMR_BASE + last * TMR_STRIDE + A_TMR_ADD, steady_clock::now(), {});
+        }
     }
     ImGui::Separator();
 }
@@ -283,7 +348,17 @@ static void render_alarms(App& app, UiState& ui) {
         ui.alarm_hour = 8; ui.alarm_minute = 0;
         ui.alarm_days_mode = true;
         for (int d = 0; d < 7; ++d) ui.alarm_days[d] = true;
-        ui.alarm_year = 2026; ui.alarm_month = 1; ui.alarm_day = 1;
+        {
+            time_t t = std::time(nullptr); tm lt{};
+#ifdef _WIN32
+            localtime_s(&lt, &t);
+#else
+            localtime_r(&t, &lt);
+#endif
+            ui.alarm_year = lt.tm_year + 1900;
+            ui.alarm_month = lt.tm_mon + 1;
+            ui.alarm_day = lt.tm_mday;
+        }
         ui.show_add_alarm = true;
     }
 
@@ -338,9 +413,13 @@ static void render_add_alarm_popup([[maybe_unused]] App& app, UiState& ui) {
     ImGui::InputInt("Minute", &ui.alarm_minute, 1);
     ui.alarm_minute = std::clamp(ui.alarm_minute, 0, 59);
 
-    ImGui::RadioButton("Days of week", &(int&)ui.alarm_days_mode, 1);
-    ImGui::SameLine();
-    ImGui::RadioButton("Specific date", &(int&)ui.alarm_days_mode, 0);
+    {
+        int mode = ui.alarm_days_mode ? 1 : 0;
+        ImGui::RadioButton("Days of week", &mode, 1);
+        ImGui::SameLine();
+        ImGui::RadioButton("Specific date", &mode, 0);
+        ui.alarm_days_mode = (mode != 0);
+    }
 
     if (ui.alarm_days_mode) {
         const char* day_names[] = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
