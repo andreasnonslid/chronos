@@ -344,3 +344,118 @@ TEST_CASE("actions-alarm: alarm dispatch actions do not request blink", "[action
     REQUIRE_FALSE(wants_blink(A_ALARM_DEL + i));
     REQUIRE_FALSE(wants_blink(A_ALARM_TOGGLE + i));
 }
+
+// ─── firing predicate: alarm_matches_wallclock ───────────────────────────────
+//
+// The predicate replaces the inline branching previously embedded in
+// check_alarms (Win32 polling), so the rules below also pin down what the
+// shipping app actually does at the minute boundary.
+
+TEST_CASE("alarm-fire: days-schedule fires only on matching minute and day",
+          "[alarm]") {
+    Alarm a = make_alarm_days("Wake", 7, 30, ALARM_DAY_MON | ALARM_DAY_WED);
+
+    // Monday (dow=0), 07:30 → fires
+    REQUIRE(alarm_matches_wallclock(a, 7, 30, 0, 2026, 6, 1));
+    // Same Monday, wrong minute → no fire
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 7, 31, 0, 2026, 6, 1));
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 7, 29, 0, 2026, 6, 1));
+    // Same Monday, wrong hour → no fire
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 8, 30, 0, 2026, 6, 1));
+    // Wednesday (dow=2), 07:30 → fires
+    REQUIRE(alarm_matches_wallclock(a, 7, 30, 2, 2026, 6, 3));
+    // Tuesday (dow=1) → no fire (not in mask)
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 7, 30, 1, 2026, 6, 2));
+    // Sunday (dow=6) → no fire
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 7, 30, 6, 2026, 6, 7));
+}
+
+TEST_CASE("alarm-fire: days-schedule with ALARM_ALL_DAYS fires every weekday",
+          "[alarm]") {
+    Alarm a = make_alarm_days("Daily", 0, 0, ALARM_ALL_DAYS);
+    for (int dow = 0; dow < 7; ++dow)
+        REQUIRE(alarm_matches_wallclock(a, 0, 0, dow, 2026, 1, 1));
+}
+
+TEST_CASE("alarm-fire: days-schedule with empty mask never fires", "[alarm]") {
+    Alarm a = make_alarm_days("Dead", 12, 0, /*days_mask=*/0);
+    for (int dow = 0; dow < 7; ++dow)
+        REQUIRE_FALSE(alarm_matches_wallclock(a, 12, 0, dow, 2026, 1, 1));
+}
+
+TEST_CASE("alarm-fire: days-schedule at midnight (00:00) boundary", "[alarm]") {
+    Alarm a = make_alarm_days("Midnight", 0, 0, ALARM_DAY_MON);
+    REQUIRE(alarm_matches_wallclock(a, 0, 0, 0, 2026, 6, 1));
+    // One minute before / after → no fire
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 23, 59, 6, 2026, 5, 31)); // Sun (dow=6)
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 0, 1, 0, 2026, 6, 1));
+}
+
+TEST_CASE("alarm-fire: days-schedule at 23:59 boundary", "[alarm]") {
+    Alarm a = make_alarm_days("LateNight", 23, 59, ALARM_DAY_MON);
+    REQUIRE(alarm_matches_wallclock(a, 23, 59, 0, 2026, 6, 1));
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 23, 58, 0, 2026, 6, 1));
+    // 24:00 isn't a real clock instant; next minute is 00:00 the next day,
+    // which is dow=1 here.
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 0, 0, 1, 2026, 6, 2));
+}
+
+TEST_CASE("alarm-fire: date-schedule fires only on the exact date", "[alarm]") {
+    Alarm a = make_alarm_date("Birthday", 2026, 7, 15, 9, 0);
+    // Exact date and time, dow irrelevant for date schedule
+    REQUIRE(alarm_matches_wallclock(a, 9, 0, 2, 2026, 7, 15));
+    REQUIRE(alarm_matches_wallclock(a, 9, 0, 5, 2026, 7, 15));
+    // Wrong day / month / year
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 9, 0, 2, 2026, 7, 14));
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 9, 0, 2, 2026, 6, 15));
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 9, 0, 2, 2027, 7, 15));
+    // Wrong time on the right day
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 8, 59, 2, 2026, 7, 15));
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 9, 1, 2, 2026, 7, 15));
+}
+
+TEST_CASE("alarm-fire: date-schedule ignores days_mask", "[alarm]") {
+    // Sanity: a date-schedule alarm with a deliberately wrong days_mask still
+    // fires on the configured date.
+    Alarm a = make_alarm_date("Date", 2026, 7, 15, 9, 0);
+    a.days_mask = 0;
+    REQUIRE(alarm_matches_wallclock(a, 9, 0, 2, 2026, 7, 15));
+}
+
+TEST_CASE("alarm-fire: disabled alarm never fires regardless of match",
+          "[alarm]") {
+    Alarm days_off = make_alarm_days("Off", 7, 30, ALARM_ALL_DAYS, /*enabled=*/false);
+    REQUIRE_FALSE(alarm_matches_wallclock(days_off, 7, 30, 0, 2026, 6, 1));
+
+    Alarm date_off = make_alarm_date("Off2", 2026, 7, 15, 9, 0, /*enabled=*/false);
+    REQUIRE_FALSE(alarm_matches_wallclock(date_off, 9, 0, 2, 2026, 7, 15));
+}
+
+TEST_CASE("alarm-fire: day-of-week bit mapping covers all seven days", "[alarm]") {
+    // For each day-of-week, an alarm with only that day's bit set should match
+    // exactly that dow and no others.
+    auto dow = GENERATE(0, 1, 2, 3, 4, 5, 6);
+    Alarm a = make_alarm_days("Single", 12, 0, 1 << dow);
+    for (int d = 0; d < 7; ++d) {
+        if (d == dow)
+            REQUIRE(alarm_matches_wallclock(a, 12, 0, d, 2026, 6, 1));
+        else
+            REQUIRE_FALSE(alarm_matches_wallclock(a, 12, 0, d, 2026, 6, 1));
+    }
+}
+
+TEST_CASE("alarm-fire: ALARM_WEEKDAYS matches Mon–Fri only", "[alarm]") {
+    Alarm a = make_alarm_days("Workday", 8, 0, ALARM_WEEKDAYS);
+    for (int d = 0; d < 5; ++d)
+        REQUIRE(alarm_matches_wallclock(a, 8, 0, d, 2026, 6, 1));
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 8, 0, 5, 2026, 6, 1)); // Sat
+    REQUIRE_FALSE(alarm_matches_wallclock(a, 8, 0, 6, 2026, 6, 1)); // Sun
+}
+
+TEST_CASE("alarm-fire: ALARM_WEEKEND matches Sat–Sun only", "[alarm]") {
+    Alarm a = make_alarm_days("Weekend", 10, 0, ALARM_WEEKEND);
+    for (int d = 0; d < 5; ++d)
+        REQUIRE_FALSE(alarm_matches_wallclock(a, 10, 0, d, 2026, 6, 1));
+    REQUIRE(alarm_matches_wallclock(a, 10, 0, 5, 2026, 6, 1));
+    REQUIRE(alarm_matches_wallclock(a, 10, 0, 6, 2026, 6, 1));
+}

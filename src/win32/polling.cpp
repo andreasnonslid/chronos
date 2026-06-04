@@ -91,19 +91,9 @@ void check_alarms(HWND hwnd, WndState& s) {
     int dow_bit = (dow_sys == 0) ? 6 : (dow_sys - 1); // Mon=0 ... Sun=6
 
     for (auto& a : app.alarms) {
-        if (!a.enabled) continue;
         if (a.notified) continue;
-        if (a.hour != st.wHour || a.minute != st.wMinute) continue;
-
-        bool matches = false;
-        if (a.schedule == AlarmSchedule::Days) {
-            matches = (a.days_mask & (1 << dow_bit)) != 0;
-        } else {
-            matches = (a.date_year  == st.wYear  &&
-                       a.date_month == st.wMonth &&
-                       a.date_day   == st.wDay);
-        }
-        if (!matches) continue;
+        if (!alarm_matches_wallclock(a, st.wHour, st.wMinute, dow_bit,
+                                     st.wYear, st.wMonth, st.wDay)) continue;
 
         a.notified = true;
         MessageBeep(MB_ICONASTERISK);

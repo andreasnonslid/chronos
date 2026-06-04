@@ -26,3 +26,16 @@ struct Alarm {
     bool enabled = true;
     bool notified = false;  // runtime-only, not persisted; reset each minute by check_alarms
 };
+
+// Pure predicate: does `a` fire at the given wall-clock instant?
+// `dow_bit_mon0` is day-of-week with Monday=0..Sunday=6 (matches our day_mask bit layout).
+// Ignores the `notified` flag — caller is responsible for de-duping within a minute.
+inline bool alarm_matches_wallclock(const Alarm& a,
+                                    int hour, int minute, int dow_bit_mon0,
+                                    int year, int month, int day) {
+    if (!a.enabled) return false;
+    if (a.hour != hour || a.minute != minute) return false;
+    if (a.schedule == AlarmSchedule::Days)
+        return (a.days_mask & (1 << dow_bit_mon0)) != 0;
+    return a.date_year == year && a.date_month == month && a.date_day == day;
+}

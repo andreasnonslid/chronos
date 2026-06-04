@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `alarm_matches_wallclock()` pure predicate in `alarm.hpp` encapsulates "does this alarm fire at the given wall-clock instant?"; Win32 `check_alarms` now delegates to it instead of branching inline (#422)
+- 11 new `TEST_CASE`s in `tests/test_alarm.cpp` covering the firing predicate: days-mask matches, ALARM_ALL_DAYS / empty mask / weekday / weekend masks, midnight and 23:59 boundary minutes, date schedules ignoring days_mask, and disabled alarms (#422)
+
 ## [1.20.1] — 2026-06-04
 
 ### Fixed
