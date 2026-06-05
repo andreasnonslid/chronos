@@ -135,13 +135,18 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
     ImGui::BeginChild("##titlebar", {0, bar_h}, ImGuiChildFlags_None,
                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
+    ImVec2 title_btn_size = {
+        std::max(ImGui::CalcTextSize("Alrm").x, ImGui::CalcTextSize("Dbg").x) + s.FramePadding.x * 2.f,
+        ImGui::GetFrameHeight()
+    };
+
     // Section toggle buttons
     auto toggle_btn = [&](const char* label, bool active, int action) {
         if (active) {
             ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
         }
-        if (ImGui::SmallButton(label)) {
+        if (ImGui::Button(label, title_btn_size)) {
             auto r = dispatch_action(app, action, steady_clock::now(), {});
             if (r.save_config) ui.dirty = true;
             if (r.set_topmost) platform_set_always_on_top(ui.sdl_window, app.topmost);
@@ -170,18 +175,18 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
         ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
     }
-    if (ImGui::SmallButton("Dbg")) {
+    if (ImGui::Button("Dbg", title_btn_size)) {
         ui.debug_overlay_visible = !ui.debug_overlay_visible;
     }
     CHRONOS_DEBUG_ITEM("debug toggle", IM_COL32(255, 255, 255, 240));
     if (debug_was_visible) ImGui::PopStyleColor(2);
     ImGui::SameLine();
-    if (ImGui::SmallButton("-##dbg_scale")) {
+    if (ImGui::Button("-##dbg_scale", title_btn_size)) {
         debug_set_ui_scale(ui, ui.debug_ui_scale - 0.1f);
     }
     CHRONOS_DEBUG_ITEM("debug scale -", IM_COL32(255, 140, 0, 255));
     ImGui::SameLine();
-    if (ImGui::SmallButton("+##dbg_scale")) {
+    if (ImGui::Button("+##dbg_scale", title_btn_size)) {
         debug_set_ui_scale(ui, ui.debug_ui_scale + 0.1f);
     }
     CHRONOS_DEBUG_ITEM("debug scale +", IM_COL32(255, 140, 0, 255));
@@ -191,7 +196,7 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
     // UTF-8: ⚙ = \xe2\x9a\x99 (U+2699), × = \xc3\x97 (U+00D7)
     ImGui::TableSetColumnIndex(1);
 
-    if (ImGui::Button("\xe2\x9a\x99")) {
+    if (ImGui::Button("\xe2\x9a\x99", title_btn_size)) {
         if (!ui.show_settings) ui.settings_initialized = false;
         ui.show_settings = true;
         ui.settings_tab  = 0;
@@ -199,7 +204,7 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
     CHRONOS_DEBUG_ITEM("settings", IM_COL32(80, 220, 255, 255));
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{0.8f, 0.2f, 0.2f, 1.f});
-    if (ImGui::Button("\xc3\x97")) ui.close_requested = true;
+    if (ImGui::Button("\xc3\x97", title_btn_size)) ui.close_requested = true;
     CHRONOS_DEBUG_ITEM("close", IM_COL32(255, 80, 80, 255));
     ImGui::PopStyleColor();
     ImGui::EndTable();
