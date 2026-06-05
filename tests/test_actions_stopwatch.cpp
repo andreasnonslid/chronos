@@ -179,6 +179,7 @@ TEST_CASE("actions-stopwatch: lap file contains correct format for first lap",
     // split and total should both be "00:01.234" (1234ms)
     REQUIRE(line.find("00:01.234") != std::string::npos);
 
+    f.close();
     std::filesystem::remove(tmp);
 }
 
@@ -201,6 +202,7 @@ TEST_CASE("actions-stopwatch: each A_SW_LAP appends a new line to lap file",
     while (std::getline(f, line)) ++line_count;
     REQUIRE(line_count == 3);
 
+    f.close();
     std::filesystem::remove(tmp);
 }
 
@@ -222,6 +224,7 @@ TEST_CASE("actions-stopwatch: lap file lines have correct lap numbers",
     REQUIRE(line1.find("Lap 1") != std::string::npos);
     REQUIRE(line2.find("Lap 2") != std::string::npos);
 
+    f.close();
     std::filesystem::remove(tmp);
 }
 
@@ -248,6 +251,7 @@ TEST_CASE("actions-stopwatch: lap file split time equals interval between laps",
     REQUIRE(line2.find("00:03.000") != std::string::npos);
     REQUIRE(line2.find("00:05.000") != std::string::npos);
 
+    f.close();
     std::filesystem::remove(tmp);
 }
 
