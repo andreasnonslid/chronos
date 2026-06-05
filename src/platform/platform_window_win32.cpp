@@ -61,10 +61,13 @@ void platform_window_shutdown(SDL_Window* window) {
 }
 
 void platform_set_always_on_top(SDL_Window* window, bool topmost) {
+    if (!window) return;
+    SDL_SetWindowAlwaysOnTop(window, topmost ? SDL_TRUE : SDL_FALSE);
     HWND hwnd = hwnd_from_sdl(window);
     if (!hwnd) return;
     SetWindowPos(hwnd, topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
-                 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+    if (topmost) SDL_RaiseWindow(window);
 }
 
 void platform_begin_window_drag(SDL_Window* window) {

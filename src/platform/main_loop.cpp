@@ -205,6 +205,7 @@ int main(int argc, char* argv[]) {
     bool screenshot_done = false;
     int frame_count = 0;
     bool rendering = false;
+    bool topmost_reapplied_after_first_frame = false;
 
     struct RenderCtx { SDL_Window* win; SDL_GLContext gl; App* app; UiState* ui; bool* rendering; };
     RenderCtx rctx{window, gl_ctx, &app, &ui, &rendering};
@@ -281,6 +282,11 @@ int main(int argc, char* argv[]) {
 
         SDL_GL_SwapWindow(window);
         rendering = false;
+
+        if (!topmost_reapplied_after_first_frame) {
+            platform_set_always_on_top(window, app.topmost);
+            topmost_reapplied_after_first_frame = true;
+        }
 
         if (ui.close_requested) done = true;
 

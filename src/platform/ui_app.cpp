@@ -529,13 +529,8 @@ static void render_alarms(App& app, UiState& ui) {
 static void render_add_alarm_window(App& app, UiState& ui) {
     if (!ui.show_add_alarm) return;
 
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
-                            ImGuiCond_Appearing, {0.5f, 0.5f});
-    ImGui::SetNextWindowSize({300, 0}, ImGuiCond_Appearing);
-    if (!ImGui::Begin("Add Alarm", &ui.show_add_alarm,
-                      ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::End(); return;
-    }
+    ImGui::TextUnformatted("Add Alarm");
+    ImGui::Separator();
 
     ImGui::InputText("Name", ui.alarm_name, sizeof(ui.alarm_name));
     CHRONOS_DEBUG_ITEM("alarm name", IM_COL32(180, 120, 255, 255));
@@ -606,8 +601,6 @@ static void render_add_alarm_window(App& app, UiState& ui) {
     ImGui::SameLine();
     if (ImGui::Button("Cancel")) ui.show_add_alarm = false;
     CHRONOS_DEBUG_ITEM("alarm cancel", IM_COL32(180, 120, 255, 255));
-
-    ImGui::End();
 }
 
 // ─── Settings modal ──────────────────────────────────────────────────────────
@@ -637,13 +630,8 @@ static void render_settings_window(App& app, UiState& ui) {
         ui.settings_initialized = true;
     }
 
-    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
-                            ImGuiCond_Appearing, {0.5f, 0.5f});
-    ImGui::SetNextWindowSize({450, 0}, ImGuiCond_Appearing);
-    if (!ImGui::Begin("Settings", &ui.show_settings,
-                      ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::End(); return;
-    }
+    ImGui::TextUnformatted("Settings");
+    ImGui::Separator();
 
     if (ImGui::BeginTabBar("##tabs")) {
         // Use settings_tab as a one-shot pre-selection flag, then clear it
@@ -779,13 +767,15 @@ static void render_settings_window(App& app, UiState& ui) {
         apply_imgui_theme(app.theme_mode, false);
         ui.dirty = true;
         ui.show_settings = false;
+        ui.settings_initialized = false;
     }
     CHRONOS_DEBUG_ITEM("settings apply", IM_COL32(80, 220, 255, 255));
     ImGui::SameLine();
-    if (ImGui::Button("Cancel")) ui.show_settings = false;
+    if (ImGui::Button("Cancel")) {
+        ui.show_settings = false;
+        ui.settings_initialized = false;
+    }
     CHRONOS_DEBUG_ITEM("settings cancel", IM_COL32(80, 220, 255, 255));
-
-    ImGui::End();
 }
 
 // ─── Alarm firing (cross-platform) ───────────────────────────────────────────
@@ -887,30 +877,38 @@ void render_app(App& app, UiState& ui) {
     if (ui.debug_overlay_visible) debug_section(debug_dl, before, "titlebar", IM_COL32(80, 160, 255, 255));
     before = ImGui::GetCursorScreenPos();
 #endif
-    render_clock(app, ui, pal);
+    if (ui.show_add_alarm) {
+        render_add_alarm_window(app, ui);
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-    before = ImGui::GetCursorScreenPos();
+        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "add alarm", IM_COL32(180, 120, 255, 255));
 #endif
-    render_stopwatch(app, ui, pal);
+    } else if (ui.show_settings) {
+        render_settings_window(app, ui);
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-    if (ui.debug_overlay_visible) debug_section(debug_dl, before, "stopwatch", IM_COL32(0, 255, 160, 255));
-    before = ImGui::GetCursorScreenPos();
+        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "settings", IM_COL32(80, 220, 255, 255));
 #endif
-    render_timers(app, ui, pal);
+    } else {
+        render_clock(app, ui, pal);
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-    if (ui.debug_overlay_visible) debug_section(debug_dl, before, "timers", IM_COL32(255, 100, 200, 255));
-    before = ImGui::GetCursorScreenPos();
+        before = ImGui::GetCursorScreenPos();
 #endif
-    render_alarms(app, ui);
+        render_stopwatch(app, ui, pal);
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-    if (ui.debug_overlay_visible) debug_section(debug_dl, before, "alarms", IM_COL32(180, 120, 255, 255));
+        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "stopwatch", IM_COL32(0, 255, 160, 255));
+        before = ImGui::GetCursorScreenPos();
 #endif
+        render_timers(app, ui, pal);
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "timers", IM_COL32(255, 100, 200, 255));
+        before = ImGui::GetCursorScreenPos();
+#endif
+        render_alarms(app, ui);
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "alarms", IM_COL32(180, 120, 255, 255));
+#endif
+    }
 
     ImGui::End();
-
-    // Floating sub-windows (become separate OS windows with multi-viewport).
-    render_add_alarm_window(app, ui);
-    render_settings_window(app, ui);
 
     check_alarms_cross_platform(app);
 }
