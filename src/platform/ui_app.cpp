@@ -499,23 +499,27 @@ static void render_timers(App& app, UiState& ui, const ThemePalette& pal) {
 
             ImGui::TableSetColumnIndex(2);
             ImVec2 action_size = timer_action_button_size();
+            auto tmr_act_do = [&](int off) {
+                auto r = dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + off, now, {});
+                if (r.save_config) ui.dirty = true;
+            };
             if (timer_action_slot(running ? "Stop" : "Start", action_size, true,
                                   running ? "timer stop" : "timer start", IM_COL32(255, 100, 200, 255)))
-                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_START, now, {});
+                tmr_act_do(A_TMR_START);
             ImGui::SameLine();
 
             if (timer_action_slot("Reset", action_size, true, "timer reset", IM_COL32(255, 100, 200, 255)))
-                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_RST, now, {});
+                tmr_act_do(A_TMR_RST);
             ImGui::SameLine();
 
             if (untouched) {
                 if (ts.pomodoro) ImGui::PushStyleColor(ImGuiCol_Button, to_v4(pal.active));
                 if (timer_action_slot("Pomo", action_size, true, "timer pomo", IM_COL32(255, 100, 200, 255)))
-                    dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_POMO, now, {});
+                    tmr_act_do(A_TMR_POMO);
                 if (ts.pomodoro) ImGui::PopStyleColor();
             } else if (ts.pomodoro && ts.t.touched()) {
                 if (timer_action_slot("Skip", action_size, true, "timer skip", IM_COL32(255, 100, 200, 255)))
-                    dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_SKIP, now, {});
+                    tmr_act_do(A_TMR_SKIP);
             } else {
                 timer_action_slot("##timer_action_spacer", action_size, false,
                                   "timer spacer", IM_COL32(255, 100, 200, 255));
@@ -524,7 +528,7 @@ static void render_timers(App& app, UiState& ui, const ThemePalette& pal) {
             if ((int)app.timers.size() > 1) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("-")) {
-                    dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_DEL, now, {});
+                    tmr_act_do(A_TMR_DEL);
                     remove_timer = true;
                 }
                 CHRONOS_DEBUG_ITEM("timer remove", IM_COL32(255, 100, 200, 255));
@@ -558,7 +562,8 @@ static void render_timers(App& app, UiState& ui, const ThemePalette& pal) {
     if ((int)app.timers.size() < Config::MAX_TIMERS) {
         if (ImGui::SmallButton("+ Timer")) {
             int last = (int)app.timers.size() - 1;
-            dispatch_action(app, A_TMR_BASE + last * TMR_STRIDE + A_TMR_ADD, steady_clock::now(), {});
+            auto r = dispatch_action(app, A_TMR_BASE + last * TMR_STRIDE + A_TMR_ADD, steady_clock::now(), {});
+            if (r.save_config) ui.dirty = true;
         }
         CHRONOS_DEBUG_ITEM("add timer", IM_COL32(255, 100, 200, 255));
     }
