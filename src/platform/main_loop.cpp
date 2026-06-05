@@ -45,6 +45,9 @@ static bool save_screenshot(const char* path, int w, int h) {
 #include <windows.h>
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
     const char* screenshot_path = nullptr;
+    const char* config_override = nullptr;
+    std::vector<int> replay_actions;
+    int forced_settings_tab = -1;
     if (lpCmdLine && strstr(lpCmdLine, "--screenshot")) {
         const char* p = strstr(lpCmdLine, "--screenshot");
         p += strlen("--screenshot");

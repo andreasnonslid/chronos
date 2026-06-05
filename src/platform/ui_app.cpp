@@ -1,4 +1,7 @@
 #include "ui_app.hpp"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <chrono>
 #include <cstring>
 #include <format>
