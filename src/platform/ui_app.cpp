@@ -148,16 +148,22 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
         }
         CHRONOS_DEBUG_ITEM(label, IM_COL32(255, 255, 255, 240));
         if (active) ImGui::PopStyleColor(2);
-        ImGui::SameLine();
     };
 
-    toggle_btn("Pin",  app.topmost,     A_TOPMOST);
-    toggle_btn("Clk",  app.show_clk,    A_SHOW_CLK);
-    toggle_btn("SW",   app.show_sw,     A_SHOW_SW);
-    toggle_btn("Tmr",  app.show_tmr,    A_SHOW_TMR);
+    if (ImGui::BeginTable("##titlebar_layout", 2, ImGuiTableFlags_SizingStretchProp)) {
+    ImGui::TableSetupColumn("left", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+
+    toggle_btn("Pin",  app.topmost,     A_TOPMOST); ImGui::SameLine();
+    toggle_btn("Clk",  app.show_clk,    A_SHOW_CLK); ImGui::SameLine();
+    toggle_btn("SW",   app.show_sw,     A_SHOW_SW); ImGui::SameLine();
+    toggle_btn("Tmr",  app.show_tmr,    A_SHOW_TMR); ImGui::SameLine();
     toggle_btn("Alrm", app.show_alarms, A_SHOW_ALARMS);
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
+    ImGui::SameLine();
     bool debug_was_visible = ui.debug_overlay_visible;
     if (debug_was_visible) {
         ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
@@ -178,15 +184,11 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
         debug_set_ui_scale(ui, ui.debug_ui_scale + 0.1f);
     }
     CHRONOS_DEBUG_ITEM("debug scale +", IM_COL32(255, 140, 0, 255));
-    ImGui::SameLine();
 #endif
 
     // Right-align ⚙ and ×
     // UTF-8: ⚙ = \xe2\x9a\x99 (U+2699), × = \xc3\x97 (U+00D7)
-    float gear_w  = ImGui::CalcTextSize("\xe2\x9a\x99").x + s.FramePadding.x * 2;
-    float close_w = ImGui::CalcTextSize("\xc3\x97").x   + s.FramePadding.x * 2;
-    float spacer  = ImGui::GetContentRegionAvail().x - gear_w - close_w - s.ItemSpacing.x;
-    if (spacer > 0.f) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + spacer);
+    ImGui::TableSetColumnIndex(1);
 
     if (ImGui::Button("\xe2\x9a\x99")) {
         if (!ui.show_settings) ui.settings_initialized = false;
@@ -199,6 +201,8 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
     if (ImGui::Button("\xc3\x97")) ui.close_requested = true;
     CHRONOS_DEBUG_ITEM("close", IM_COL32(255, 80, 80, 255));
     ImGui::PopStyleColor();
+    ImGui::EndTable();
+    }
 
     // Window drag: active when mouse is pressed in the bar but not over any item.
     ImVec2 bar_min = ImGui::GetWindowPos();
@@ -360,83 +364,86 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
 
         ImGui::PushID(i);
 
-        // Label / pomodoro phase
         std::string lbl = ts.label.empty() ? std::format("Timer {}", i + 1) : ws(ts.label);
-        ImGui::TextUnformatted(lbl.c_str());
-        ImGui::SameLine();
-
-        // Time display
         std::string tstr = running || ts.t.touched()
             ? ws(format_timer_display(ts.t.remaining(now)))
             : ws(format_timer_edit(ts.dur));
+        bool remove_timer = false;
 
-        if (expired)
-            ImGui::PushStyleColor(ImGuiCol_Text, to_v4(pal.expire));
-        ImGui::Text("%s", tstr.c_str());
-        if (expired)
-            ImGui::PopStyleColor();
+        if (ImGui::BeginTable("##timer_row", 3,
+                              ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings)) {
+            ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("time", ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn("actions", ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(lbl.c_str());
 
-        ImGui::SameLine();
+            ImGui::TableSetColumnIndex(1);
+            if (expired) ImGui::PushStyleColor(ImGuiCol_Text, to_v4(pal.expire));
+            ImGui::TextUnformatted(tstr.c_str());
+            if (expired) ImGui::PopStyleColor();
 
-        // Start/Stop
-        if (ImGui::SmallButton(running ? "Stop" : "Start"))
-            dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_START, now, {});
-        CHRONOS_DEBUG_ITEM(running ? "timer stop" : "timer start", IM_COL32(255, 100, 200, 255));
-        ImGui::SameLine();
-
-        // Reset
-        if (ImGui::SmallButton("Reset"))
-            dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_RST, now, {});
-        CHRONOS_DEBUG_ITEM("timer reset", IM_COL32(255, 100, 200, 255));
-        ImGui::SameLine();
-
-        // Pomodoro toggle (only when untouched)
-        if (untouched) {
-            if (ts.pomodoro) ImGui::PushStyleColor(ImGuiCol_Button, to_v4(pal.active));
-            if (ImGui::SmallButton("Pomo"))
-                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_POMO, now, {});
-            CHRONOS_DEBUG_ITEM("timer pomo", IM_COL32(255, 100, 200, 255));
-            if (ts.pomodoro) ImGui::PopStyleColor();
+            ImGui::TableSetColumnIndex(2);
+            if (ImGui::SmallButton(running ? "Stop" : "Start"))
+                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_START, now, {});
+            CHRONOS_DEBUG_ITEM(running ? "timer stop" : "timer start", IM_COL32(255, 100, 200, 255));
             ImGui::SameLine();
-        }
 
-        // Pomodoro skip (when running pomodoro)
-        if (ts.pomodoro && ts.t.touched()) {
-            if (ImGui::SmallButton("Skip"))
-                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_SKIP, now, {});
-            CHRONOS_DEBUG_ITEM("timer skip", IM_COL32(255, 100, 200, 255));
-            ImGui::SameLine();
-        }
+            if (ImGui::SmallButton("Reset"))
+                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_RST, now, {});
+            CHRONOS_DEBUG_ITEM("timer reset", IM_COL32(255, 100, 200, 255));
 
-        // Remove timer
-        if ((int)app.timers.size() > 1) {
-            if (ImGui::SmallButton("-")) {
-                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_DEL, now, {});
-                ImGui::PopID();
-                break;
+            if (untouched) {
+                ImGui::SameLine();
+                if (ts.pomodoro) ImGui::PushStyleColor(ImGuiCol_Button, to_v4(pal.active));
+                if (ImGui::SmallButton("Pomo"))
+                    dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_POMO, now, {});
+                CHRONOS_DEBUG_ITEM("timer pomo", IM_COL32(255, 100, 200, 255));
+                if (ts.pomodoro) ImGui::PopStyleColor();
             }
-            CHRONOS_DEBUG_ITEM("timer remove", IM_COL32(255, 100, 200, 255));
+
+            if (ts.pomodoro && ts.t.touched()) {
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Skip"))
+                    dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_SKIP, now, {});
+                CHRONOS_DEBUG_ITEM("timer skip", IM_COL32(255, 100, 200, 255));
+            }
+
+            if ((int)app.timers.size() > 1) {
+                ImGui::SameLine();
+                if (ImGui::SmallButton("-")) {
+                    dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_DEL, now, {});
+                    remove_timer = true;
+                }
+                CHRONOS_DEBUG_ITEM("timer remove", IM_COL32(255, 100, 200, 255));
+            }
+
+            if (untouched && !ts.pomodoro && !remove_timer) {
+                auto adj_btn = [&](const char* label, int off) {
+                    if (ImGui::SmallButton(label)) {
+                        auto r = dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + off, now, {});
+                        if (r.save_config) ui.dirty = true;
+                    }
+                    CHRONOS_DEBUG_ITEM(label, IM_COL32(255, 170, 80, 255));
+                };
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(2);
+                ImGui::SetWindowFontScale(0.85f);
+                adj_btn("-H", A_TMR_HDN); ImGui::SameLine();
+                adj_btn("+H", A_TMR_HUP); ImGui::SameLine();
+                adj_btn("-M", A_TMR_MDN); ImGui::SameLine();
+                adj_btn("+M", A_TMR_MUP); ImGui::SameLine();
+                adj_btn("-S", A_TMR_SDN); ImGui::SameLine();
+                adj_btn("+S", A_TMR_SUP);
+                ImGui::SetWindowFontScale(1.f);
+            }
+            ImGui::EndTable();
         }
 
-        // Duration editing row (when untouched and not pomodoro)
-        if (untouched && !ts.pomodoro) {
-            auto adj_btn = [&](const char* label, int off) {
-                if (ImGui::SmallButton(label)) {
-                    auto r = dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + off, now, {});
-                    if (r.save_config) ui.dirty = true;
-                }
-                CHRONOS_DEBUG_ITEM(label, IM_COL32(255, 170, 80, 255));
-            };
-            ImGui::SetWindowFontScale(0.85f);
-            adj_btn("-H", A_TMR_HDN); ImGui::SameLine();
-            adj_btn("+H", A_TMR_HUP); ImGui::SameLine();
-            ImGui::Spacing(); ImGui::SameLine();
-            adj_btn("-M", A_TMR_MDN); ImGui::SameLine();
-            adj_btn("+M", A_TMR_MUP); ImGui::SameLine();
-            ImGui::Spacing(); ImGui::SameLine();
-            adj_btn("-S", A_TMR_SDN); ImGui::SameLine();
-            adj_btn("+S", A_TMR_SUP);
-            ImGui::SetWindowFontScale(1.f);
+        if (remove_timer) {
+            ImGui::PopID();
+            break;
         }
 
         // Progress bar for running/touched timers
@@ -470,47 +477,60 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
 
 static void render_alarms(App& app, UiState& ui) {
     if (!app.show_alarms) return;
-    ImGui::Text("Alarms");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("+ Add") && (int)app.alarms.size() < ALARM_MAX_COUNT) {
-        // Reset working copy
-        memset(ui.alarm_name, 0, sizeof(ui.alarm_name));
-        ui.alarm_hour = 8; ui.alarm_minute = 0;
-        ui.alarm_days_mode = true;
-        for (int d = 0; d < 7; ++d) ui.alarm_days[d] = true;
-        {
-            time_t t = std::time(nullptr); tm lt{};
+    if (ImGui::BeginTable("##alarm_header", 2,
+                          ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings)) {
+        ImGui::TableSetupColumn("title", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("action", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted("Alarms");
+        ImGui::TableSetColumnIndex(1);
+        if (ImGui::SmallButton("+ Add") && (int)app.alarms.size() < ALARM_MAX_COUNT) {
+            memset(ui.alarm_name, 0, sizeof(ui.alarm_name));
+            ui.alarm_hour = 8; ui.alarm_minute = 0;
+            ui.alarm_days_mode = true;
+            for (int d = 0; d < 7; ++d) ui.alarm_days[d] = true;
+            {
+                time_t t = std::time(nullptr); tm lt{};
 #ifdef _WIN32
-            localtime_s(&lt, &t);
+                localtime_s(&lt, &t);
 #else
-            localtime_r(&t, &lt);
+                localtime_r(&t, &lt);
 #endif
-            ui.alarm_year = lt.tm_year + 1900;
-            ui.alarm_month = lt.tm_mon + 1;
-            ui.alarm_day = lt.tm_mday;
+                ui.alarm_year = lt.tm_year + 1900;
+                ui.alarm_month = lt.tm_mon + 1;
+                ui.alarm_day = lt.tm_mday;
+            }
+            ui.show_add_alarm = true;
         }
-        ui.show_add_alarm = true;
+        CHRONOS_DEBUG_ITEM("add alarm", IM_COL32(180, 120, 255, 255));
+        ImGui::EndTable();
     }
-    CHRONOS_DEBUG_ITEM("add alarm", IM_COL32(180, 120, 255, 255));
 
     if (app.alarms.empty()) {
         ImGui::TextDisabled("No alarms set");
-    } else {
+    } else if (ImGui::BeginTable("##alarm_rows", 4,
+                                 ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings)) {
+        ImGui::TableSetupColumn("enabled", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("name", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("time", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("action", ImGuiTableColumnFlags_WidthFixed);
         for (int i = 0; i < (int)app.alarms.size(); ++i) {
             auto& a = app.alarms[i];
             ImGui::PushID(i);
-            // Enabled toggle
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
             bool en = a.enabled;
             if (ImGui::Checkbox("##en", &en)) {
                 dispatch_action(app, A_ALARM_TOGGLE + i, steady_clock::now(), {});
                 ui.dirty = true;
             }
             CHRONOS_DEBUG_ITEM("alarm enabled", IM_COL32(180, 120, 255, 255));
-            ImGui::SameLine();
+            ImGui::TableSetColumnIndex(1);
             ImGui::TextUnformatted(a.name.empty() ? "(unnamed)" : a.name.c_str());
-            ImGui::SameLine();
+            ImGui::TableSetColumnIndex(2);
             ImGui::Text("%02d:%02d", a.hour, a.minute);
-            ImGui::SameLine();
+            ImGui::TableSetColumnIndex(3);
             if (ImGui::SmallButton("Del")) {
                 dispatch_action(app, A_ALARM_DEL + i, steady_clock::now(), {});
                 ui.dirty = true;
@@ -520,6 +540,7 @@ static void render_alarms(App& app, UiState& ui) {
             CHRONOS_DEBUG_ITEM("alarm delete", IM_COL32(180, 120, 255, 255));
             ImGui::PopID();
         }
+        ImGui::EndTable();
     }
     ImGui::Separator();
 }
