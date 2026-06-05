@@ -35,11 +35,11 @@ static ImU32 to_u32(UiColor c, float a = 1.f) {
 // ─── Theme ───────────────────────────────────────────────────────────────────
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-static bool g_debug_overlay_visible = true;
+static const bool* g_debug_flag = nullptr;
 
 static void debug_last_item(const char* label, ImU32 color = IM_COL32(255, 255, 255, 230)) {
     (void)label;
-    if (!g_debug_overlay_visible) return;
+    if (!g_debug_flag || !*g_debug_flag) return;
     if (!ImGui::IsItemVisible()) return;
     ImDrawList* dl = ImGui::GetForegroundDrawList();
     ImVec2 min = ImGui::GetItemRectMin();
@@ -999,7 +999,7 @@ void render_app(App& app, UiState& ui) {
         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-    g_debug_overlay_visible = ui.debug_overlay_visible;
+    g_debug_flag = &ui.debug_overlay_visible;
 #endif
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
