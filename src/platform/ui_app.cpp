@@ -452,7 +452,8 @@ static ImVec2 timer_action_button_size() {
 }
 
 static bool timer_action_slot(const char* label, const ImVec2& size, bool enabled,
-                              const char* debug_label, ImU32 debug_color) {
+                              [[maybe_unused]] const char* debug_label,
+                              [[maybe_unused]] ImU32 debug_color) {
     if (enabled) {
         bool clicked = ImGui::Button(label, size);
         CHRONOS_DEBUG_ITEM(debug_label, debug_color);
