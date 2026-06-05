@@ -646,15 +646,30 @@ static void render_add_alarm_window(App& app, UiState& ui) {
     ImGui::InputText("Name", ui.alarm_name, sizeof(ui.alarm_name));
     CHRONOS_DEBUG_ITEM("alarm name", IM_COL32(180, 120, 255, 255));
 
-    ImGui::SetNextItemWidth(50);
-    ImGui::InputInt("Hour",   &ui.alarm_hour,   1);
-    CHRONOS_DEBUG_ITEM("alarm hour", IM_COL32(180, 120, 255, 255));
-    ui.alarm_hour   = std::clamp(ui.alarm_hour,   0, 23);
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(50);
-    ImGui::InputInt("Minute", &ui.alarm_minute, 1);
-    CHRONOS_DEBUG_ITEM("alarm minute", IM_COL32(180, 120, 255, 255));
-    ui.alarm_minute = std::clamp(ui.alarm_minute, 0, 59);
+    {
+        const float btn  = ImGui::GetFrameHeight();
+        const float sp   = ImGui::GetStyle().ItemSpacing.x;
+        const float numw = ImGui::CalcTextSize("00").x + sp * 2.f;
+        const float colw = ImGui::CalcTextSize(":").x;
+        const float total = btn * 4.f + numw * 2.f + colw + sp * 6.f;
+        const float avail = ImGui::GetContentRegionAvail().x;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - total) * 0.5f);
+
+        if (ImGui::Button("-##h", {btn, btn})) ui.alarm_hour = (ui.alarm_hour + 23) % 24;
+        ImGui::SameLine();
+        ImGui::Text("%02d", ui.alarm_hour);
+        ImGui::SameLine();
+        if (ImGui::Button("+##h", {btn, btn})) ui.alarm_hour = (ui.alarm_hour + 1) % 24;
+        ImGui::SameLine();
+        ImGui::Text(":");
+        ImGui::SameLine();
+        if (ImGui::Button("-##m", {btn, btn})) ui.alarm_minute = (ui.alarm_minute + 59) % 60;
+        ImGui::SameLine();
+        ImGui::Text("%02d", ui.alarm_minute);
+        ImGui::SameLine();
+        if (ImGui::Button("+##m", {btn, btn})) ui.alarm_minute = (ui.alarm_minute + 1) % 60;
+    }
+    CHRONOS_DEBUG_ITEM("alarm time", IM_COL32(180, 120, 255, 255));
 
     {
         int mode = ui.alarm_days_mode ? 1 : 0;
