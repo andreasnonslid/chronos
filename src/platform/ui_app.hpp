@@ -11,6 +11,7 @@ struct UiState {
     bool show_settings   = false;
     bool show_add_alarm  = false;
     bool dirty           = false;   // config needs saving
+    bool minimize_to_tray_requested = false;
     bool close_requested = false;   // set by the × button; main loop exits
 
     SDL_Window* sdl_window = nullptr;

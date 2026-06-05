@@ -199,6 +199,11 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
     ImGui::EndChild();
     ImGui::TableSetColumnIndex(1);
 
+    if (ImGui::Button("_##minimize_tray", title_btn_size)) {
+        ui.minimize_to_tray_requested = true;
+    }
+    CHRONOS_DEBUG_ITEM("tray minimize", IM_COL32(80, 220, 255, 255));
+    ImGui::SameLine();
     if (ImGui::Button("\xe2\x9a\x99", title_btn_size)) {
         if (!ui.show_settings) ui.settings_initialized = false;
         ui.show_settings = true;
@@ -352,7 +357,6 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal, float p
         ui.dirty = true;
     }
     ImGui::SetCursorScreenPos({clock_min.x, clock_max.y});
-    ImGui::Separator();
 }
 
 // ─── Stopwatch ───────────────────────────────────────────────────────────────
@@ -391,7 +395,6 @@ static void render_stopwatch(App& app, [[maybe_unused]] UiState& ui, [[maybe_unu
     btn(start_label, A_SW_START, true);
     btn("Lap",   A_SW_LAP, true);
     btn("Reset", A_SW_RESET, false);
-    ImGui::Separator();
 }
 
 // ─── Timers ──────────────────────────────────────────────────────────────────
@@ -405,23 +408,6 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
         bool running = ts.t.is_running();
         bool expired = ts.t.touched() && ts.t.expired(now);
         bool untouched = !ts.t.touched();
-
-        if (expired && !ts.notified) {
-            ts.notified = true;
-            if (app.sound_on_expiry) {
-#ifdef _WIN32
-                MessageBeep(MB_ICONASTERISK);
-#else
-                fputs("\a", stderr);
-#endif
-            }
-            if (ts.pomodoro) {
-                advance_pomodoro_phase(ts, app.pomodoro_work_secs, app.pomodoro_short_secs,
-                                       app.pomodoro_long_secs, app.pomodoro_cadence,
-                                       app.pomodoro_auto_start, now);
-                ui.dirty = true;
-            }
-        }
 
         ImGui::PushID(i);
 
@@ -531,7 +517,6 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
         }
         CHRONOS_DEBUG_ITEM("add timer", IM_COL32(255, 100, 200, 255));
     }
-    ImGui::Separator();
 }
 
 // ─── Alarms ──────────────────────────────────────────────────────────────────
@@ -603,7 +588,6 @@ static void render_alarms(App& app, UiState& ui) {
         }
         ImGui::EndTable();
     }
-    ImGui::Separator();
 }
 
 // ─── Add-alarm window ────────────────────────────────────────────────────────
@@ -876,49 +860,6 @@ static void render_settings_window(App& app, UiState& ui) {
     CHRONOS_DEBUG_ITEM("settings cancel", IM_COL32(80, 220, 255, 255));
 }
 
-// ─── Alarm firing (cross-platform) ───────────────────────────────────────────
-
-static void check_alarms_cross_platform(App& app) {
-    time_t t = std::time(nullptr);
-    tm lt{};
-#ifdef _WIN32
-    localtime_s(&lt, &t);
-#else
-    localtime_r(&t, &lt);
-#endif
-    int h = lt.tm_hour, m = lt.tm_min;
-    int cur_min = h * 60 + m;
-
-    if (cur_min != app.alarm_notified_minute) {
-        app.alarm_notified_minute = cur_min;
-        for (auto& a : app.alarms) a.notified = false;
-    }
-
-    // dow: POSIX tm_wday: 0=Sun, we want Mon=0..Sun=6
-    int dow_bit = (lt.tm_wday == 0) ? 6 : (lt.tm_wday - 1);
-
-    for (auto& a : app.alarms) {
-        if (a.notified || !a.enabled) continue;
-        if (a.hour != h || a.minute != m) continue;
-        bool matches = false;
-        if (a.schedule == AlarmSchedule::Days)
-            matches = (a.days_mask & (1 << dow_bit)) != 0;
-        else
-            matches = a.date_year == lt.tm_year + 1900 &&
-                      a.date_month == lt.tm_mon + 1 &&
-                      a.date_day == lt.tm_mday;
-        if (!matches) continue;
-        a.notified = true;
-        // Platform beep
-#ifdef _WIN32
-        MessageBeep(MB_ICONASTERISK);
-#else
-        // Emit bell character; terminal may beep
-        fputs("\a", stderr);
-#endif
-    }
-}
-
 // ─── Main render entry point ──────────────────────────────────────────────────
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
@@ -970,7 +911,7 @@ static float estimate_post_clock_height(const App& app) {
             : (frame + s.ItemSpacing.y) * (float)app.alarms.size();
     }
 
-    h += s.ItemSpacing.y * 4.f;
+    h += s.ItemSpacing.y;
     return h;
 }
 
@@ -1042,5 +983,4 @@ void render_app(App& app, UiState& ui) {
 
     ImGui::End();
 
-    check_alarms_cross_platform(app);
 }

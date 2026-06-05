@@ -8,11 +8,14 @@
 #include <cstring>
 #include <ctime>
 #include <filesystem>
+#include <format>
 #include <string>
 #include <vector>
 #include "actions.hpp"
+#include "alarm.hpp"
 #include "app.hpp"
 #include "config_io.hpp"
+#include "encoding.hpp"
 #include "platform_window.hpp"
 #include "ui_style.hpp"
 #include "ui_app.hpp"
@@ -59,6 +62,57 @@ static void render_frame(SDL_Window* window, SDL_GLContext gl_ctx, App& app, UiS
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     SDL_GL_SwapWindow(window);
+}
+
+static bool process_due_notifications(SDL_Window* window, App& app) {
+    bool dirty = false;
+    auto now = std::chrono::steady_clock::now();
+
+    for (int i = 0; i < (int)app.timers.size(); ++i) {
+        auto& ts = app.timers[i];
+        if (!ts.t.touched() || !ts.t.expired(now) || ts.notified) continue;
+
+        ts.notified = true;
+        std::string title = app.timers.size() <= 1
+            ? "Timer expired"
+            : std::format("Timer {} expired", i + 1);
+        std::string body = ts.label.empty() ? "Time is up." : wide_to_utf8(ts.label);
+        platform_notify(window, title.c_str(), body.c_str());
+        if (app.sound_on_expiry) platform_beep();
+
+        if (ts.pomodoro) {
+            advance_pomodoro_phase(ts, app.pomodoro_work_secs, app.pomodoro_short_secs,
+                                   app.pomodoro_long_secs, app.pomodoro_cadence,
+                                   app.pomodoro_auto_start, now);
+            dirty = true;
+        }
+    }
+
+    time_t t = std::time(nullptr);
+    tm lt{};
+#ifdef _WIN32
+    localtime_s(&lt, &t);
+#else
+    localtime_r(&t, &lt);
+#endif
+    int h = lt.tm_hour, m = lt.tm_min;
+    int cur_min = h * 60 + m;
+    if (cur_min != app.alarm_notified_minute) {
+        app.alarm_notified_minute = cur_min;
+        for (auto& a : app.alarms) a.notified = false;
+    }
+    for (auto& a : app.alarms) {
+        if (a.notified || !a.enabled) continue;
+        if (!alarm_matches(a, h, m, lt.tm_wday, lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday)) continue;
+        a.notified = true;
+        std::string body = a.name.empty()
+            ? std::format("{:02}:{:02}", a.hour, a.minute)
+            : std::format("{} ({:02}:{:02})", a.name, a.hour, a.minute);
+        platform_notify(window, "Alarm", body.c_str());
+        if (app.sound_on_expiry) platform_beep();
+    }
+
+    return dirty;
 }
 
 // ─── Platform entry ───────────────────────────────────────────────────────────
@@ -245,6 +299,25 @@ int main(int argc, char* argv[]) {
                 default: break;
                 }
             }
+        }
+
+        if (process_due_notifications(window, app)) ui.dirty = true;
+
+        if (ui.minimize_to_tray_requested) {
+            platform_minimize_to_tray(window);
+            ui.minimize_to_tray_requested = false;
+        }
+
+        Uint32 window_flags = SDL_GetWindowFlags(window);
+        bool window_visible = (window_flags & SDL_WINDOW_SHOWN) != 0 &&
+                              (window_flags & SDL_WINDOW_MINIMIZED) == 0;
+        if (!window_visible) {
+            if (ui.dirty) {
+                save_config(app, ui.cfg_path);
+                ui.dirty = false;
+            }
+            SDL_Delay(250);
+            continue;
         }
 
         rendering = true;
