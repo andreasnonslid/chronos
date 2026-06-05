@@ -263,13 +263,13 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
     default:
         if (act >= A_ALARM_DEL && act < A_ALARM_DEL + ALARM_MAX_COUNT) {
             const int i = act - A_ALARM_DEL;
-            if (i >= 0 && i < (int)app.alarms.size()) {
+            if (i < (int)app.alarms.size()) {
                 app.alarms.erase(app.alarms.begin() + i);
                 r.save_config = true;
             }
         } else if (act >= A_ALARM_TOGGLE && act < A_ALARM_TOGGLE + ALARM_MAX_COUNT) {
             const int i = act - A_ALARM_TOGGLE;
-            if (i >= 0 && i < (int)app.alarms.size()) {
+            if (i < (int)app.alarms.size()) {
                 app.alarms[i].enabled = !app.alarms[i].enabled;
                 r.save_config = true;
             }

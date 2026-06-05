@@ -5,6 +5,7 @@
 #include <SDL.h>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <format>
 #include <string>
@@ -327,7 +328,7 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal, float p
             float raw_pct = split_horizontal
                 ? (mouse.x - clock_min.x) / std::max(clock_width, 1.f) * 100.f
                 : (mouse.y - clock_min.y) / std::max(clock_height, 1.f) * 100.f;
-            int next_pct = std::clamp((int)(raw_pct + 0.5f), 20, 80);
+            int next_pct = std::clamp((int)std::lroundf(raw_pct), 20, 80);
             if (next_pct != app.clock_split_pct) {
                 app.clock_split_pct = next_pct;
                 ui.dirty = true;
