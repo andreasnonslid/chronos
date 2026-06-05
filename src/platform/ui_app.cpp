@@ -481,14 +481,27 @@ static void open_settings(App& app, UiState& ui) {
             ? app.custom_preset_secs[i] / 60 : 0;
 }
 
+static void render_settings_modal(App& app, UiState& ui) {
+    if (!ui.show_settings) return;
+    open_settings(app, ui);
+    ImGui::OpenPopup("Settings");
+    ui.show_settings = false;
+}
+
 static void render_settings_popup(App& app, UiState& ui) {
     if (!ImGui::BeginPopupModal("Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
 
     if (ImGui::BeginTabBar("##tabs")) {
+        // Use settings_tab as a one-shot pre-selection flag, then clear it
+        int tab_to_select = ui.settings_tab;
+        ui.settings_tab = -1;
+        auto tab_flags = [tab_to_select](int idx) -> ImGuiTabItemFlags {
+            return tab_to_select == idx ? ImGuiTabItemFlags_SetSelected : 0;
+        };
 
         // ── Appearance ──
-        if (ImGui::BeginTabItem("Appearance")) {
+        if (ImGui::BeginTabItem("Appearance", nullptr, tab_flags(0))) {
             ImGui::Text("Theme");
             int tm = (int)ui.pending_theme;
             ImGui::RadioButton("Auto",  &tm, 0); ImGui::SameLine();
@@ -503,7 +516,7 @@ static void render_settings_popup(App& app, UiState& ui) {
         }
 
         // ── Clock ──
-        if (ImGui::BeginTabItem("Clock")) {
+        if (ImGui::BeginTabItem("Clock", nullptr, tab_flags(1))) {
             const char* view_names[] = {
                 "24h + seconds","24h","12h + seconds","12h",
                 "Analog","Analog + 24h","24h / 12h","Analog + 24h/12h"
@@ -551,7 +564,7 @@ static void render_settings_popup(App& app, UiState& ui) {
         }
 
         // ── Pomodoro ──
-        if (ImGui::BeginTabItem("Pomodoro")) {
+        if (ImGui::BeginTabItem("Pomodoro", nullptr, tab_flags(2))) {
             ImGui::SetNextItemWidth(80); ImGui::InputInt("Work (min)",        &ui.pending_work_min,  1);
             ImGui::SetNextItemWidth(80); ImGui::InputInt("Short break (min)", &ui.pending_short_min, 1);
             ImGui::SetNextItemWidth(80); ImGui::InputInt("Long break (min)",  &ui.pending_long_min,  1);
@@ -566,7 +579,7 @@ static void render_settings_popup(App& app, UiState& ui) {
         }
 
         // ── Timers ──
-        if (ImGui::BeginTabItem("Timers")) {
+        if (ImGui::BeginTabItem("Timers", nullptr, tab_flags(3))) {
             ImGui::Text("Custom presets");
             for (int i = 0; i < 5; ++i) {
                 ImGui::SetNextItemWidth(80);
@@ -653,13 +666,6 @@ static void check_alarms_cross_platform(App& app) {
 void render_app(App& app, UiState& ui) {
     const ThemePalette& pal = palette_for(app.theme_mode, false);
 
-    // Fire settings open request
-    if (ui.show_settings) {
-        open_settings(app, ui);
-        ImGui::OpenPopup("Settings");
-        ui.show_settings = false;
-    }
-
     // Full-screen borderless window
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos({0, 0});
@@ -678,6 +684,7 @@ void render_app(App& app, UiState& ui) {
 
     render_add_alarm_modal(app, ui);
     render_add_alarm_popup(app, ui);
+    render_settings_modal(app, ui);
     render_settings_popup(app, ui);
 
     check_alarms_cross_platform(app);

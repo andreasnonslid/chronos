@@ -11,7 +11,7 @@ struct UiState {
     bool dirty           = false;   // config needs saving
 
     // Settings modal working copy
-    int  settings_tab    = 0;       // 0=Appearance 1=Clock 2=Pomodoro 3=Timers
+    int  settings_tab    = -1;      // -1=no pre-select; 0-3 selects tab on first open
     ThemeMode pending_theme;
     ClockView pending_clock_view;
     AnalogClockStyle pending_analog;

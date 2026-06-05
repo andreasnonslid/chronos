@@ -4,8 +4,11 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <string>
+#include <vector>
 #include "actions.hpp"
 #include "app.hpp"
 #include "config_io.hpp"
@@ -50,9 +53,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
 #else
 int main(int argc, char* argv[]) {
     const char* screenshot_path = nullptr;
-    for (int i = 1; i < argc - 1; ++i) {
-        if (strcmp(argv[i], "--screenshot") == 0)
+    std::vector<int> replay_actions;
+    int forced_settings_tab = -1;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--screenshot") == 0 && i + 1 < argc)
             screenshot_path = argv[i + 1];
+        if (strcmp(argv[i], "--settings-tab") == 0 && i + 1 < argc)
+            forced_settings_tab = (int)strtol(argv[i + 1], nullptr, 10);
+        if (strcmp(argv[i], "--actions") == 0 && i + 1 < argc) {
+            const char* s = argv[i + 1];
+            while (*s) {
+                char* end;
+                int code = (int)strtol(s, &end, 10);
+                if (end != s) replay_actions.push_back(code);
+                s = end;
+                if (*s == ',') ++s;
+            }
+        }
     }
 #endif
 
@@ -106,6 +123,36 @@ int main(int argc, char* argv[]) {
     if (screenshot_path) ui.screenshot_path = screenshot_path;
 
     apply_imgui_theme(app.theme_mode, false);
+
+    // Pre-dispatch actions (for headless UI testing — simulates button-click sequences)
+    if (!replay_actions.empty() || forced_settings_tab >= 0) {
+        auto now = std::chrono::steady_clock::now();
+        for (int act : replay_actions) {
+            auto r = dispatch_action(app, act, now, {});
+            if (r.open_settings)     ui.show_settings = true;
+            if (r.apply_theme)       apply_imgui_theme(app.theme_mode, false);
+            if (r.open_alarm_dialog) {
+                memset(ui.alarm_name, 0, sizeof(ui.alarm_name));
+                ui.alarm_hour = 8; ui.alarm_minute = 0;
+                ui.alarm_days_mode = true;
+                for (int d = 0; d < 7; ++d) ui.alarm_days[d] = true;
+                time_t t = std::time(nullptr); tm lt{};
+#ifdef _WIN32
+                localtime_s(&lt, &t);
+#else
+                localtime_r(&t, &lt);
+#endif
+                ui.alarm_year  = lt.tm_year + 1900;
+                ui.alarm_month = lt.tm_mon + 1;
+                ui.alarm_day   = lt.tm_mday;
+                ui.show_add_alarm = true;
+            }
+        }
+        if (forced_settings_tab >= 0) {
+            ui.show_settings  = true;
+            ui.settings_tab   = forced_settings_tab;
+        }
+    }
 
     bool done = false;
     bool screenshot_done = false;
