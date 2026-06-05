@@ -201,7 +201,7 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal) {
 static void render_stopwatch(App& app, [[maybe_unused]] UiState& ui, [[maybe_unused]] const ThemePalette& pal) {
     if (!app.show_sw) return;
     auto now = steady_clock::now();
-    std::string elapsed = ws(format_stopwatch_display(app.sw.elapsed(now)));
+    std::string elapsed = format_stopwatch_display(app.sw.elapsed(now));
 
     ImGui::SetWindowFontScale(1.5f);
     float tw = ImGui::CalcTextSize(elapsed.c_str()).x;

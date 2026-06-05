@@ -258,8 +258,8 @@ TEST_CASE("actions-stopwatch: lap file format_lap_row matches format_stopwatch_s
     auto total = milliseconds{4500};
     auto row = format_lap_row(1, split, total);
     // Row must contain both formatted times
-    REQUIRE(row.find(format_stopwatch_short(split)) != std::wstring::npos);
-    REQUIRE(row.find(format_stopwatch_short(total)) != std::wstring::npos);
+    REQUIRE(row.find(format_stopwatch_short(split)) != std::string::npos);
+    REQUIRE(row.find(format_stopwatch_short(total)) != std::string::npos);
     // Row must contain lap number prefix
-    REQUIRE(row.find(L"Lap 1") != std::wstring::npos);
+    REQUIRE(row.find("Lap 1") != std::string::npos);
 }

@@ -196,9 +196,9 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
                 auto days = std::chrono::floor<std::chrono::days>(tp);
                 const std::chrono::year_month_day ymd{days};
                 const std::chrono::hh_mm_ss hms{std::chrono::floor<std::chrono::milliseconds>(tp - days)};
-                auto lap_name = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt", (int)ymd.year(),
-                                            (unsigned)ymd.month(), (unsigned)ymd.day(), hms.hours().count(),
-                                            hms.minutes().count(), hms.seconds().count(), hms.subseconds().count());
+                auto lap_name = std::format("stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt", (int)ymd.year(),
+                                           (unsigned)ymd.month(), (unsigned)ymd.day(), hms.hours().count(),
+                                           hms.minutes().count(), hms.seconds().count(), hms.subseconds().count());
                 app.sw_lap_file = config_dir / lap_name;
             }
             app.sw.start(now);
@@ -215,8 +215,7 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
                 if (f) {
                     const auto& laps = app.sw.laps();
                     auto n = laps.size();
-                    auto row = format_lap_row(n, laps.back(), app.sw.cumulative());
-                    f << std::string(row.begin(), row.end()) << '\n';
+                    f << format_lap_row(n, laps.back(), app.sw.cumulative()) << '\n';
                     app.lap_write_failed = !f.good();
                 } else {
                     app.lap_write_failed = true;
