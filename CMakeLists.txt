@@ -30,8 +30,6 @@ set(CHRONOS_INCLUDE_DIRS
     src/core
     src/ui
     src/platform
-    src/input
-    src/painting
 )
 
 # ─── Core library (pure logic, no platform deps) ──────────────────────────────

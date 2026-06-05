@@ -22,6 +22,7 @@
 #pragma clang diagnostic pop
 
 static bool save_screenshot(const char* path, int w, int h) {
+    glFinish();
     std::vector<uint8_t> pixels(w * h * 3);
     glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
     // Flip vertically (OpenGL origin is bottom-left)
@@ -68,8 +69,10 @@ int main(int argc, char* argv[]) {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-    Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
-    if (screenshot_path) wflags |= SDL_WINDOW_HIDDEN;
+    // SDL_WINDOW_HIDDEN prevents the GL surface from fully initialising on some
+    // software renderers (Mesa/Xvfb), leaving the framebuffer uncleared. Always
+    // show the window; Xvfb makes it invisible anyway.
+    Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     SDL_Window* window = SDL_CreateWindow("Chronos", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                           360, 520, wflags);
     if (!window) {
@@ -140,20 +143,16 @@ int main(int argc, char* argv[]) {
         ImGui::Render();
 
         int display_w, display_h;
-        SDL_GetWindowSize(window, &display_w, &display_h);
+        SDL_GL_GetDrawableSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         const auto& pal = palette_for(app.theme_mode, false);
         glClearColor(pal.bg.r / 255.f, pal.bg.g / 255.f, pal.bg.b / 255.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        SDL_GL_SwapWindow(window);
 
-        if (ui.dirty) {
-            save_config(app, ui.cfg_path);
-            ui.dirty = false;
-        }
-
-        // Screenshot mode: render 2 frames (1 to warm up, 1 to capture), then quit
+        // Screenshot: capture before SwapWindow while back buffer holds current frame.
+        // glReadPixels reads the back buffer; after swap it becomes undefined on many
+        // software renderers (Mesa zeroes it), so capture must happen here.
         if (!ui.screenshot_path.empty()) {
             ++frame_count;
             if (frame_count >= 2 && !screenshot_done) {
@@ -163,6 +162,13 @@ int main(int argc, char* argv[]) {
                 screenshot_done = true;
                 done = true;
             }
+        }
+
+        SDL_GL_SwapWindow(window);
+
+        if (ui.dirty) {
+            save_config(app, ui.cfg_path);
+            ui.dirty = false;
         }
     }
 
