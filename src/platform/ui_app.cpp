@@ -444,6 +444,24 @@ static void render_timer_edit_scroll(App& app, UiState& ui, int timer_idx,
     render_timer_scroll_value(app, ui, timer_idx, "##timer_s", ss.c_str(), A_TMR_SDN, A_TMR_SUP, now);
 }
 
+static ImVec2 timer_action_button_size() {
+    const ImGuiStyle& s = ImGui::GetStyle();
+    float text_w = std::max(ImGui::CalcTextSize("Start").x, ImGui::CalcTextSize("Reset").x);
+    text_w = std::max(text_w, ImGui::CalcTextSize("Pomo").x);
+    return {text_w + s.FramePadding.x * 2.f, ImGui::GetFrameHeight()};
+}
+
+static bool timer_action_slot(const char* label, const ImVec2& size, bool enabled,
+                              const char* debug_label, ImU32 debug_color) {
+    if (enabled) {
+        bool clicked = ImGui::Button(label, size);
+        CHRONOS_DEBUG_ITEM(debug_label, debug_color);
+        return clicked;
+    }
+    ImGui::InvisibleButton(label, size);
+    return false;
+}
+
 static void render_timers(App& app, UiState& ui, const ThemePalette& pal) {
     if (!app.show_tmr) return;
     auto now = steady_clock::now();
@@ -479,29 +497,27 @@ static void render_timers(App& app, UiState& ui, const ThemePalette& pal) {
             }
 
             ImGui::TableSetColumnIndex(2);
-            if (ImGui::SmallButton(running ? "Stop" : "Start"))
+            ImVec2 action_size = timer_action_button_size();
+            if (timer_action_slot(running ? "Stop" : "Start", action_size, true,
+                                  running ? "timer stop" : "timer start", IM_COL32(255, 100, 200, 255)))
                 dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_START, now, {});
-            CHRONOS_DEBUG_ITEM(running ? "timer stop" : "timer start", IM_COL32(255, 100, 200, 255));
             ImGui::SameLine();
 
-            if (ImGui::SmallButton("Reset"))
+            if (timer_action_slot("Reset", action_size, true, "timer reset", IM_COL32(255, 100, 200, 255)))
                 dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_RST, now, {});
-            CHRONOS_DEBUG_ITEM("timer reset", IM_COL32(255, 100, 200, 255));
+            ImGui::SameLine();
 
             if (untouched) {
-                ImGui::SameLine();
                 if (ts.pomodoro) ImGui::PushStyleColor(ImGuiCol_Button, to_v4(pal.active));
-                if (ImGui::SmallButton("Pomo"))
+                if (timer_action_slot("Pomo", action_size, true, "timer pomo", IM_COL32(255, 100, 200, 255)))
                     dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_POMO, now, {});
-                CHRONOS_DEBUG_ITEM("timer pomo", IM_COL32(255, 100, 200, 255));
                 if (ts.pomodoro) ImGui::PopStyleColor();
-            }
-
-            if (ts.pomodoro && ts.t.touched()) {
-                ImGui::SameLine();
-                if (ImGui::SmallButton("Skip"))
+            } else if (ts.pomodoro && ts.t.touched()) {
+                if (timer_action_slot("Skip", action_size, true, "timer skip", IM_COL32(255, 100, 200, 255)))
                     dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_SKIP, now, {});
-                CHRONOS_DEBUG_ITEM("timer skip", IM_COL32(255, 100, 200, 255));
+            } else {
+                timer_action_slot("##timer_action_spacer", action_size, false,
+                                  "timer spacer", IM_COL32(255, 100, 200, 255));
             }
 
             if ((int)app.timers.size() > 1) {
@@ -521,18 +537,18 @@ static void render_timers(App& app, UiState& ui, const ThemePalette& pal) {
             break;
         }
 
-        // Progress bar for running/touched timers
+        // Reserve a stable progress band so starting a timer does not resize the row.
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float w = ImGui::GetContentRegionAvail().x;
+        float h = 4.f;
         if (ts.t.touched()) {
             float dur_ms = (float)duration_cast<milliseconds>(ts.dur).count();
             float rem_ms = (float)duration_cast<milliseconds>(ts.t.remaining(now)).count();
             float frac   = dur_ms > 0 ? std::clamp(rem_ms / dur_ms, 0.f, 1.f) : 0.f;
             ImU32 fill_col = expired ? to_u32(pal.expire, 0.4f) : to_u32(pal.fill, 0.6f);
-            ImVec2 p = ImGui::GetCursorScreenPos();
-            float w = ImGui::GetContentRegionAvail().x;
-            float h = 4.f;
             ImGui::GetWindowDrawList()->AddRectFilled(p, {p.x + w * frac, p.y + h}, fill_col);
-            ImGui::Dummy({0, h});
         }
+        ImGui::Dummy({0, h});
 
         ImGui::PopID();
     }
@@ -925,8 +941,9 @@ static float estimate_post_clock_height(const App& app) {
     if (app.show_tmr) {
         h += line + s.ItemSpacing.y;
         for (const auto& ts : app.timers) {
+            (void)ts;
             h += frame;
-            if (ts.t.touched()) h += frame + s.ItemSpacing.y;
+            h += 4.f;
             h += s.ItemSpacing.y;
         }
     }
