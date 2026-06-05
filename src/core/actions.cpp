@@ -132,13 +132,11 @@ HandleResult dispatch_timer_action(App& app, int idx, int off,
             TimerSlot ns;
             ns.t.set(ns.dur);
             app.timers.insert(app.timers.begin() + idx + 1, ns);
-            r.resize = true;
             r.save_config = true;
         }
     } else if (off == A_TMR_DEL) {
         if ((int)app.timers.size() > 1) {
             app.timers.erase(app.timers.begin() + idx);
-            r.resize = true;
             r.save_config = true;
         }
     } else if (off == A_TMR_POMO) {
@@ -176,17 +174,14 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
         break;
     case A_SHOW_CLK:
         app.show_clk = !app.show_clk;
-        r.resize = true;
         r.save_config = true;
         break;
     case A_SHOW_SW:
         app.show_sw = !app.show_sw;
-        r.resize = true;
         r.save_config = true;
         break;
     case A_SHOW_TMR:
         app.show_tmr = !app.show_tmr;
-        r.resize = true;
         r.save_config = true;
         break;
     case A_SW_START:
@@ -246,26 +241,15 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
         r.apply_theme = true;
         r.save_config = true;
         break;
-    case A_CLK_CYCLE: {
-        auto old_view = app.clock_view;
+    case A_CLK_CYCLE:
         app.clock_view = (ClockView)(((int)app.clock_view + 1) % CLOCK_VIEW_COUNT);
-        // Any view change that affects clock height (analog presence, stacked
-        // digital) needs a window resize. Compare effective heights at a
-        // baseline radius — the actual height also depends on analog_style,
-        // but width-changes here are dominated by view kind.
-        const Layout probe;
-        if (effective_clk_h(probe, old_view, app.analog_style.radius_pct) !=
-            effective_clk_h(probe, app.clock_view, app.analog_style.radius_pct))
-            r.resize = true;
         r.save_config = true;
         break;
-    }
     case A_SETTINGS:
         r.open_settings = true;
         break;
     case A_SHOW_ALARMS:
         app.show_alarms = !app.show_alarms;
-        r.resize = true;
         r.save_config = true;
         break;
     case A_ALARM_ADD:
@@ -281,7 +265,6 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
             const int i = act - A_ALARM_DEL;
             if (i >= 0 && i < (int)app.alarms.size()) {
                 app.alarms.erase(app.alarms.begin() + i);
-                r.resize = true;
                 r.save_config = true;
             }
         } else if (act >= A_ALARM_TOGGLE && act < A_ALARM_TOGGLE + ALARM_MAX_COUNT) {

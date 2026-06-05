@@ -57,7 +57,6 @@ TEST_CASE("A_TMR_ADD inserts timer after current index", "[actions]") {
     REQUIRE(app.timers.size() == 1);
     auto r = dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
     REQUIRE(app.timers.size() == 2);
-    REQUIRE(r.resize);
     REQUIRE(r.save_config);
 }
 
@@ -66,9 +65,8 @@ TEST_CASE("A_TMR_ADD respects MAX_TIMERS", "[actions]") {
     while ((int)app.timers.size() < Config::MAX_TIMERS)
         dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
     REQUIRE((int)app.timers.size() == Config::MAX_TIMERS);
-    auto r = dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
+    dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {});
     REQUIRE((int)app.timers.size() == Config::MAX_TIMERS);
-    REQUIRE_FALSE(r.resize);
 }
 
 TEST_CASE("A_TMR_DEL removes timer at index", "[actions]") {
@@ -76,16 +74,14 @@ TEST_CASE("A_TMR_DEL removes timer at index", "[actions]") {
     dispatch_action(app, tmr_act(0, A_TMR_ADD), t0(), {}); // 2 timers
     auto r = dispatch_action(app, tmr_act(0, A_TMR_DEL), t0(), {});
     REQUIRE(app.timers.size() == 1);
-    REQUIRE(r.resize);
     REQUIRE(r.save_config);
 }
 
 TEST_CASE("A_TMR_DEL does not remove last timer", "[actions]") {
     App app;
     REQUIRE(app.timers.size() == 1);
-    auto r = dispatch_action(app, tmr_act(0, A_TMR_DEL), t0(), {});
+    dispatch_action(app, tmr_act(0, A_TMR_DEL), t0(), {});
     REQUIRE(app.timers.size() == 1);
-    REQUIRE_FALSE(r.resize);
 }
 
 // ─── reset all timers ───────────────────────────────────────────────────────

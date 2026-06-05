@@ -255,11 +255,9 @@ TEST_CASE("actions-alarm: A_SHOW_ALARMS toggles app.show_alarms and signals resi
     REQUIRE_FALSE(app.show_alarms);
     auto r1 = dispatch_action(app, A_SHOW_ALARMS, t0(), {});
     REQUIRE(app.show_alarms);
-    REQUIRE(r1.resize);
     REQUIRE(r1.save_config);
-    auto r2 = dispatch_action(app, A_SHOW_ALARMS, t0(), {});
+    dispatch_action(app, A_SHOW_ALARMS, t0(), {});
     REQUIRE_FALSE(app.show_alarms);
-    REQUIRE(r2.resize);
 }
 
 TEST_CASE("actions-alarm: A_SETTINGS sets open_settings only", "[actions-alarm]") {
@@ -267,7 +265,6 @@ TEST_CASE("actions-alarm: A_SETTINGS sets open_settings only", "[actions-alarm]"
     auto r = dispatch_action(app, A_SETTINGS, t0(), {});
     REQUIRE(r.open_settings);
     REQUIRE_FALSE(r.save_config);
-    REQUIRE_FALSE(r.resize);
     REQUIRE_FALSE(r.set_topmost);
 }
 
@@ -291,7 +288,6 @@ TEST_CASE("actions-alarm: A_ALARM_DEL+i removes alarm at index and signals resiz
     REQUIRE(app.alarms.size() == 2);
     REQUIRE(app.alarms[0].name == "A");
     REQUIRE(app.alarms[1].name == "C");
-    REQUIRE(r.resize);
     REQUIRE(r.save_config);
 }
 
@@ -302,7 +298,6 @@ TEST_CASE("actions-alarm: A_ALARM_DEL+i with out-of-range index is a no-op",
     auto i = GENERATE(5, 10, ALARM_MAX_COUNT - 1);
     auto r = dispatch_action(app, A_ALARM_DEL + i, t0(), {});
     REQUIRE(app.alarms.size() == 1);
-    REQUIRE_FALSE(r.resize);
     REQUIRE_FALSE(r.save_config);
 }
 
@@ -317,7 +312,6 @@ TEST_CASE("actions-alarm: A_ALARM_TOGGLE+i flips enabled and signals save (no re
     REQUIRE(app.alarms[0].enabled);
     REQUIRE_FALSE(app.alarms[1].enabled);
     REQUIRE(r1.save_config);
-    REQUIRE_FALSE(r1.resize);
 
     auto r2 = dispatch_action(app, A_ALARM_TOGGLE + 1, t0(), {});
     REQUIRE(app.alarms[1].enabled);

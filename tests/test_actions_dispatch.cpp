@@ -56,7 +56,6 @@ TEST_CASE("A_TOPMOST toggles topmost flag", "[actions]") {
     REQUIRE(app.topmost);
     REQUIRE(r.set_topmost);
     REQUIRE(r.save_config);
-    REQUIRE_FALSE(r.resize);
 
     dispatch_action(app, A_TOPMOST, t0(), {});
     REQUIRE_FALSE(app.topmost);
@@ -66,7 +65,6 @@ TEST_CASE("A_SHOW_CLK toggles clock visibility", "[actions]") {
     App app;
     auto r = dispatch_action(app, A_SHOW_CLK, t0(), {});
     REQUIRE_FALSE(app.show_clk);
-    REQUIRE(r.resize);
     REQUIRE(r.save_config);
     REQUIRE_FALSE(r.set_topmost);
 
@@ -78,7 +76,6 @@ TEST_CASE("A_SHOW_SW toggles stopwatch visibility", "[actions]") {
     App app;
     auto r = dispatch_action(app, A_SHOW_SW, t0(), {});
     REQUIRE_FALSE(app.show_sw);
-    REQUIRE(r.resize);
     REQUIRE(r.save_config);
 }
 
@@ -86,7 +83,6 @@ TEST_CASE("A_SHOW_TMR toggles timer visibility", "[actions]") {
     App app;
     auto r = dispatch_action(app, A_SHOW_TMR, t0(), {});
     REQUIRE_FALSE(app.show_tmr);
-    REQUIRE(r.resize);
     REQUIRE(r.save_config);
 }
 
@@ -115,7 +111,6 @@ TEST_CASE("A_THEME cycles theme mode and signals apply_theme", "[actions]") {
 TEST_CASE("A_THEME does not set resize or set_topmost", "[actions]") {
     App app;
     auto r = dispatch_action(app, A_THEME, t0(), {});
-    REQUIRE_FALSE(r.resize);
     REQUIRE_FALSE(r.set_topmost);
     REQUIRE_FALSE(r.open_file);
     REQUIRE_FALSE(r.copy_laps);
@@ -142,7 +137,6 @@ TEST_CASE("A_CLK_CYCLE cycles through all clock views", "[actions]") {
     auto r4 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
     REQUIRE(app.clock_view == ClockView::Analog);
     REQUIRE(r4.save_config);
-    REQUIRE(r4.resize);
 
     auto r5 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
     REQUIRE(app.clock_view == ClockView::Mixed_AnalogDigital);
@@ -151,23 +145,19 @@ TEST_CASE("A_CLK_CYCLE cycles through all clock views", "[actions]") {
     auto r6 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
     REQUIRE(app.clock_view == ClockView::Mixed_IntlLocal);
     REQUIRE(r6.save_config);
-    REQUIRE(r6.resize); // analog->stacked digital changes height
 
     auto r7 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
     REQUIRE(app.clock_view == ClockView::Mixed_AnalogIntlLocal);
     REQUIRE(r7.save_config);
-    REQUIRE(r7.resize); // stacked digital -> analog-mixed changes height
 
     auto r8 = dispatch_action(app, A_CLK_CYCLE, t0(), {});
     REQUIRE(app.clock_view == ClockView::H24_HMS);
     REQUIRE(r8.save_config);
-    REQUIRE(r8.resize);
 }
 
 TEST_CASE("A_CLK_CYCLE does not set resize between digital views", "[actions]") {
     App app;
     auto r = dispatch_action(app, A_CLK_CYCLE, t0(), {});
-    REQUIRE_FALSE(r.resize);
     REQUIRE_FALSE(r.set_topmost);
     REQUIRE_FALSE(r.apply_theme);
     REQUIRE_FALSE(r.open_file);

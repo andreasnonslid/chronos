@@ -41,7 +41,6 @@ constexpr int A_TMR_SKIP = 11;
 
 struct HandleResult {
     bool save_config = false;
-    bool resize = false;
     bool set_topmost = false;
     bool open_file = false;
     bool copy_laps = false;
