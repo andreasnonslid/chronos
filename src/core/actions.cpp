@@ -21,8 +21,10 @@ int cycle(int v, int max_inclusive, bool up) {
     else    return v <= 0             ? max_inclusive : v - 1;
 }
 
+} // namespace
+
 // Advance a running pomodoro timer to the next phase (work → break → work …),
-// crediting the elapsed-time bucket if leaving a work phase.
+// crediting actual elapsed time if leaving a work phase.
 void advance_pomodoro_phase(TimerSlot& ts, const App& app,
                             std::chrono::steady_clock::time_point now) {
     using namespace std::chrono;
@@ -36,11 +38,9 @@ void advance_pomodoro_phase(TimerSlot& ts, const App& app,
     ts.notified = false;
     ts.t.reset();
     ts.t.set(secs);
-    ts.t.start(now);
+    if (app.pomodoro_auto_start) ts.t.start(now);
     ts.label = pomodoro_phase_label(ts.pomodoro_phase, app.pomodoro_cadence);
 }
-
-} // namespace
 
 /// Resets @p ts to its initial state, restoring pomodoro phase 0 if applicable.
 void reset_timer_slot(TimerSlot& ts, const App& app) {

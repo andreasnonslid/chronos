@@ -81,9 +81,7 @@ static bool process_due_notifications(SDL_Window* window, App& app) {
         if (app.sound_on_expiry) platform_beep();
 
         if (ts.pomodoro) {
-            advance_pomodoro_phase(ts, app.pomodoro_work_secs, app.pomodoro_short_secs,
-                                   app.pomodoro_long_secs, app.pomodoro_cadence,
-                                   app.pomodoro_auto_start, now);
+            advance_pomodoro_phase(ts, app, now);
             dirty = true;
         }
     }

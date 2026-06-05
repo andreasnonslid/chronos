@@ -64,6 +64,9 @@ inline std::optional<TmrDecoded> tmr_decode(int act) {
     return TmrDecoded{rel / TMR_STRIDE, rel % TMR_STRIDE};
 }
 
+void advance_pomodoro_phase(TimerSlot& ts, const App& app,
+                            std::chrono::steady_clock::time_point now);
+
 bool wants_blink(int act);
 HandleResult dispatch_timer_action(App& app, int idx, int off,
                                    std::chrono::steady_clock::time_point now);

@@ -320,6 +320,18 @@ TEST_CASE("A_TMR_SKIP wraps from LongBreak back to Work1", "[pomodoro][actions]"
 }
 
 // ─── advance_pomodoro_phase ──────────────────────────────────────────────────
+// Helper: build an App with specific pomodoro settings for advance tests.
+static App pomo_app(int work = POMODORO_WORK_SECS, int sht = POMODORO_SHORT_BREAK_SECS,
+                    int lng = POMODORO_LONG_BREAK_SECS, int cad = POMODORO_DEFAULT_CADENCE,
+                    bool auto_start = true) {
+    App a;
+    a.pomodoro_work_secs  = work;
+    a.pomodoro_short_secs = sht;
+    a.pomodoro_long_secs  = lng;
+    a.pomodoro_cadence    = cad;
+    a.pomodoro_auto_start = auto_start;
+    return a;
+}
 
 TEST_CASE("advance: work expires -> short break, work_elapsed increases", "[pomodoro][advance]") {
     TimerSlot ts;
@@ -331,8 +343,7 @@ TEST_CASE("advance: work expires -> short break, work_elapsed increases", "[pomo
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
-                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_WORK_SECS});
+    advance_pomodoro_phase(ts, pomo_app(), t0() + seconds{POMODORO_WORK_SECS});
 
     REQUIRE(ts.pomodoro_phase == 1);
     REQUIRE(ts.dur == seconds{POMODORO_SHORT_BREAK_SECS});
@@ -352,8 +363,7 @@ TEST_CASE("advance: short break expires -> next work phase, work_elapsed unchang
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
-                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_SHORT_BREAK_SECS});
+    advance_pomodoro_phase(ts, pomo_app(), t0() + seconds{POMODORO_SHORT_BREAK_SECS});
 
     REQUIRE(ts.pomodoro_phase == 2);
     REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
@@ -372,8 +382,7 @@ TEST_CASE("advance: Work4 expires -> long break", "[pomodoro][advance]") {
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
-                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_WORK_SECS});
+    advance_pomodoro_phase(ts, pomo_app(), t0() + seconds{POMODORO_WORK_SECS});
 
     REQUIRE(ts.pomodoro_phase == 7);
     REQUIRE(ts.dur == seconds{POMODORO_LONG_BREAK_SECS});
@@ -391,8 +400,7 @@ TEST_CASE("advance: long break expires -> wraps to Work1, work_elapsed unchanged
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
-                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_LONG_BREAK_SECS});
+    advance_pomodoro_phase(ts, pomo_app(), t0() + seconds{POMODORO_LONG_BREAK_SECS});
 
     REQUIRE(ts.pomodoro_phase == 0);
     REQUIRE(ts.dur == seconds{POMODORO_WORK_SECS});
@@ -414,7 +422,7 @@ TEST_CASE("advance: custom durations flow through correctly", "[pomodoro][advanc
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, WORK, SHORT, LONG, POMODORO_DEFAULT_CADENCE, true, t0() + seconds{WORK});
+    advance_pomodoro_phase(ts, pomo_app(WORK, SHORT, LONG), t0() + seconds{WORK});
 
     REQUIRE(ts.dur == seconds{SHORT});
 
@@ -424,7 +432,7 @@ TEST_CASE("advance: custom durations flow through correctly", "[pomodoro][advanc
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, WORK, SHORT, LONG, POMODORO_DEFAULT_CADENCE, true, t0() + seconds{WORK});
+    advance_pomodoro_phase(ts, pomo_app(WORK, SHORT, LONG), t0() + seconds{WORK});
 
     REQUIRE(ts.dur == seconds{LONG});
     REQUIRE(ts.label == L"Long Break");
@@ -440,8 +448,7 @@ TEST_CASE("advance: notified flag is cleared", "[pomodoro][advance]") {
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
-                           POMODORO_DEFAULT_CADENCE, true, t0() + seconds{POMODORO_WORK_SECS});
+    advance_pomodoro_phase(ts, pomo_app(), t0() + seconds{POMODORO_WORK_SECS});
 
     REQUIRE_FALSE(ts.notified);
 }
@@ -460,8 +467,7 @@ TEST_CASE("advance: full cycle through all 8 phases", "[pomodoro][advance]") {
     int count = pomodoro_phase_count(POMODORO_DEFAULT_CADENCE);
     for (int i = 0; i < count; ++i) {
         now += ts.dur;
-        advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS, POMODORO_LONG_BREAK_SECS,
-                               POMODORO_DEFAULT_CADENCE, true, now);
+        advance_pomodoro_phase(ts, pomo_app(), now);
     }
 
     REQUIRE(ts.pomodoro_phase == 0);
@@ -522,8 +528,8 @@ TEST_CASE("advance with custom cadence cycles correctly", "[pomodoro][cadence][a
     int count = pomodoro_phase_count(CAD);
     for (int i = 0; i < count; ++i) {
         now += ts.dur;
-        advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS,
-                               POMODORO_LONG_BREAK_SECS, CAD, true, now);
+        advance_pomodoro_phase(ts, pomo_app(POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS,
+                                           POMODORO_LONG_BREAK_SECS, CAD), now);
     }
 
     REQUIRE(ts.pomodoro_phase == 0);
@@ -578,8 +584,8 @@ TEST_CASE("advance with auto_start=false does not start timer", "[pomodoro][auto
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS,
-                           POMODORO_LONG_BREAK_SECS, POMODORO_DEFAULT_CADENCE, false,
+    advance_pomodoro_phase(ts, pomo_app(POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS,
+                                       POMODORO_LONG_BREAK_SECS, POMODORO_DEFAULT_CADENCE, false),
                            t0() + seconds{POMODORO_WORK_SECS});
 
     REQUIRE(ts.pomodoro_phase == 1);
@@ -597,9 +603,7 @@ TEST_CASE("advance with auto_start=true starts timer", "[pomodoro][auto_start][a
     ts.t.set(ts.dur);
     ts.t.start(t0());
 
-    advance_pomodoro_phase(ts, POMODORO_WORK_SECS, POMODORO_SHORT_BREAK_SECS,
-                           POMODORO_LONG_BREAK_SECS, POMODORO_DEFAULT_CADENCE, true,
-                           t0() + seconds{POMODORO_WORK_SECS});
+    advance_pomodoro_phase(ts, pomo_app(), t0() + seconds{POMODORO_WORK_SECS});
 
     REQUIRE(ts.pomodoro_phase == 1);
     REQUIRE(ts.t.is_running());
