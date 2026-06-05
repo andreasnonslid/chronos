@@ -234,6 +234,23 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
         bool expired = ts.t.touched() && ts.t.expired(now);
         bool untouched = !ts.t.touched();
 
+        if (expired && !ts.notified) {
+            ts.notified = true;
+            if (app.sound_on_expiry) {
+#ifdef _WIN32
+                MessageBeep(MB_ICONASTERISK);
+#else
+                fputs("\a", stderr);
+#endif
+            }
+            if (ts.pomodoro) {
+                advance_pomodoro_phase(ts, app.pomodoro_work_secs, app.pomodoro_short_secs,
+                                       app.pomodoro_long_secs, app.pomodoro_cadence,
+                                       app.pomodoro_auto_start, now);
+                ui.dirty = true;
+            }
+        }
+
         ImGui::PushID(i);
 
         // Label / pomodoro phase
