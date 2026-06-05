@@ -1000,50 +1000,36 @@ void render_app(App& app, UiState& ui) {
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
     g_debug_flag = &ui.debug_overlay_visible;
-#endif
-
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
     ImDrawList* debug_dl = ImGui::GetForegroundDrawList();
     if (ui.debug_overlay_visible) debug_edge_overlay(debug_dl, io.DisplaySize);
-    ImVec2 before = ImGui::GetCursorScreenPos();
+    ImVec2 dbg_before = ImGui::GetCursorScreenPos();
+    auto dbg_section = [&](const char* name, ImU32 color) {
+        if (ui.debug_overlay_visible) debug_section(debug_dl, dbg_before, name, color);
+        dbg_before = ImGui::GetCursorScreenPos();
+    };
+#else
+    auto dbg_section = [](const char*, ImU32) {};
 #endif
     render_titlebar(app, ui, pal);
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
-    if (ui.debug_overlay_visible) debug_section(debug_dl, before, "titlebar", IM_COL32(80, 160, 255, 255));
-    before = ImGui::GetCursorScreenPos();
-#endif
+    dbg_section("titlebar", IM_COL32(80, 160, 255, 255));
     if (ui.show_add_alarm) {
         render_add_alarm_window(app, ui);
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
-        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "add alarm", IM_COL32(180, 120, 255, 255));
-#endif
+        dbg_section("add alarm", IM_COL32(180, 120, 255, 255));
     } else if (ui.show_settings) {
         render_settings_window(app, ui);
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
-        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "settings", IM_COL32(80, 220, 255, 255));
-#endif
+        dbg_section("settings", IM_COL32(80, 220, 255, 255));
     } else {
         float clock_height = app.show_clk
             ? std::max(80.f, ImGui::GetContentRegionAvail().y - estimate_post_clock_height(app))
             : 0.f;
         render_clock(app, ui, pal, clock_height);
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
-        before = ImGui::GetCursorScreenPos();
-#endif
+        dbg_section("clock", IM_COL32(255, 200, 50, 255));
         render_stopwatch(app, ui, pal);
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
-        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "stopwatch", IM_COL32(0, 255, 160, 255));
-        before = ImGui::GetCursorScreenPos();
-#endif
+        dbg_section("stopwatch", IM_COL32(0, 255, 160, 255));
         render_timers(app, ui, pal);
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
-        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "timers", IM_COL32(255, 100, 200, 255));
-        before = ImGui::GetCursorScreenPos();
-#endif
+        dbg_section("timers", IM_COL32(255, 100, 200, 255));
         render_alarms(app, ui);
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
-        if (ui.debug_overlay_visible) debug_section(debug_dl, before, "alarms", IM_COL32(180, 120, 255, 255));
-#endif
+        dbg_section("alarms", IM_COL32(180, 120, 255, 255));
     }
 
     ImGui::End();
