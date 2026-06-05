@@ -43,6 +43,16 @@ static bool save_screenshot(const char* path, int w, int h) {
 }
 #endif
 
+static tm local_time(time_t t) {
+    tm lt{};
+#ifdef _WIN32
+    localtime_s(&lt, &t);
+#else
+    localtime_r(&t, &lt);
+#endif
+    return lt;
+}
+
 static void render_frame(SDL_Window* window, SDL_GLContext gl_ctx, App& app, UiState& ui) {
     SDL_GL_MakeCurrent(window, gl_ctx);
     ImGui_ImplOpenGL3_NewFrame();
@@ -86,13 +96,7 @@ static bool process_due_notifications(SDL_Window* window, App& app) {
         }
     }
 
-    time_t t = std::time(nullptr);
-    tm lt{};
-#ifdef _WIN32
-    localtime_s(&lt, &t);
-#else
-    localtime_r(&t, &lt);
-#endif
+    tm lt = local_time(std::time(nullptr));
     int h = lt.tm_hour, m = lt.tm_min;
     int cur_min = h * 60 + m;
     if (cur_min != app.alarm_notified_minute) {
@@ -235,12 +239,7 @@ int main(int argc, char* argv[]) {
                 ui.alarm_hour = 8; ui.alarm_minute = 0;
                 ui.alarm_days_mode = true;
                 for (int d = 0; d < 7; ++d) ui.alarm_days[d] = true;
-                time_t t = std::time(nullptr); tm lt{};
-#ifdef _WIN32
-                localtime_s(&lt, &t);
-#else
-                localtime_r(&t, &lt);
-#endif
+                tm lt = local_time(std::time(nullptr));
                 ui.alarm_year  = lt.tm_year + 1900;
                 ui.alarm_month = lt.tm_mon + 1;
                 ui.alarm_day   = lt.tm_mday;
