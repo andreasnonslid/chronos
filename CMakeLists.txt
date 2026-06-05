@@ -109,6 +109,12 @@ if(CHRONOS_BUILD_APP)
         src/platform/config_io.cpp
         src/platform/analog_clock_imgui.cpp
         src/platform/ui_app.cpp
+        src/platform/ui_titlebar.cpp
+        src/platform/ui_clock.cpp
+        src/platform/ui_stopwatch.cpp
+        src/platform/ui_timers.cpp
+        src/platform/ui_alarms.cpp
+        src/platform/ui_settings.cpp
         src/platform/main_loop.cpp
     )
     if(WIN32)
