@@ -96,7 +96,8 @@ int main(int argc, char* argv[]) {
     // SDL_WINDOW_HIDDEN prevents the GL surface from fully initialising on some
     // software renderers (Mesa/Xvfb), leaving the framebuffer uncleared. Always
     // show the window; Xvfb makes it invisible anyway.
-    Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+    // BORDERLESS: removes OS title bar; we draw our own strip in ImGui.
+    Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS;
     SDL_Window* window = SDL_CreateWindow("Chronos", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                           360, 520, wflags);
     if (!window) {
@@ -115,6 +116,28 @@ int main(int argc, char* argv[]) {
     SDL_GL_MakeCurrent(window, gl_ctx);
     SDL_GL_SetSwapInterval(1);  // vsync
 
+    // Hit-test callback: tells SDL which regions are resize edges so the WM
+    // can handle diagonal drag and smooth OS-level resize natively.
+    static const int RESIZE_BORDER = 6;
+    SDL_SetWindowHitTest(window, [](SDL_Window* w, const SDL_Point* pt, void*) -> SDL_HitTestResult {
+        int wd, h;
+        SDL_GetWindowSize(w, &wd, &h);
+        const int b = RESIZE_BORDER;
+        bool top = pt->y < b,        bot = pt->y >= h - b;
+        bool lft = pt->x < b,        rgt = pt->x >= wd - b;
+        if (top && lft) return SDL_HITTEST_RESIZE_TOPLEFT;
+        if (top && rgt) return SDL_HITTEST_RESIZE_TOPRIGHT;
+        if (bot && lft) return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+        if (bot && rgt) return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+        if (top)        return SDL_HITTEST_RESIZE_TOP;
+        if (bot)        return SDL_HITTEST_RESIZE_BOTTOM;
+        if (lft)        return SDL_HITTEST_RESIZE_LEFT;
+        if (rgt)        return SDL_HITTEST_RESIZE_RIGHT;
+        return SDL_HITTEST_NORMAL;
+    }, nullptr);
+
+    SDL_SetWindowMinimumSize(window, 240, 180);
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -125,7 +148,8 @@ int main(int argc, char* argv[]) {
 
     App app;
     UiState ui;
-    ui.cfg_path = config_override ? std::filesystem::path{config_override} : config_path();
+    ui.cfg_path    = config_override ? std::filesystem::path{config_override} : config_path();
+    ui.sdl_window  = window;
     load_config(app, ui.cfg_path);
     if (screenshot_path) ui.screenshot_path = screenshot_path;
 
@@ -164,6 +188,29 @@ int main(int argc, char* argv[]) {
     bool done = false;
     bool screenshot_done = false;
     int frame_count = 0;
+
+    // Render a full frame from within the SDL event watch so the window
+    // repaints continuously during a resize drag on Windows (the WM blocks
+    // the main thread in a modal message loop during resize).
+    struct RenderCtx { SDL_Window* win; SDL_GLContext gl; App* app; UiState* ui; bool* done; };
+    RenderCtx rctx{window, gl_ctx, &app, &ui, &done};
+    SDL_AddEventWatch([](void* ud, SDL_Event* ev) -> int {
+        if (ev->type != SDL_WINDOWEVENT) return 0;
+        if (ev->window.event != SDL_WINDOWEVENT_SIZE_CHANGED) return 0;
+        auto* c = static_cast<RenderCtx*>(ud);
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+        render_app(*c->app, *c->ui);
+        ImGui::Render();
+        int dw, dh;
+        SDL_GL_GetDrawableSize(c->win, &dw, &dh);
+        glViewport(0, 0, dw, dh);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        SDL_GL_SwapWindow(c->win);
+        return 0;
+    }, &rctx);
 
     while (!done) {
         SDL_Event event;
@@ -219,6 +266,8 @@ int main(int argc, char* argv[]) {
         }
 
         SDL_GL_SwapWindow(window);
+
+        if (ui.close_requested) done = true;
 
         if (ui.dirty) {
             save_config(app, ui.cfg_path);

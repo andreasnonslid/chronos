@@ -2,6 +2,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#include <SDL.h>
 #include <chrono>
 #include <cstring>
 #include <format>
@@ -81,40 +82,69 @@ void apply_imgui_theme(ThemeMode mode, bool system_prefers_dark) {
 
 static std::string ws(const std::wstring& w) { return wide_to_utf8(w); }
 
-// ─── Toolbar ─────────────────────────────────────────────────────────────────
+// ─── Title bar ───────────────────────────────────────────────────────────────
+// Replaces the OS title bar (window is SDL_WINDOW_BORDERLESS).
+// Contains: drag region, section toggles, settings ⚙, close ×.
 
-static void render_toolbar(App& app, UiState& ui, const ThemePalette& pal [[maybe_unused]]) {
+static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
     auto& s = ImGui::GetStyle();
     float bar_h = ImGui::GetFrameHeightWithSpacing() + s.ItemSpacing.y;
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, to_v4(pal.bar));
-    ImGui::BeginChild("##toolbar", {0, bar_h}, ImGuiChildFlags_None,
-                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::BeginChild("##titlebar", {0, bar_h}, ImGuiChildFlags_None,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
+    // Section toggle buttons
     auto toggle_btn = [&](const char* label, bool active, int action) {
         if (active) {
-            ImGui::PushStyleColor(ImGuiCol_Button, to_v4(pal.active));
+            ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
         }
-        if (ImGui::Button(label)) {
+        if (ImGui::SmallButton(label)) {
             auto r = dispatch_action(app, action, steady_clock::now(), {});
             if (r.save_config) ui.dirty = true;
             if (r.apply_theme) apply_imgui_theme(app.theme_mode, false);
-            if (r.open_settings) { ui.show_settings = true; ui.settings_tab = 0; }
         }
         if (active) ImGui::PopStyleColor(2);
         ImGui::SameLine();
     };
 
-    toggle_btn("Pin",       app.topmost,    A_TOPMOST);
-    toggle_btn("Clock",     app.show_clk,   A_SHOW_CLK);
-    toggle_btn("Stopwatch", app.show_sw,    A_SHOW_SW);
-    toggle_btn("Timers",    app.show_tmr,   A_SHOW_TMR);
-    toggle_btn("Alarms",    app.show_alarms,A_SHOW_ALARMS);
-    if (ImGui::Button("\xe2\x9a\x99")) {  // UTF-8 gear ⚙
+    toggle_btn("Pin",  app.topmost,     A_TOPMOST);
+    toggle_btn("Clk",  app.show_clk,    A_SHOW_CLK);
+    toggle_btn("SW",   app.show_sw,     A_SHOW_SW);
+    toggle_btn("Tmr",  app.show_tmr,    A_SHOW_TMR);
+    toggle_btn("Alrm", app.show_alarms, A_SHOW_ALARMS);
+
+    // Right-align ⚙ and ×
+    // UTF-8: ⚙ = \xe2\x9a\x99 (U+2699), × = \xc3\x97 (U+00D7)
+    float gear_w  = ImGui::CalcTextSize("\xe2\x9a\x99").x + s.FramePadding.x * 2;
+    float close_w = ImGui::CalcTextSize("\xc3\x97").x   + s.FramePadding.x * 2;
+    float spacer  = ImGui::GetContentRegionAvail().x - gear_w - close_w - s.ItemSpacing.x;
+    if (spacer > 0.f) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + spacer);
+
+    if (ImGui::Button("\xe2\x9a\x99")) {
+        if (!ui.show_settings) ui.settings_initialized = false;
         ui.show_settings = true;
-        ui.settings_tab = 0;
+        ui.settings_tab  = 0;
     }
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{0.8f, 0.2f, 0.2f, 1.f});
+    if (ImGui::Button("\xc3\x97")) ui.close_requested = true;
+    ImGui::PopStyleColor();
+
+    // Window drag: active when mouse is pressed in the bar but not over any item.
+    ImVec2 bar_min = ImGui::GetWindowPos();
+    ImVec2 bar_max = {bar_min.x + ImGui::GetWindowWidth(), bar_min.y + bar_h};
+    bool in_bar = ImGui::IsMouseHoveringRect(bar_min, bar_max, false);
+    if (in_bar && !ImGui::IsAnyItemHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 1.f)) {
+        ImVec2 delta = ImGui::GetIO().MouseDelta;
+        if ((delta.x != 0.f || delta.y != 0.f) && ui.sdl_window) {
+            int wx, wy;
+            SDL_GetWindowPosition(ui.sdl_window, &wx, &wy);
+            SDL_SetWindowPosition(ui.sdl_window, wx + (int)delta.x, wy + (int)delta.y);
+        }
+    }
+
     ImGui::EndChild();
     ImGui::PopStyleColor();
 }
@@ -411,17 +441,18 @@ static void render_alarms(App& app, UiState& ui) {
     ImGui::Separator();
 }
 
-// ─── Add-alarm modal ─────────────────────────────────────────────────────────
+// ─── Add-alarm window ────────────────────────────────────────────────────────
 
-static void render_add_alarm_modal([[maybe_unused]] App& app, UiState& ui) {
+static void render_add_alarm_window(App& app, UiState& ui) {
     if (!ui.show_add_alarm) return;
-    ImGui::OpenPopup("Add Alarm");
-    ui.show_add_alarm = false;
-}
 
-static void render_add_alarm_popup([[maybe_unused]] App& app, UiState& ui) {
-    if (!ImGui::BeginPopupModal("Add Alarm", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
-        return;
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
+                            ImGuiCond_Appearing, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({300, 0}, ImGuiCond_Appearing);
+    if (!ImGui::Begin("Add Alarm", &ui.show_add_alarm,
+                      ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End(); return;
+    }
 
     ImGui::InputText("Name", ui.alarm_name, sizeof(ui.alarm_name));
 
@@ -457,31 +488,32 @@ static void render_add_alarm_popup([[maybe_unused]] App& app, UiState& ui) {
         ui.alarm_day   = std::clamp(ui.alarm_day,   1, 31);
     }
 
+    ImGui::Separator();
     if (ImGui::Button("OK")) {
         Alarm a;
-        a.name   = ui.alarm_name;
-        a.hour   = ui.alarm_hour;
-        a.minute = ui.alarm_minute;
+        a.name    = ui.alarm_name;
+        a.hour    = ui.alarm_hour;
+        a.minute  = ui.alarm_minute;
         a.enabled = true;
         if (ui.alarm_days_mode) {
-            a.schedule = AlarmSchedule::Days;
+            a.schedule  = AlarmSchedule::Days;
             a.days_mask = 0;
             for (int d = 0; d < 7; ++d)
                 if (ui.alarm_days[d]) a.days_mask |= (1 << d);
         } else {
-            a.schedule = AlarmSchedule::Date;
-            a.date_year = ui.alarm_year;
-            a.date_month = ui.alarm_month;
-            a.date_day = ui.alarm_day;
+            a.schedule    = AlarmSchedule::Date;
+            a.date_year   = ui.alarm_year;
+            a.date_month  = ui.alarm_month;
+            a.date_day    = ui.alarm_day;
         }
         app.alarms.push_back(a);
         ui.dirty = true;
-        ImGui::CloseCurrentPopup();
+        ui.show_add_alarm = false;
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+    if (ImGui::Button("Cancel")) ui.show_add_alarm = false;
 
-    ImGui::EndPopup();
+    ImGui::End();
 }
 
 // ─── Settings modal ──────────────────────────────────────────────────────────
@@ -501,16 +533,23 @@ static void open_settings(App& app, UiState& ui) {
             ? app.custom_preset_secs[i] / 60 : 0;
 }
 
-static void render_settings_modal(App& app, UiState& ui) {
-    if (!ui.show_settings) return;
-    open_settings(app, ui);
-    ImGui::OpenPopup("Settings");
-    ui.show_settings = false;
-}
-
-static void render_settings_popup(App& app, UiState& ui) {
-    if (!ImGui::BeginPopupModal("Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+static void render_settings_window(App& app, UiState& ui) {
+    if (!ui.show_settings) {
+        ui.settings_initialized = false;
         return;
+    }
+    if (!ui.settings_initialized) {
+        open_settings(app, ui);
+        ui.settings_initialized = true;
+    }
+
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(),
+                            ImGuiCond_Appearing, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({450, 0}, ImGuiCond_Appearing);
+    if (!ImGui::Begin("Settings", &ui.show_settings,
+                      ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End(); return;
+    }
 
     if (ImGui::BeginTabBar("##tabs")) {
         // Use settings_tab as a one-shot pre-selection flag, then clear it
@@ -615,14 +654,14 @@ static void render_settings_popup(App& app, UiState& ui) {
 
     ImGui::Separator();
     if (ImGui::Button("Apply")) {
-        app.theme_mode        = ui.pending_theme;
-        app.clock_view        = ui.pending_clock_view;
-        app.analog_style      = ui.pending_analog;
-        app.sound_on_expiry   = ui.pending_sound;
+        app.theme_mode          = ui.pending_theme;
+        app.clock_view          = ui.pending_clock_view;
+        app.analog_style        = ui.pending_analog;
+        app.sound_on_expiry     = ui.pending_sound;
         app.pomodoro_work_secs  = ui.pending_work_min  * 60;
         app.pomodoro_short_secs = ui.pending_short_min * 60;
         app.pomodoro_long_secs  = ui.pending_long_min  * 60;
-        app.pomodoro_cadence  = ui.pending_cadence;
+        app.pomodoro_cadence    = ui.pending_cadence;
         app.pomodoro_auto_start = ui.pending_auto_start;
         app.custom_preset_secs.clear();
         for (int i = 0; i < 5; ++i)
@@ -630,12 +669,12 @@ static void render_settings_popup(App& app, UiState& ui) {
                 app.custom_preset_secs.push_back(ui.pending_presets[i] * 60);
         apply_imgui_theme(app.theme_mode, false);
         ui.dirty = true;
-        ImGui::CloseCurrentPopup();
+        ui.show_settings = false;
     }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+    if (ImGui::Button("Cancel")) ui.show_settings = false;
 
-    ImGui::EndPopup();
+    ImGui::End();
 }
 
 // ─── Alarm firing (cross-platform) ───────────────────────────────────────────
@@ -696,18 +735,17 @@ void render_app(App& app, UiState& ui) {
         ImGuiWindowFlags_NoMove     | ImGuiWindowFlags_NoScrollbar |
         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
-    render_toolbar(app, ui, pal);
+    render_titlebar(app, ui, pal);
     render_clock(app, ui, pal);
     render_stopwatch(app, ui, pal);
     render_timers(app, ui, pal);
     render_alarms(app, ui);
 
-    render_add_alarm_modal(app, ui);
-    render_add_alarm_popup(app, ui);
-    render_settings_modal(app, ui);
-    render_settings_popup(app, ui);
+    ImGui::End();
+
+    // Floating sub-windows (become separate OS windows with multi-viewport).
+    render_add_alarm_window(app, ui);
+    render_settings_window(app, ui);
 
     check_alarms_cross_platform(app);
-
-    ImGui::End();
 }

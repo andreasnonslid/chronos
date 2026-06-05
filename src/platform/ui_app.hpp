@@ -4,14 +4,20 @@
 #include <filesystem>
 #include <string>
 
+struct SDL_Window;  // avoid pulling in all of SDL.h here
+
 // Mutable UI-layer state that lives alongside App but isn't persisted.
 struct UiState {
     bool show_settings   = false;
     bool show_add_alarm  = false;
     bool dirty           = false;   // config needs saving
+    bool close_requested = false;   // set by the × button; main loop exits
 
-    // Settings modal working copy
-    int  settings_tab    = -1;      // -1=no pre-select; 0-3 selects tab on first open
+    SDL_Window* sdl_window = nullptr;
+
+    // Settings working copy
+    int  settings_tab         = -1;   // -1=no pre-select; 0-3 selects tab on first open
+    bool settings_initialized = false;
     ThemeMode pending_theme;
     ClockView pending_clock_view;
     AnalogClockStyle pending_analog;
@@ -20,7 +26,7 @@ struct UiState {
     bool pending_auto_start;
     int  pending_presets[5]{};
 
-    // Add-alarm modal working copy
+    // Add-alarm working copy
     char alarm_name[128]{};
     int  alarm_hour = 8, alarm_minute = 0;
     bool alarm_days_mode = true;    // true=days-of-week, false=specific date
