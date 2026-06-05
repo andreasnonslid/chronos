@@ -399,7 +399,52 @@ static void render_stopwatch(App& app, [[maybe_unused]] UiState& ui, [[maybe_unu
 
 // ─── Timers ──────────────────────────────────────────────────────────────────
 
-static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePalette& pal) {
+static void render_timer_scroll_value(App& app, UiState& ui, int timer_idx,
+                                      const char* id, const char* text,
+                                      int down_off, int up_off,
+                                      steady_clock::time_point now) {
+    const ImGuiStyle& s = ImGui::GetStyle();
+    ImVec2 text_size = ImGui::CalcTextSize(text);
+    ImVec2 size = {text_size.x + s.FramePadding.x * 2.f, ImGui::GetFrameHeight()};
+    ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImGui::InvisibleButton(id, size);
+    bool hovered = ImGui::IsItemHovered();
+    if (hovered) {
+        float wheel = ImGui::GetIO().MouseWheel;
+        if (wheel != 0.f) {
+            int off = wheel > 0.f ? up_off : down_off;
+            auto r = dispatch_action(app, A_TMR_BASE + timer_idx * TMR_STRIDE + off, now, {});
+            if (r.save_config) ui.dirty = true;
+        }
+    }
+    ImU32 color = ImGui::GetColorU32(hovered ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+    ImGui::GetWindowDrawList()->AddText({pos.x + s.FramePadding.x, pos.y + s.FramePadding.y},
+                                        color, text);
+    CHRONOS_DEBUG_ITEM(id, IM_COL32(255, 170, 80, 255));
+}
+
+static void render_timer_edit_scroll(App& app, UiState& ui, int timer_idx,
+                                     std::chrono::seconds dur,
+                                     steady_clock::time_point now) {
+    auto total = dur.count();
+    int h = (int)(total / 3600);
+    int m = (int)((total / 60) % 60);
+    int s = (int)(total % 60);
+    std::string hh = std::format("{}", h);
+    std::string mm = std::format("{:02}", m);
+    std::string ss = std::format("{:02}", s);
+    render_timer_scroll_value(app, ui, timer_idx, "##timer_h", hh.c_str(), A_TMR_HDN, A_TMR_HUP, now);
+    ImGui::SameLine(0.f, 0.f);
+    ImGui::TextUnformatted(":");
+    ImGui::SameLine(0.f, 0.f);
+    render_timer_scroll_value(app, ui, timer_idx, "##timer_m", mm.c_str(), A_TMR_MDN, A_TMR_MUP, now);
+    ImGui::SameLine(0.f, 0.f);
+    ImGui::TextUnformatted(":");
+    ImGui::SameLine(0.f, 0.f);
+    render_timer_scroll_value(app, ui, timer_idx, "##timer_s", ss.c_str(), A_TMR_SDN, A_TMR_SUP, now);
+}
+
+static void render_timers(App& app, UiState& ui, const ThemePalette& pal) {
     if (!app.show_tmr) return;
     auto now = steady_clock::now();
 
@@ -412,9 +457,7 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
         ImGui::PushID(i);
 
         std::string lbl = ts.label.empty() ? std::format("Timer {}", i + 1) : ws(ts.label);
-        std::string tstr = running || ts.t.touched()
-            ? ws(format_timer_display(ts.t.remaining(now)))
-            : ws(format_timer_edit(ts.dur));
+        std::string tstr = ws(format_timer_display(ts.t.remaining(now)));
         bool remove_timer = false;
 
         if (ImGui::BeginTable("##timer_row", 3,
@@ -427,9 +470,13 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
             ImGui::TextUnformatted(lbl.c_str());
 
             ImGui::TableSetColumnIndex(1);
-            if (expired) ImGui::PushStyleColor(ImGuiCol_Text, to_v4(pal.expire));
-            ImGui::TextUnformatted(tstr.c_str());
-            if (expired) ImGui::PopStyleColor();
+            if (running || ts.t.touched() || ts.pomodoro) {
+                if (expired) ImGui::PushStyleColor(ImGuiCol_Text, to_v4(pal.expire));
+                ImGui::TextUnformatted(tstr.c_str());
+                if (expired) ImGui::PopStyleColor();
+            } else {
+                render_timer_edit_scroll(app, ui, i, ts.dur, now);
+            }
 
             ImGui::TableSetColumnIndex(2);
             if (ImGui::SmallButton(running ? "Stop" : "Start"))
@@ -466,25 +513,6 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
                 CHRONOS_DEBUG_ITEM("timer remove", IM_COL32(255, 100, 200, 255));
             }
 
-            if (untouched && !ts.pomodoro && !remove_timer) {
-                auto adj_btn = [&](const char* label, int off) {
-                    if (ImGui::SmallButton(label)) {
-                        auto r = dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + off, now, {});
-                        if (r.save_config) ui.dirty = true;
-                    }
-                    CHRONOS_DEBUG_ITEM(label, IM_COL32(255, 170, 80, 255));
-                };
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(2);
-                ImGui::SetWindowFontScale(0.85f);
-                adj_btn("-H", A_TMR_HDN); ImGui::SameLine();
-                adj_btn("+H", A_TMR_HUP); ImGui::SameLine();
-                adj_btn("-M", A_TMR_MDN); ImGui::SameLine();
-                adj_btn("+M", A_TMR_MUP); ImGui::SameLine();
-                adj_btn("-S", A_TMR_SDN); ImGui::SameLine();
-                adj_btn("+S", A_TMR_SUP);
-                ImGui::SetWindowFontScale(1.f);
-            }
             ImGui::EndTable();
         }
 
@@ -898,7 +926,6 @@ static float estimate_post_clock_height(const App& app) {
         h += line + s.ItemSpacing.y;
         for (const auto& ts : app.timers) {
             h += frame;
-            if (!ts.t.touched() && !ts.pomodoro) h += frame + s.ItemSpacing.y;
             if (ts.t.touched()) h += frame + s.ItemSpacing.y;
             h += s.ItemSpacing.y;
         }
