@@ -211,11 +211,12 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
         if (app.sw.is_running()) {
             app.sw.lap(now);
             if (!app.sw_lap_file.empty()) {
-                std::wofstream f(app.sw_lap_file, std::ios::app);
+                std::ofstream f(app.sw_lap_file, std::ios::app);
                 if (f) {
                     const auto& laps = app.sw.laps();
                     auto n = laps.size();
-                    f << format_lap_row(n, laps.back(), app.sw.cumulative()) << L'\n';
+                    auto row = format_lap_row(n, laps.back(), app.sw.cumulative());
+                    f << std::string(row.begin(), row.end()) << '\n';
                     app.lap_write_failed = !f.good();
                 } else {
                     app.lap_write_failed = true;

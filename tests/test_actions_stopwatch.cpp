@@ -167,17 +167,17 @@ TEST_CASE("actions-stopwatch: lap file contains correct format for first lap",
     dispatch_action(app, A_SW_LAP, at_ms(1234), {});
 
     REQUIRE(std::filesystem::exists(tmp));
-    std::wifstream f(tmp);
+    std::ifstream f(tmp);
     REQUIRE(f.good());
-    std::wstring line;
+    std::string line;
     REQUIRE(std::getline(f, line));
 
     // format: "Lap 1     split MM:SS.mmm    total MM:SS.mmm"
-    REQUIRE(line.find(L"Lap 1") != std::wstring::npos);
-    REQUIRE(line.find(L"split") != std::wstring::npos);
-    REQUIRE(line.find(L"total") != std::wstring::npos);
+    REQUIRE(line.find("Lap 1") != std::string::npos);
+    REQUIRE(line.find("split") != std::string::npos);
+    REQUIRE(line.find("total") != std::string::npos);
     // split and total should both be "00:01.234" (1234ms)
-    REQUIRE(line.find(L"00:01.234") != std::wstring::npos);
+    REQUIRE(line.find("00:01.234") != std::string::npos);
 
     std::filesystem::remove(tmp);
 }
@@ -194,10 +194,10 @@ TEST_CASE("actions-stopwatch: each A_SW_LAP appends a new line to lap file",
     dispatch_action(app, A_SW_LAP, at_ms(3000), {});
     dispatch_action(app, A_SW_LAP, at_ms(6000), {});
 
-    std::wifstream f(tmp);
+    std::ifstream f(tmp);
     REQUIRE(f.good());
     int line_count = 0;
-    std::wstring line;
+    std::string line;
     while (std::getline(f, line)) ++line_count;
     REQUIRE(line_count == 3);
 
@@ -215,12 +215,12 @@ TEST_CASE("actions-stopwatch: lap file lines have correct lap numbers",
     dispatch_action(app, A_SW_LAP, at_ms(500), {});
     dispatch_action(app, A_SW_LAP, at_ms(1000), {});
 
-    std::wifstream f(tmp);
-    std::wstring line1, line2;
+    std::ifstream f(tmp);
+    std::string line1, line2;
     REQUIRE(std::getline(f, line1));
     REQUIRE(std::getline(f, line2));
-    REQUIRE(line1.find(L"Lap 1") != std::wstring::npos);
-    REQUIRE(line2.find(L"Lap 2") != std::wstring::npos);
+    REQUIRE(line1.find("Lap 1") != std::string::npos);
+    REQUIRE(line2.find("Lap 2") != std::string::npos);
 
     std::filesystem::remove(tmp);
 }
@@ -236,17 +236,17 @@ TEST_CASE("actions-stopwatch: lap file split time equals interval between laps",
     dispatch_action(app, A_SW_LAP, at_ms(2000), {});  // lap 1: split=2s, total=2s
     dispatch_action(app, A_SW_LAP, at_ms(5000), {});  // lap 2: split=3s, total=5s
 
-    std::wifstream f(tmp);
-    std::wstring line1, line2;
+    std::ifstream f(tmp);
+    std::string line1, line2;
     REQUIRE(std::getline(f, line1));
     REQUIRE(std::getline(f, line2));
 
     // Lap 1: split and total both 2s = "00:02.000"
-    REQUIRE(line1.find(L"00:02.000") != std::wstring::npos);
+    REQUIRE(line1.find("00:02.000") != std::string::npos);
 
     // Lap 2: split=3s="00:03.000", total=5s="00:05.000"
-    REQUIRE(line2.find(L"00:03.000") != std::wstring::npos);
-    REQUIRE(line2.find(L"00:05.000") != std::wstring::npos);
+    REQUIRE(line2.find("00:03.000") != std::string::npos);
+    REQUIRE(line2.find("00:05.000") != std::string::npos);
 
     std::filesystem::remove(tmp);
 }
