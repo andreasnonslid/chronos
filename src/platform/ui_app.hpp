@@ -20,6 +20,8 @@ struct UiState {
     bool settings_initialized = false;
     ThemeMode pending_theme;
     ClockView pending_clock_view;
+    ClockSplitMode pending_clock_split_mode;
+    int pending_clock_split_pct;
     AnalogClockStyle pending_analog;
     bool pending_sound;
     int  pending_work_min, pending_short_min, pending_long_min, pending_cadence;

@@ -44,6 +44,8 @@ struct App {
     bool sound_on_expiry = true;
     ThemeMode theme_mode = ThemeMode::Auto;
     ClockView clock_view = ClockView::H24_HMS;
+    ClockSplitMode clock_split_mode = ClockSplitMode::Auto;
+    int clock_split_pct = 50;
     AnalogClockStyle analog_style;
     int pomodoro_work_secs = 25 * 60;
     int pomodoro_short_secs = 5 * 60;

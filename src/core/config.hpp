@@ -31,6 +31,9 @@ inline bool clock_view_is_mixed(ClockView v) {
            v == ClockView::Mixed_AnalogIntlLocal;
 }
 
+enum class ClockSplitMode { Auto = 0, Horizontal = 1, Vertical = 2 };
+inline constexpr int CLOCK_SPLIT_MODE_COUNT = 3;
+
 enum class HourLabels { None = 0, Sparse = 1, Full = 2 };
 
 struct AnalogClockStyle {
@@ -100,6 +103,8 @@ struct Config {
     int pomodoro_cadence = POMODORO_DEFAULT_CADENCE;
     bool pomodoro_auto_start = true;
     ClockView clock_view = ClockView::H24_HMS;
+    ClockSplitMode clock_split_mode = ClockSplitMode::Auto;
+    int clock_split_pct = 50;
     AnalogClockStyle analog_style;
     bool show_alarms = false;
     std::vector<Alarm> alarms;

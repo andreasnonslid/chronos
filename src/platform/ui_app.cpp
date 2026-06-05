@@ -161,6 +161,8 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
     ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
+    ImGui::BeginChild("##titlebar_left_clip", {0, bar_h}, ImGuiChildFlags_None,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
     toggle_btn("Pin",  app.topmost,     A_TOPMOST); ImGui::SameLine();
     toggle_btn("Clk",  app.show_clk,    A_SHOW_CLK); ImGui::SameLine();
@@ -194,6 +196,7 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
 
     // Right-align ⚙ and ×
     // UTF-8: ⚙ = \xe2\x9a\x99 (U+2699), × = \xc3\x97 (U+00D7)
+    ImGui::EndChild();
     ImGui::TableSetColumnIndex(1);
 
     if (ImGui::Button("\xe2\x9a\x99", title_btn_size)) {
@@ -280,11 +283,13 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal, float p
     if (clock_view_is_mixed(app.clock_view)) {
         std::string txt24 = std::format("{:02}:{:02}:{:02}", h, m, s);
         std::string txt12 = std::format("{}:{:02}:{:02} {}", h12, m, s, h < 12 ? "AM" : "PM");
-        bool split_horizontal = clock_width >= clock_height * 1.25f;
+        bool split_horizontal = app.clock_split_mode == ClockSplitMode::Horizontal ||
+            (app.clock_split_mode == ClockSplitMode::Auto && clock_width >= clock_height * 1.25f);
+        float split_ratio = std::clamp(app.clock_split_pct, 20, 80) / 100.f;
         ImVec2 a_min = clock_min;
         ImVec2 a_max = split_horizontal
-            ? ImVec2{clock_min.x + clock_width * 0.5f, clock_max.y}
-            : ImVec2{clock_max.x, clock_min.y + clock_height * 0.5f};
+            ? ImVec2{clock_min.x + clock_width * split_ratio, clock_max.y}
+            : ImVec2{clock_max.x, clock_min.y + clock_height * split_ratio};
         ImVec2 b_min = split_horizontal
             ? ImVec2{a_max.x, clock_min.y}
             : ImVec2{clock_min.x, a_max.y};
@@ -301,6 +306,28 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal, float p
             draw_centered_clock_text(a_min, a_max, txt24, 2.6f);
             draw_centered_clock_text(b_min, b_max, txt12, 2.6f);
         }
+
+        float gutter = 8.f;
+        ImVec2 split_min = split_horizontal
+            ? ImVec2{a_max.x - gutter * 0.5f, clock_min.y}
+            : ImVec2{clock_min.x, a_max.y - gutter * 0.5f};
+        ImVec2 split_max = split_horizontal
+            ? ImVec2{a_max.x + gutter * 0.5f, clock_max.y}
+            : ImVec2{clock_max.x, a_max.y + gutter * 0.5f};
+        ImGui::SetCursorScreenPos(split_min);
+        ImGui::InvisibleButton("##clock_splitter", {split_max.x - split_min.x, split_max.y - split_min.y});
+        bool splitter_used = ImGui::IsItemHovered() || ImGui::IsItemActive();
+        if (ImGui::IsItemActive()) {
+            ImVec2 mouse = ImGui::GetIO().MousePos;
+            float raw_pct = split_horizontal
+                ? (mouse.x - clock_min.x) / std::max(clock_width, 1.f) * 100.f
+                : (mouse.y - clock_min.y) / std::max(clock_height, 1.f) * 100.f;
+            int next_pct = std::clamp((int)(raw_pct + 0.5f), 20, 80);
+            if (next_pct != app.clock_split_pct) {
+                app.clock_split_pct = next_pct;
+                ui.dirty = true;
+            }
+        }
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
         if (g_debug_overlay_visible) {
             ImGui::GetForegroundDrawList()->AddLine(
@@ -309,6 +336,7 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal, float p
                 IM_COL32(255, 210, 0, 140), 1.5f);
         }
 #endif
+        if (splitter_used) clock_clicked = false;
     } else if (has_analog) {
         render_analog_clock_in_rect(clock_min, clock_max, app, pal, h, m, s);
     } else {
@@ -662,6 +690,8 @@ static void render_add_alarm_window(App& app, UiState& ui) {
 static void open_settings(App& app, UiState& ui) {
     ui.pending_theme      = app.theme_mode;
     ui.pending_clock_view = app.clock_view;
+    ui.pending_clock_split_mode = app.clock_split_mode;
+    ui.pending_clock_split_pct  = app.clock_split_pct;
     ui.pending_analog     = app.analog_style;
     ui.pending_sound      = app.sound_on_expiry;
     ui.pending_work_min   = app.pomodoro_work_secs / 60;
@@ -722,6 +752,18 @@ static void render_settings_window(App& app, UiState& ui) {
             ImGui::Combo("Format", &cv, view_names, CLOCK_VIEW_COUNT);
             CHRONOS_DEBUG_ITEM("clock format", IM_COL32(80, 220, 255, 255));
             ui.pending_clock_view = (ClockView)cv;
+
+            if (clock_view_is_mixed(ui.pending_clock_view)) {
+                const char* split_names[] = {"Auto", "Horizontal", "Vertical"};
+                int sm = (int)ui.pending_clock_split_mode;
+                ImGui::SetNextItemWidth(160.f);
+                ImGui::Combo("Split", &sm, split_names, CLOCK_SPLIT_MODE_COUNT);
+                CHRONOS_DEBUG_ITEM("clock split mode", IM_COL32(80, 220, 255, 255));
+                ui.pending_clock_split_mode = (ClockSplitMode)sm;
+                ImGui::SetNextItemWidth(200.f);
+                ImGui::SliderInt("First pane (%)", &ui.pending_clock_split_pct, 20, 80);
+                CHRONOS_DEBUG_ITEM("clock split pct", IM_COL32(80, 220, 255, 255));
+            }
 
             if (clock_view_has_analog(ui.pending_clock_view)) {
                 ImGui::Separator();
@@ -807,6 +849,8 @@ static void render_settings_window(App& app, UiState& ui) {
     if (ImGui::Button("Apply")) {
         app.theme_mode          = ui.pending_theme;
         app.clock_view          = ui.pending_clock_view;
+        app.clock_split_mode    = ui.pending_clock_split_mode;
+        app.clock_split_pct     = std::clamp(ui.pending_clock_split_pct, 20, 80);
         app.analog_style        = ui.pending_analog;
         app.sound_on_expiry     = ui.pending_sound;
         app.pomodoro_work_secs  = ui.pending_work_min  * 60;

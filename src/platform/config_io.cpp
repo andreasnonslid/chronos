@@ -49,6 +49,8 @@ void save_config(App& app, const std::filesystem::path& path) {
     Config cfg;
     cfg.show_clk          = app.show_clk;
     cfg.clock_view        = app.clock_view;
+    cfg.clock_split_mode  = app.clock_split_mode;
+    cfg.clock_split_pct   = app.clock_split_pct;
     cfg.show_sw           = app.show_sw;
     cfg.show_tmr          = app.show_tmr;
     cfg.show_alarms       = app.show_alarms;
@@ -108,6 +110,8 @@ bool load_config(App& app, const std::filesystem::path& path) {
 
     app.show_clk          = cfg.show_clk;
     app.clock_view        = cfg.clock_view;
+    app.clock_split_mode  = cfg.clock_split_mode;
+    app.clock_split_pct   = cfg.clock_split_pct;
     app.show_sw           = cfg.show_sw;
     app.show_tmr          = cfg.show_tmr;
     app.show_alarms       = cfg.show_alarms;

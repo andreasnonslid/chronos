@@ -123,6 +123,10 @@ bool config_write(const Config& c, std::ostream& f) {
     for (const auto& fld : kAlwaysInts)
         f << std::format("{}={}\n", fld.key, c.*fld.field);
     f << std::format("theme={}\nclock_view={}\n", theme_str, (int)c.clock_view);
+    if (c.clock_split_mode != Config{}.clock_split_mode)
+        f << std::format("clock_split_mode={}\n", (int)c.clock_split_mode);
+    if (c.clock_split_pct != Config{}.clock_split_pct)
+        f << std::format("clock_split_pct={}\n", c.clock_split_pct);
     if (c.show_alarms) f << "show_alarms=1\n";
     if (!c.alarms.empty()) {
         f << std::format("num_alarms={}\n", (int)c.alarms.size());
@@ -302,6 +306,8 @@ bool config_read(Config& c, std::istream& f) {
             if (n > (int)c.alarms.size()) c.alarms.resize(n);
         }
         else if (key == "clock_view")          c.clock_view = (ClockView)clamp_int(val, 0, CLOCK_VIEW_COUNT - 1);
+        else if (key == "clock_split_mode")    c.clock_split_mode = (ClockSplitMode)clamp_int(val, 0, CLOCK_SPLIT_MODE_COUNT - 1);
+        else if (key == "clock_split_pct")     c.clock_split_pct = clamp_int(val, 20, 80);
         else if (key == "win_x")               { c.win_x = clamp_int(val, INT_MIN, INT_MAX); has_x = true; }
         else if (key == "win_y")               { c.win_y = clamp_int(val, INT_MIN, INT_MAX); has_y = true; }
         else if (key == "win_w")               { c.win_w = clamp_int(val, Config::MIN_WINDOW_W, INT_MAX); has_w = true; }
