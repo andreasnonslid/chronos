@@ -3,6 +3,7 @@
 #include <windows.h>
 #endif
 #include <SDL.h>
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <format>
@@ -218,7 +219,37 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
 
 // ─── Clock ───────────────────────────────────────────────────────────────────
 
-static void render_clock(App& app, UiState& ui, const ThemePalette& pal) {
+static void draw_centered_clock_text(const ImVec2& min, const ImVec2& max,
+                                     const std::string& text, float max_scale) {
+    ImVec2 rect_size = {max.x - min.x, max.y - min.y};
+    float scale = max_scale;
+    ImVec2 text_size{};
+    for (; scale > 0.75f; scale -= 0.05f) {
+        ImGui::SetWindowFontScale(scale);
+        text_size = ImGui::CalcTextSize(text.c_str(), nullptr, false, rect_size.x - 12.f);
+        if (text_size.x <= rect_size.x - 12.f && text_size.y <= rect_size.y - 8.f) break;
+    }
+    ImGui::SetCursorScreenPos({
+        min.x + std::max(0.f, (rect_size.x - text_size.x) * 0.5f),
+        min.y + std::max(0.f, (rect_size.y - text_size.y) * 0.5f)
+    });
+    ImGui::PushTextWrapPos(max.x - 6.f);
+    ImGui::TextUnformatted(text.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::SetWindowFontScale(1.f);
+}
+
+static void render_analog_clock_in_rect(const ImVec2& min, const ImVec2& max,
+                                        const App& app, const ThemePalette& pal,
+                                        int h, int m, int s) {
+    ImVec2 size = {max.x - min.x, max.y - min.y};
+    float radius = std::max(0.f, std::min(size.x, size.y) * 0.5f - 6.f);
+    ImVec2 center = {min.x + size.x * 0.5f, min.y + size.y * 0.5f};
+    draw_analog_clock_imgui(ImGui::GetWindowDrawList(), center.x, center.y, radius,
+                            app.analog_style, pal, h, m, s);
+}
+
+static void render_clock(App& app, UiState& ui, const ThemePalette& pal, float preferred_height) {
     if (!app.show_clk) return;
 
     auto now = steady_clock::now();
@@ -230,76 +261,64 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal) {
     localtime_r(&t, &lt);
 #endif
     int h = lt.tm_hour, m = lt.tm_min, s = lt.tm_sec;
+    int h12 = h % 12; if (h12 == 0) h12 = 12;
 
     bool has_analog = clock_view_has_analog(app.clock_view);
     ImVec2 clock_min = ImGui::GetCursorScreenPos();
     float clock_width = ImGui::GetContentRegionAvail().x;
-    float min_clock_height = 0.f;
+    float clock_height = std::max(80.f, preferred_height);
+    ImVec2 clock_max = {clock_min.x + clock_width, clock_min.y + clock_height};
 
-    if (has_analog) {
-        float avail = ImGui::GetContentRegionAvail().x;
-        float size  = std::min(avail, 180.f);
-        min_clock_height = size;
-        ImVec2 pos  = ImGui::GetCursorScreenPos();
-        float cx = pos.x + size / 2.f;
-        float cy = pos.y + size / 2.f;
-        float rad = size / 2.f - 6.f;
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        draw_analog_clock_imgui(dl, cx, cy, rad, app.analog_style, pal, h, m, s);
-        // Reserve the analog clock area; the whole clock widget handles clicks below.
-        ImGui::InvisibleButton("##clock_face", {size, size});
+    ImGui::InvisibleButton("##clock_widget", {clock_width, clock_height});
+    bool clock_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
-        if (clock_view_is_mixed(app.clock_view)) {
-            ImGui::SameLine();
-            ImGui::SetWindowFontScale(1.6f);
-            // Mixed_AnalogIntlLocal shows 24h/12h stacked; others just 24h
-            if (app.clock_view == ClockView::Mixed_AnalogIntlLocal) {
-                int h12 = h % 12; if (h12 == 0) h12 = 12;
-                ImGui::Text("%02d:%02d:%02d\n%d:%02d:%02d %s",
-                    h, m, s, h12, m, s, h < 12 ? "AM" : "PM");
-            } else {
-                std::string txt = format_clock_text(app.clock_view, h, m, s);
-                ImGui::TextUnformatted(txt.c_str());
-            }
-            ImGui::SetWindowFontScale(1.f);
-        }
-    } else if (app.clock_view == ClockView::Mixed_IntlLocal) {
-        // 24h on top, 12h below — both lines clickable to cycle
-        int h12 = h % 12; if (h12 == 0) h12 = 12;
+    if (clock_view_is_mixed(app.clock_view)) {
         std::string txt24 = std::format("{:02}:{:02}:{:02}", h, m, s);
         std::string txt12 = std::format("{}:{:02}:{:02} {}", h12, m, s, h < 12 ? "AM" : "PM");
-        float avail = ImGui::GetContentRegionAvail().x;
-        ImGui::SetWindowFontScale(1.8f);
-        float tw24 = ImGui::CalcTextSize(txt24.c_str()).x;
-        if (tw24 < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw24) / 2.f);
-        ImGui::TextUnformatted(txt24.c_str());
-        float tw12 = ImGui::CalcTextSize(txt12.c_str()).x;
-        if (tw12 < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw12) / 2.f);
-        ImGui::TextUnformatted(txt12.c_str());
-        ImGui::SetWindowFontScale(1.f);
+        bool split_horizontal = clock_width >= clock_height * 1.25f;
+        ImVec2 a_min = clock_min;
+        ImVec2 a_max = split_horizontal
+            ? ImVec2{clock_min.x + clock_width * 0.5f, clock_max.y}
+            : ImVec2{clock_max.x, clock_min.y + clock_height * 0.5f};
+        ImVec2 b_min = split_horizontal
+            ? ImVec2{a_max.x, clock_min.y}
+            : ImVec2{clock_min.x, a_max.y};
+        ImVec2 b_max = clock_max;
+
+        if (has_analog) {
+            render_analog_clock_in_rect(a_min, a_max, app, pal, h, m, s);
+            draw_centered_clock_text(b_min, b_max,
+                app.clock_view == ClockView::Mixed_AnalogIntlLocal
+                    ? std::format("{}\n{}", txt24, txt12)
+                    : format_clock_text(app.clock_view, h, m, s),
+                2.4f);
+        } else {
+            draw_centered_clock_text(a_min, a_max, txt24, 2.6f);
+            draw_centered_clock_text(b_min, b_max, txt12, 2.6f);
+        }
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+        if (g_debug_overlay_visible) {
+            ImGui::GetForegroundDrawList()->AddLine(
+                split_horizontal ? ImVec2{a_max.x, clock_min.y} : ImVec2{clock_min.x, a_max.y},
+                split_horizontal ? ImVec2{a_max.x, clock_max.y} : ImVec2{clock_max.x, a_max.y},
+                IM_COL32(255, 210, 0, 140), 1.5f);
+        }
+#endif
+    } else if (has_analog) {
+        render_analog_clock_in_rect(clock_min, clock_max, app, pal, h, m, s);
     } else {
-        std::string txt = format_clock_text(app.clock_view, h, m, s);
-        float scale = 2.2f;
-        ImGui::SetWindowFontScale(scale);
-        float tw = ImGui::CalcTextSize(txt.c_str()).x;
-        float avail = ImGui::GetContentRegionAvail().x;
-        if (tw < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw) / 2.f);
-        ImGui::TextUnformatted(txt.c_str());
-        ImGui::SetWindowFontScale(1.f);
+        draw_centered_clock_text(clock_min, clock_max, format_clock_text(app.clock_view, h, m, s), 3.2f);
     }
-    ImVec2 clock_max = ImGui::GetCursorScreenPos();
-    clock_max.x = clock_min.x + clock_width;
-    clock_max.y = std::max(clock_max.y, clock_min.y + min_clock_height);
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
     if (g_debug_overlay_visible) {
         ImGui::GetForegroundDrawList()->AddRect(clock_min, clock_max, IM_COL32(255, 210, 0, 255), 0.f, 0, 2.f);
     }
 #endif
-    if (ImGui::IsMouseHoveringRect(clock_min, clock_max, false) &&
-        ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    if (clock_clicked) {
         dispatch_action(app, A_CLK_CYCLE, now, {});
         ui.dirty = true;
     }
+    ImGui::SetCursorScreenPos({clock_min.x, clock_max.y});
     ImGui::Separator();
 }
 
@@ -317,19 +336,28 @@ static void render_stopwatch(App& app, [[maybe_unused]] UiState& ui, [[maybe_unu
     ImGui::TextUnformatted(elapsed.c_str());
     ImGui::SetWindowFontScale(1.f);
 
-    auto btn = [&](const char* label, int action) {
+    const char* start_label = app.sw.is_running() ? "Stop" : "Start";
+    float button_w = ImGui::CalcTextSize(start_label).x + ImGui::GetStyle().FramePadding.x * 2.f
+        + ImGui::CalcTextSize("Lap").x + ImGui::GetStyle().FramePadding.x * 2.f
+        + ImGui::CalcTextSize("Reset").x + ImGui::GetStyle().FramePadding.x * 2.f
+        + ImGui::GetStyle().ItemSpacing.x * 2.f;
+    float button_avail = ImGui::GetContentRegionAvail().x;
+    if (button_w < button_avail) {
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (button_avail - button_w) * 0.5f);
+    }
+
+    auto btn = [&](const char* label, int action, bool same_line_after) {
         if (ImGui::Button(label)) {
             auto r = dispatch_action(app, action, now, {});
             if (r.save_config) ui.dirty = true;
         }
         CHRONOS_DEBUG_ITEM(label, IM_COL32(0, 255, 160, 255));
-        ImGui::SameLine();
+        if (same_line_after) ImGui::SameLine();
     };
 
-    btn(app.sw.is_running() ? "Stop" : "Start", A_SW_START);
-    btn("Lap",   A_SW_LAP);
-    btn("Reset", A_SW_RESET);
-    ImGui::NewLine();
+    btn(start_label, A_SW_START, true);
+    btn("Lap",   A_SW_LAP, true);
+    btn("Reset", A_SW_RESET, false);
     ImGui::Separator();
 }
 
@@ -866,6 +894,37 @@ static void debug_section(ImDrawList* dl, const ImVec2& before, const char* labe
 }
 #endif
 
+static float estimate_post_clock_height(const App& app) {
+    const ImGuiStyle& s = ImGui::GetStyle();
+    float h = 0.f;
+    float line = ImGui::GetTextLineHeight();
+    float frame = ImGui::GetFrameHeight();
+
+    if (app.show_sw) {
+        h += line * 1.5f + s.ItemSpacing.y + frame + s.ItemSpacing.y;
+    }
+
+    if (app.show_tmr) {
+        h += line + s.ItemSpacing.y;
+        for (const auto& ts : app.timers) {
+            h += frame;
+            if (!ts.t.touched() && !ts.pomodoro) h += frame + s.ItemSpacing.y;
+            if (ts.t.touched()) h += frame + s.ItemSpacing.y;
+            h += s.ItemSpacing.y;
+        }
+    }
+
+    if (app.show_alarms) {
+        h += frame + s.ItemSpacing.y;
+        h += app.alarms.empty()
+            ? line + s.ItemSpacing.y
+            : (frame + s.ItemSpacing.y) * (float)app.alarms.size();
+    }
+
+    h += s.ItemSpacing.y * 4.f;
+    return h;
+}
+
 void render_app(App& app, UiState& ui) {
     const ThemePalette& pal = palette_for(app.theme_mode, false);
 
@@ -909,7 +968,10 @@ void render_app(App& app, UiState& ui) {
         if (ui.debug_overlay_visible) debug_section(debug_dl, before, "settings", IM_COL32(80, 220, 255, 255));
 #endif
     } else {
-        render_clock(app, ui, pal);
+        float clock_height = app.show_clk
+            ? std::max(80.f, ImGui::GetContentRegionAvail().y - estimate_post_clock_height(app))
+            : 0.f;
+        render_clock(app, ui, pal, clock_height);
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
         before = ImGui::GetCursorScreenPos();
 #endif
