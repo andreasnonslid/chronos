@@ -37,6 +37,11 @@ struct UiState {
     std::string screenshot_path;
 
     std::filesystem::path cfg_path;
+
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    float debug_ui_scale = 1.65f;
+    bool  debug_overlay_visible = true;
+#endif
 };
 
 // Called once per ImGui frame. Renders everything.

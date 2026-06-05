@@ -15,6 +15,7 @@
 #include "config.hpp"
 #include "encoding.hpp"
 #include "formatting.hpp"
+#include "platform_window.hpp"
 #include "pomodoro.hpp"
 #include "ui_style.hpp"
 
@@ -31,6 +32,45 @@ static ImU32 to_u32(UiColor c, float a = 1.f) {
 }
 
 // ─── Theme ───────────────────────────────────────────────────────────────────
+
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+static bool g_debug_overlay_visible = true;
+
+static void debug_last_item(const char* label, ImU32 color = IM_COL32(255, 255, 255, 230)) {
+    (void)label;
+    if (!g_debug_overlay_visible) return;
+    if (!ImGui::IsItemVisible()) return;
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    ImVec2 min = ImGui::GetItemRectMin();
+    ImVec2 max = ImGui::GetItemRectMax();
+    dl->AddRect(min, max, color, 0.f, 0, 2.f);
+}
+
+static void debug_set_ui_scale(UiState& ui, float scale) {
+    float old_scale = std::max(ui.debug_ui_scale, 0.1f);
+    float new_scale = std::clamp(scale, 1.0f, 2.5f);
+    if (new_scale == ui.debug_ui_scale) return;
+
+    if (ui.sdl_window) {
+        int w = 0;
+        int h = 0;
+        SDL_GetWindowSize(ui.sdl_window, &w, &h);
+
+        float ratio = new_scale / old_scale;
+        int new_w = std::clamp((int)(w * ratio + 0.5f), 240, 1600);
+        int new_h = std::clamp((int)(h * ratio + 0.5f), 180, 1400);
+        SDL_SetWindowMinimumSize(ui.sdl_window,
+                                 std::clamp((int)(240 * new_scale + 0.5f), 240, 600),
+                                 std::clamp((int)(180 * new_scale + 0.5f), 180, 450));
+        SDL_SetWindowSize(ui.sdl_window, new_w, new_h);
+    }
+
+    ui.debug_ui_scale = new_scale;
+}
+#define CHRONOS_DEBUG_ITEM(label, color) debug_last_item(label, color)
+#else
+#define CHRONOS_DEBUG_ITEM(label, color) ((void)0)
+#endif
 
 void apply_imgui_theme(ThemeMode mode, bool system_prefers_dark) {
     const auto& pal = palette_for(mode, system_prefers_dark);
@@ -103,8 +143,10 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
         if (ImGui::SmallButton(label)) {
             auto r = dispatch_action(app, action, steady_clock::now(), {});
             if (r.save_config) ui.dirty = true;
+            if (r.set_topmost) platform_set_always_on_top(ui.sdl_window, app.topmost);
             if (r.apply_theme) apply_imgui_theme(app.theme_mode, false);
         }
+        CHRONOS_DEBUG_ITEM(label, IM_COL32(255, 255, 255, 240));
         if (active) ImGui::PopStyleColor(2);
         ImGui::SameLine();
     };
@@ -114,6 +156,30 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
     toggle_btn("SW",   app.show_sw,     A_SHOW_SW);
     toggle_btn("Tmr",  app.show_tmr,    A_SHOW_TMR);
     toggle_btn("Alrm", app.show_alarms, A_SHOW_ALARMS);
+
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    bool debug_was_visible = ui.debug_overlay_visible;
+    if (debug_was_visible) {
+        ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
+    }
+    if (ImGui::SmallButton("Dbg")) {
+        ui.debug_overlay_visible = !ui.debug_overlay_visible;
+    }
+    CHRONOS_DEBUG_ITEM("debug toggle", IM_COL32(255, 255, 255, 240));
+    if (debug_was_visible) ImGui::PopStyleColor(2);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("-##dbg_scale")) {
+        debug_set_ui_scale(ui, ui.debug_ui_scale - 0.1f);
+    }
+    CHRONOS_DEBUG_ITEM("debug scale -", IM_COL32(255, 140, 0, 255));
+    ImGui::SameLine();
+    if (ImGui::SmallButton("+##dbg_scale")) {
+        debug_set_ui_scale(ui, ui.debug_ui_scale + 0.1f);
+    }
+    CHRONOS_DEBUG_ITEM("debug scale +", IM_COL32(255, 140, 0, 255));
+    ImGui::SameLine();
+#endif
 
     // Right-align ⚙ and ×
     // UTF-8: ⚙ = \xe2\x9a\x99 (U+2699), × = \xc3\x97 (U+00D7)
@@ -127,22 +193,19 @@ static void render_titlebar(App& app, UiState& ui, const ThemePalette& pal) {
         ui.show_settings = true;
         ui.settings_tab  = 0;
     }
+    CHRONOS_DEBUG_ITEM("settings", IM_COL32(80, 220, 255, 255));
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{0.8f, 0.2f, 0.2f, 1.f});
     if (ImGui::Button("\xc3\x97")) ui.close_requested = true;
+    CHRONOS_DEBUG_ITEM("close", IM_COL32(255, 80, 80, 255));
     ImGui::PopStyleColor();
 
     // Window drag: active when mouse is pressed in the bar but not over any item.
     ImVec2 bar_min = ImGui::GetWindowPos();
     ImVec2 bar_max = {bar_min.x + ImGui::GetWindowWidth(), bar_min.y + bar_h};
     bool in_bar = ImGui::IsMouseHoveringRect(bar_min, bar_max, false);
-    if (in_bar && !ImGui::IsAnyItemHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 1.f)) {
-        ImVec2 delta = ImGui::GetIO().MouseDelta;
-        if ((delta.x != 0.f || delta.y != 0.f) && ui.sdl_window) {
-            int wx, wy;
-            SDL_GetWindowPosition(ui.sdl_window, &wx, &wy);
-            SDL_SetWindowPosition(ui.sdl_window, wx + (int)delta.x, wy + (int)delta.y);
-        }
+    if (in_bar && !ImGui::IsAnyItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        platform_begin_window_drag(ui.sdl_window);
     }
 
     ImGui::EndChild();
@@ -165,22 +228,22 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal) {
     int h = lt.tm_hour, m = lt.tm_min, s = lt.tm_sec;
 
     bool has_analog = clock_view_has_analog(app.clock_view);
+    ImVec2 clock_min = ImGui::GetCursorScreenPos();
+    float clock_width = ImGui::GetContentRegionAvail().x;
+    float min_clock_height = 0.f;
 
     if (has_analog) {
         float avail = ImGui::GetContentRegionAvail().x;
         float size  = std::min(avail, 180.f);
+        min_clock_height = size;
         ImVec2 pos  = ImGui::GetCursorScreenPos();
         float cx = pos.x + size / 2.f;
         float cy = pos.y + size / 2.f;
         float rad = size / 2.f - 6.f;
         ImDrawList* dl = ImGui::GetWindowDrawList();
         draw_analog_clock_imgui(dl, cx, cy, rad, app.analog_style, pal, h, m, s);
-        // Invisible button to capture the clock area for click-to-cycle
+        // Reserve the analog clock area; the whole clock widget handles clicks below.
         ImGui::InvisibleButton("##clock_face", {size, size});
-        if (ImGui::IsItemClicked()) {
-            dispatch_action(app, A_CLK_CYCLE, now, {});
-            ui.dirty = true;
-        }
 
         if (clock_view_is_mixed(app.clock_view)) {
             ImGui::SameLine();
@@ -205,12 +268,10 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal) {
         ImGui::SetWindowFontScale(1.8f);
         float tw24 = ImGui::CalcTextSize(txt24.c_str()).x;
         if (tw24 < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw24) / 2.f);
-        if (ImGui::Selectable(txt24.c_str(), false, 0, {tw24, 0}))
-            dispatch_action(app, A_CLK_CYCLE, now, {});
+        ImGui::TextUnformatted(txt24.c_str());
         float tw12 = ImGui::CalcTextSize(txt12.c_str()).x;
         if (tw12 < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw12) / 2.f);
-        if (ImGui::Selectable(txt12.c_str(), false, 0, {tw12, 0}))
-            dispatch_action(app, A_CLK_CYCLE, now, {});
+        ImGui::TextUnformatted(txt12.c_str());
         ImGui::SetWindowFontScale(1.f);
     } else {
         std::string txt = format_clock_text(app.clock_view, h, m, s);
@@ -219,9 +280,21 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal) {
         float tw = ImGui::CalcTextSize(txt.c_str()).x;
         float avail = ImGui::GetContentRegionAvail().x;
         if (tw < avail) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - tw) / 2.f);
-        if (ImGui::Selectable(txt.c_str(), false, 0, {avail, 0}))
-            dispatch_action(app, A_CLK_CYCLE, now, {});
+        ImGui::TextUnformatted(txt.c_str());
         ImGui::SetWindowFontScale(1.f);
+    }
+    ImVec2 clock_max = ImGui::GetCursorScreenPos();
+    clock_max.x = clock_min.x + clock_width;
+    clock_max.y = std::max(clock_max.y, clock_min.y + min_clock_height);
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    if (g_debug_overlay_visible) {
+        ImGui::GetForegroundDrawList()->AddRect(clock_min, clock_max, IM_COL32(255, 210, 0, 255), 0.f, 0, 2.f);
+    }
+#endif
+    if (ImGui::IsMouseHoveringRect(clock_min, clock_max, false) &&
+        ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        dispatch_action(app, A_CLK_CYCLE, now, {});
+        ui.dirty = true;
     }
     ImGui::Separator();
 }
@@ -245,6 +318,7 @@ static void render_stopwatch(App& app, [[maybe_unused]] UiState& ui, [[maybe_unu
             auto r = dispatch_action(app, action, now, {});
             if (r.save_config) ui.dirty = true;
         }
+        CHRONOS_DEBUG_ITEM(label, IM_COL32(0, 255, 160, 255));
         ImGui::SameLine();
     };
 
@@ -307,11 +381,13 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
         // Start/Stop
         if (ImGui::SmallButton(running ? "Stop" : "Start"))
             dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_START, now, {});
+        CHRONOS_DEBUG_ITEM(running ? "timer stop" : "timer start", IM_COL32(255, 100, 200, 255));
         ImGui::SameLine();
 
         // Reset
         if (ImGui::SmallButton("Reset"))
             dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_RST, now, {});
+        CHRONOS_DEBUG_ITEM("timer reset", IM_COL32(255, 100, 200, 255));
         ImGui::SameLine();
 
         // Pomodoro toggle (only when untouched)
@@ -319,6 +395,7 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
             if (ts.pomodoro) ImGui::PushStyleColor(ImGuiCol_Button, to_v4(pal.active));
             if (ImGui::SmallButton("Pomo"))
                 dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_POMO, now, {});
+            CHRONOS_DEBUG_ITEM("timer pomo", IM_COL32(255, 100, 200, 255));
             if (ts.pomodoro) ImGui::PopStyleColor();
             ImGui::SameLine();
         }
@@ -327,14 +404,18 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
         if (ts.pomodoro && ts.t.touched()) {
             if (ImGui::SmallButton("Skip"))
                 dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_SKIP, now, {});
+            CHRONOS_DEBUG_ITEM("timer skip", IM_COL32(255, 100, 200, 255));
             ImGui::SameLine();
         }
 
         // Remove timer
-        if ((int)app.timers.size() > 1 && ImGui::SmallButton("-")) {
-            dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_DEL, now, {});
-            ImGui::PopID();
-            break;
+        if ((int)app.timers.size() > 1) {
+            if (ImGui::SmallButton("-")) {
+                dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + A_TMR_DEL, now, {});
+                ImGui::PopID();
+                break;
+            }
+            CHRONOS_DEBUG_ITEM("timer remove", IM_COL32(255, 100, 200, 255));
         }
 
         // Duration editing row (when untouched and not pomodoro)
@@ -344,18 +425,16 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
                     auto r = dispatch_action(app, A_TMR_BASE + i * TMR_STRIDE + off, now, {});
                     if (r.save_config) ui.dirty = true;
                 }
+                CHRONOS_DEBUG_ITEM(label, IM_COL32(255, 170, 80, 255));
             };
             ImGui::SetWindowFontScale(0.85f);
             adj_btn("-H", A_TMR_HDN); ImGui::SameLine();
-            ImGui::TextUnformatted("H"); ImGui::SameLine();
             adj_btn("+H", A_TMR_HUP); ImGui::SameLine();
             ImGui::Spacing(); ImGui::SameLine();
             adj_btn("-M", A_TMR_MDN); ImGui::SameLine();
-            ImGui::TextUnformatted("M"); ImGui::SameLine();
             adj_btn("+M", A_TMR_MUP); ImGui::SameLine();
             ImGui::Spacing(); ImGui::SameLine();
             adj_btn("-S", A_TMR_SDN); ImGui::SameLine();
-            ImGui::TextUnformatted("S"); ImGui::SameLine();
             adj_btn("+S", A_TMR_SUP);
             ImGui::SetWindowFontScale(1.f);
         }
@@ -382,6 +461,7 @@ static void render_timers(App& app, [[maybe_unused]] UiState& ui, const ThemePal
             int last = (int)app.timers.size() - 1;
             dispatch_action(app, A_TMR_BASE + last * TMR_STRIDE + A_TMR_ADD, steady_clock::now(), {});
         }
+        CHRONOS_DEBUG_ITEM("add timer", IM_COL32(255, 100, 200, 255));
     }
     ImGui::Separator();
 }
@@ -411,6 +491,7 @@ static void render_alarms(App& app, UiState& ui) {
         }
         ui.show_add_alarm = true;
     }
+    CHRONOS_DEBUG_ITEM("add alarm", IM_COL32(180, 120, 255, 255));
 
     if (app.alarms.empty()) {
         ImGui::TextDisabled("No alarms set");
@@ -424,6 +505,7 @@ static void render_alarms(App& app, UiState& ui) {
                 dispatch_action(app, A_ALARM_TOGGLE + i, steady_clock::now(), {});
                 ui.dirty = true;
             }
+            CHRONOS_DEBUG_ITEM("alarm enabled", IM_COL32(180, 120, 255, 255));
             ImGui::SameLine();
             ImGui::TextUnformatted(a.name.empty() ? "(unnamed)" : a.name.c_str());
             ImGui::SameLine();
@@ -435,6 +517,7 @@ static void render_alarms(App& app, UiState& ui) {
                 ImGui::PopID();
                 break;
             }
+            CHRONOS_DEBUG_ITEM("alarm delete", IM_COL32(180, 120, 255, 255));
             ImGui::PopID();
         }
     }
@@ -455,20 +538,25 @@ static void render_add_alarm_window(App& app, UiState& ui) {
     }
 
     ImGui::InputText("Name", ui.alarm_name, sizeof(ui.alarm_name));
+    CHRONOS_DEBUG_ITEM("alarm name", IM_COL32(180, 120, 255, 255));
 
     ImGui::SetNextItemWidth(50);
     ImGui::InputInt("Hour",   &ui.alarm_hour,   1);
+    CHRONOS_DEBUG_ITEM("alarm hour", IM_COL32(180, 120, 255, 255));
     ui.alarm_hour   = std::clamp(ui.alarm_hour,   0, 23);
     ImGui::SameLine();
     ImGui::SetNextItemWidth(50);
     ImGui::InputInt("Minute", &ui.alarm_minute, 1);
+    CHRONOS_DEBUG_ITEM("alarm minute", IM_COL32(180, 120, 255, 255));
     ui.alarm_minute = std::clamp(ui.alarm_minute, 0, 59);
 
     {
         int mode = ui.alarm_days_mode ? 1 : 0;
         ImGui::RadioButton("Days of week", &mode, 1);
+        CHRONOS_DEBUG_ITEM("days mode", IM_COL32(180, 120, 255, 255));
         ImGui::SameLine();
         ImGui::RadioButton("Specific date", &mode, 0);
+        CHRONOS_DEBUG_ITEM("date mode", IM_COL32(180, 120, 255, 255));
         ui.alarm_days_mode = (mode != 0);
     }
 
@@ -476,14 +564,18 @@ static void render_add_alarm_window(App& app, UiState& ui) {
         const char* day_names[] = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
         for (int d = 0; d < 7; ++d) {
             ImGui::Checkbox(day_names[d], &ui.alarm_days[d]);
+            CHRONOS_DEBUG_ITEM(day_names[d], IM_COL32(180, 120, 255, 255));
             if (d < 6) ImGui::SameLine();
         }
     } else {
         ImGui::SetNextItemWidth(70); ImGui::InputInt("Year",  &ui.alarm_year,  1);
+        CHRONOS_DEBUG_ITEM("alarm year", IM_COL32(180, 120, 255, 255));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(50); ImGui::InputInt("Month", &ui.alarm_month, 1);
+        CHRONOS_DEBUG_ITEM("alarm month", IM_COL32(180, 120, 255, 255));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(50); ImGui::InputInt("Day",   &ui.alarm_day,   1);
+        CHRONOS_DEBUG_ITEM("alarm day", IM_COL32(180, 120, 255, 255));
         ui.alarm_month = std::clamp(ui.alarm_month, 1, 12);
         ui.alarm_day   = std::clamp(ui.alarm_day,   1, 31);
     }
@@ -510,8 +602,10 @@ static void render_add_alarm_window(App& app, UiState& ui) {
         ui.dirty = true;
         ui.show_add_alarm = false;
     }
+    CHRONOS_DEBUG_ITEM("alarm ok", IM_COL32(180, 120, 255, 255));
     ImGui::SameLine();
     if (ImGui::Button("Cancel")) ui.show_add_alarm = false;
+    CHRONOS_DEBUG_ITEM("alarm cancel", IM_COL32(180, 120, 255, 255));
 
     ImGui::End();
 }
@@ -563,14 +657,15 @@ static void render_settings_window(App& app, UiState& ui) {
         if (ImGui::BeginTabItem("Appearance", nullptr, tab_flags(0))) {
             ImGui::Text("Theme");
             int tm = (int)ui.pending_theme;
-            ImGui::RadioButton("Auto",  &tm, 0); ImGui::SameLine();
-            ImGui::RadioButton("Light", &tm, 1); ImGui::SameLine();
-            ImGui::RadioButton("Dark",  &tm, 2);
+            ImGui::RadioButton("Auto",  &tm, 0); CHRONOS_DEBUG_ITEM("theme auto", IM_COL32(80, 220, 255, 255)); ImGui::SameLine();
+            ImGui::RadioButton("Light", &tm, 1); CHRONOS_DEBUG_ITEM("theme light", IM_COL32(80, 220, 255, 255)); ImGui::SameLine();
+            ImGui::RadioButton("Dark",  &tm, 2); CHRONOS_DEBUG_ITEM("theme dark", IM_COL32(80, 220, 255, 255));
             ui.pending_theme = (ThemeMode)tm;
 
             ImGui::Spacing();
             ImGui::Text("Notifications");
             ImGui::Checkbox("Sound on expiry", &ui.pending_sound);
+            CHRONOS_DEBUG_ITEM("sound expiry", IM_COL32(80, 220, 255, 255));
             ImGui::EndTabItem();
         }
 
@@ -583,6 +678,7 @@ static void render_settings_window(App& app, UiState& ui) {
             int cv = (int)ui.pending_clock_view;
             ImGui::SetNextItemWidth(200.f);
             ImGui::Combo("Format", &cv, view_names, CLOCK_VIEW_COUNT);
+            CHRONOS_DEBUG_ITEM("clock format", IM_COL32(80, 220, 255, 255));
             ui.pending_clock_view = (ClockView)cv;
 
             if (clock_view_has_analog(ui.pending_clock_view)) {
@@ -606,17 +702,24 @@ static void render_settings_window(App& app, UiState& ui) {
                 ImGui::Separator();
                 ImGui::Text("Hand lengths (%%)");
                 ImGui::SliderInt("Hour len",   &ui.pending_analog.hour_len_pct,   0, 100);
+                CHRONOS_DEBUG_ITEM("hour length", IM_COL32(80, 220, 255, 255));
                 ImGui::SliderInt("Minute len", &ui.pending_analog.minute_len_pct, 0, 100);
+                CHRONOS_DEBUG_ITEM("minute length", IM_COL32(80, 220, 255, 255));
                 ImGui::SliderInt("Second len", &ui.pending_analog.second_len_pct, 0, 100);
+                CHRONOS_DEBUG_ITEM("second length", IM_COL32(80, 220, 255, 255));
                 ImGui::Text("Thickness");
                 ImGui::SliderInt("Hour thick",   &ui.pending_analog.hour_thickness,   1, 6);
+                CHRONOS_DEBUG_ITEM("hour thick", IM_COL32(80, 220, 255, 255));
                 ImGui::SliderInt("Minute thick", &ui.pending_analog.minute_thickness, 1, 4);
+                CHRONOS_DEBUG_ITEM("minute thick", IM_COL32(80, 220, 255, 255));
                 ImGui::SliderInt("Second thick", &ui.pending_analog.second_thickness, 1, 3);
+                CHRONOS_DEBUG_ITEM("second thick", IM_COL32(80, 220, 255, 255));
                 ImGui::Checkbox("Minute ticks", &ui.pending_analog.show_minute_ticks);
+                CHRONOS_DEBUG_ITEM("minute ticks", IM_COL32(80, 220, 255, 255));
                 int hl = (int)ui.pending_analog.hour_labels;
-                ImGui::RadioButton("No labels",    &hl, 0); ImGui::SameLine();
-                ImGui::RadioButton("Sparse",       &hl, 1); ImGui::SameLine();
-                ImGui::RadioButton("Full",         &hl, 2);
+                ImGui::RadioButton("No labels",    &hl, 0); CHRONOS_DEBUG_ITEM("no labels", IM_COL32(80, 220, 255, 255)); ImGui::SameLine();
+                ImGui::RadioButton("Sparse",       &hl, 1); CHRONOS_DEBUG_ITEM("sparse labels", IM_COL32(80, 220, 255, 255)); ImGui::SameLine();
+                ImGui::RadioButton("Full",         &hl, 2); CHRONOS_DEBUG_ITEM("full labels", IM_COL32(80, 220, 255, 255));
                 ui.pending_analog.hour_labels = (HourLabels)hl;
             }
             ImGui::EndTabItem();
@@ -625,15 +728,20 @@ static void render_settings_window(App& app, UiState& ui) {
         // ── Pomodoro ──
         if (ImGui::BeginTabItem("Pomodoro", nullptr, tab_flags(2))) {
             ImGui::SetNextItemWidth(80); ImGui::InputInt("Work (min)",        &ui.pending_work_min,  1);
+            CHRONOS_DEBUG_ITEM("work minutes", IM_COL32(80, 220, 255, 255));
             ImGui::SetNextItemWidth(80); ImGui::InputInt("Short break (min)", &ui.pending_short_min, 1);
+            CHRONOS_DEBUG_ITEM("short minutes", IM_COL32(80, 220, 255, 255));
             ImGui::SetNextItemWidth(80); ImGui::InputInt("Long break (min)",  &ui.pending_long_min,  1);
+            CHRONOS_DEBUG_ITEM("long minutes", IM_COL32(80, 220, 255, 255));
             ImGui::SetNextItemWidth(80); ImGui::InputInt("Long every N sessions", &ui.pending_cadence, 1);
+            CHRONOS_DEBUG_ITEM("long cadence", IM_COL32(80, 220, 255, 255));
             ui.pending_work_min  = std::clamp(ui.pending_work_min,  1, 120);
             ui.pending_short_min = std::clamp(ui.pending_short_min, 1, 60);
             ui.pending_long_min  = std::clamp(ui.pending_long_min,  1, 120);
             ui.pending_cadence   = std::clamp(ui.pending_cadence,
                                               POMODORO_MIN_CADENCE, POMODORO_MAX_CADENCE);
             ImGui::Checkbox("Auto-start next phase", &ui.pending_auto_start);
+            CHRONOS_DEBUG_ITEM("auto start", IM_COL32(80, 220, 255, 255));
             ImGui::EndTabItem();
         }
 
@@ -644,6 +752,7 @@ static void render_settings_window(App& app, UiState& ui) {
                 ImGui::SetNextItemWidth(80);
                 ImGui::InputInt(std::format("Preset {} (min)", i + 1).c_str(),
                                 &ui.pending_presets[i], 1);
+                CHRONOS_DEBUG_ITEM("timer preset", IM_COL32(80, 220, 255, 255));
                 ui.pending_presets[i] = std::clamp(ui.pending_presets[i], 0, 1440);
             }
             ImGui::EndTabItem();
@@ -671,8 +780,10 @@ static void render_settings_window(App& app, UiState& ui) {
         ui.dirty = true;
         ui.show_settings = false;
     }
+    CHRONOS_DEBUG_ITEM("settings apply", IM_COL32(80, 220, 255, 255));
     ImGui::SameLine();
     if (ImGui::Button("Cancel")) ui.show_settings = false;
+    CHRONOS_DEBUG_ITEM("settings cancel", IM_COL32(80, 220, 255, 255));
 
     ImGui::End();
 }
@@ -722,11 +833,38 @@ static void check_alarms_cross_platform(App& app) {
 
 // ─── Main render entry point ──────────────────────────────────────────────────
 
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+static void debug_rect(ImDrawList* dl, const ImVec2& a, const ImVec2& b, ImU32 color, const char* label) {
+    (void)label;
+    if (b.x <= a.x || b.y <= a.y) return;
+    dl->AddRect(a, b, color, 0.f, 0, 2.f);
+}
+
+static void debug_edge_overlay(ImDrawList* dl, const ImVec2& size) {
+    constexpr float edge = 10.f;
+    dl->AddRectFilled({0, 0}, {size.x, edge}, IM_COL32(255, 210, 0, 50));
+    dl->AddRectFilled({0, size.y - edge}, {size.x, size.y}, IM_COL32(0, 255, 80, 50));
+    dl->AddRectFilled({0, 0}, {edge, size.y}, IM_COL32(0, 200, 255, 50));
+    dl->AddRectFilled({size.x - edge, 0}, {size.x, size.y}, IM_COL32(255, 0, 200, 50));
+    dl->AddRect({0, 0}, {size.x, size.y}, IM_COL32(255, 255, 255, 220), 0.f, 0, 2.f);
+}
+
+static void debug_section(ImDrawList* dl, const ImVec2& before, const char* label, ImU32 color) {
+    ImVec2 after = ImGui::GetCursorScreenPos();
+    debug_rect(dl, before, {before.x + ImGui::GetWindowWidth(), after.y}, color, label);
+}
+#endif
+
 void render_app(App& app, UiState& ui) {
     const ThemePalette& pal = palette_for(app.theme_mode, false);
 
     // Full-screen borderless window
     ImGuiIO& io = ImGui::GetIO();
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    io.FontGlobalScale = ui.debug_ui_scale;
+#else
+    io.FontGlobalScale = 1.f;
+#endif
     ImGui::SetNextWindowPos({0, 0});
     ImGui::SetNextWindowSize(io.DisplaySize);
     ImGui::SetNextWindowBgAlpha(1.f);
@@ -735,11 +873,38 @@ void render_app(App& app, UiState& ui) {
         ImGuiWindowFlags_NoMove     | ImGuiWindowFlags_NoScrollbar |
         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    g_debug_overlay_visible = ui.debug_overlay_visible;
+#endif
+
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    ImDrawList* debug_dl = ImGui::GetForegroundDrawList();
+    if (ui.debug_overlay_visible) debug_edge_overlay(debug_dl, io.DisplaySize);
+    ImVec2 before = ImGui::GetCursorScreenPos();
+#endif
     render_titlebar(app, ui, pal);
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    if (ui.debug_overlay_visible) debug_section(debug_dl, before, "titlebar", IM_COL32(80, 160, 255, 255));
+    before = ImGui::GetCursorScreenPos();
+#endif
     render_clock(app, ui, pal);
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    before = ImGui::GetCursorScreenPos();
+#endif
     render_stopwatch(app, ui, pal);
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    if (ui.debug_overlay_visible) debug_section(debug_dl, before, "stopwatch", IM_COL32(0, 255, 160, 255));
+    before = ImGui::GetCursorScreenPos();
+#endif
     render_timers(app, ui, pal);
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    if (ui.debug_overlay_visible) debug_section(debug_dl, before, "timers", IM_COL32(255, 100, 200, 255));
+    before = ImGui::GetCursorScreenPos();
+#endif
     render_alarms(app, ui);
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    if (ui.debug_overlay_visible) debug_section(debug_dl, before, "alarms", IM_COL32(180, 120, 255, 255));
+#endif
 
     ImGui::End();
 

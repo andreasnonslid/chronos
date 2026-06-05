@@ -13,6 +13,7 @@
 #include "actions.hpp"
 #include "app.hpp"
 #include "config_io.hpp"
+#include "platform_window.hpp"
 #include "ui_style.hpp"
 #include "ui_app.hpp"
 
@@ -38,6 +39,27 @@ static bool save_screenshot(const char* path, int w, int h) {
     return stbi_write_png(path, w, h, 3, pixels.data(), w * 3) != 0;
 }
 #endif
+
+static void render_frame(SDL_Window* window, SDL_GLContext gl_ctx, App& app, UiState& ui) {
+    SDL_GL_MakeCurrent(window, gl_ctx);
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+
+    render_app(app, ui);
+
+    ImGui::Render();
+
+    int display_w = 0;
+    int display_h = 0;
+    SDL_GL_GetDrawableSize(window, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    const auto& pal = palette_for(app.theme_mode, false);
+    glClearColor(pal.bg.r / 255.f, pal.bg.g / 255.f, pal.bg.b / 255.f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    SDL_GL_SwapWindow(window);
+}
 
 // ─── Platform entry ───────────────────────────────────────────────────────────
 
@@ -98,8 +120,20 @@ int main(int argc, char* argv[]) {
     // show the window; Xvfb makes it invisible anyway.
     // BORDERLESS: removes OS title bar; we draw our own strip in ImGui.
     Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS;
+#ifdef CHRONOS_DEBUG_UI_OVERLAY
+    constexpr float debug_default_scale = 1.65f;
+    constexpr int initial_window_w = (int)(360 * debug_default_scale + 0.5f);
+    constexpr int initial_window_h = (int)(520 * debug_default_scale + 0.5f);
+    constexpr int min_window_w = (int)(240 * debug_default_scale + 0.5f);
+    constexpr int min_window_h = (int)(180 * debug_default_scale + 0.5f);
+#else
+    constexpr int initial_window_w = 360;
+    constexpr int initial_window_h = 520;
+    constexpr int min_window_w = 240;
+    constexpr int min_window_h = 180;
+#endif
     SDL_Window* window = SDL_CreateWindow("Chronos", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                          360, 520, wflags);
+                                          initial_window_w, initial_window_h, wflags);
     if (!window) {
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
         SDL_Quit();
@@ -116,27 +150,8 @@ int main(int argc, char* argv[]) {
     SDL_GL_MakeCurrent(window, gl_ctx);
     SDL_GL_SetSwapInterval(1);  // vsync
 
-    // Hit-test callback: tells SDL which regions are resize edges so the WM
-    // can handle diagonal drag and smooth OS-level resize natively.
-    static const int RESIZE_BORDER = 6;
-    SDL_SetWindowHitTest(window, [](SDL_Window* w, const SDL_Point* pt, void*) -> SDL_HitTestResult {
-        int wd, h;
-        SDL_GetWindowSize(w, &wd, &h);
-        const int b = RESIZE_BORDER;
-        bool top = pt->y < b,        bot = pt->y >= h - b;
-        bool lft = pt->x < b,        rgt = pt->x >= wd - b;
-        if (top && lft) return SDL_HITTEST_RESIZE_TOPLEFT;
-        if (top && rgt) return SDL_HITTEST_RESIZE_TOPRIGHT;
-        if (bot && lft) return SDL_HITTEST_RESIZE_BOTTOMLEFT;
-        if (bot && rgt) return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
-        if (top)        return SDL_HITTEST_RESIZE_TOP;
-        if (bot)        return SDL_HITTEST_RESIZE_BOTTOM;
-        if (lft)        return SDL_HITTEST_RESIZE_LEFT;
-        if (rgt)        return SDL_HITTEST_RESIZE_RIGHT;
-        return SDL_HITTEST_NORMAL;
-    }, nullptr);
-
-    SDL_SetWindowMinimumSize(window, 240, 180);
+    SDL_SetWindowMinimumSize(window, min_window_w, min_window_h);
+    platform_window_init(window);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -151,6 +166,7 @@ int main(int argc, char* argv[]) {
     ui.cfg_path    = config_override ? std::filesystem::path{config_override} : config_path();
     ui.sdl_window  = window;
     load_config(app, ui.cfg_path);
+    platform_set_always_on_top(window, app.topmost);
     if (screenshot_path) ui.screenshot_path = screenshot_path;
 
     apply_imgui_theme(app.theme_mode, false);
@@ -188,29 +204,25 @@ int main(int argc, char* argv[]) {
     bool done = false;
     bool screenshot_done = false;
     int frame_count = 0;
+    bool rendering = false;
 
-    // Render a full frame from within the SDL event watch so the window
-    // repaints continuously during a resize drag on Windows (the WM blocks
-    // the main thread in a modal message loop during resize).
-    struct RenderCtx { SDL_Window* win; SDL_GLContext gl; App* app; UiState* ui; bool* done; };
-    RenderCtx rctx{window, gl_ctx, &app, &ui, &done};
-    SDL_AddEventWatch([](void* ud, SDL_Event* ev) -> int {
+    struct RenderCtx { SDL_Window* win; SDL_GLContext gl; App* app; UiState* ui; bool* rendering; };
+    RenderCtx rctx{window, gl_ctx, &app, &ui, &rendering};
+    auto resize_event_watch = [](void* ud, SDL_Event* ev) -> int {
         if (ev->type != SDL_WINDOWEVENT) return 0;
-        if (ev->window.event != SDL_WINDOWEVENT_SIZE_CHANGED) return 0;
+        if (ev->window.event != SDL_WINDOWEVENT_SIZE_CHANGED &&
+            ev->window.event != SDL_WINDOWEVENT_RESIZED &&
+            ev->window.event != SDL_WINDOWEVENT_EXPOSED) {
+            return 0;
+        }
         auto* c = static_cast<RenderCtx*>(ud);
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
-        render_app(*c->app, *c->ui);
-        ImGui::Render();
-        int dw, dh;
-        SDL_GL_GetDrawableSize(c->win, &dw, &dh);
-        glViewport(0, 0, dw, dh);
-        glClear(GL_COLOR_BUFFER_BIT);
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        SDL_GL_SwapWindow(c->win);
+        if (*c->rendering) return 0;
+        *c->rendering = true;
+        render_frame(c->win, c->gl, *c->app, *c->ui);
+        *c->rendering = false;
         return 0;
-    }, &rctx);
+    };
+    SDL_AddEventWatch(resize_event_watch, &rctx);
 
     while (!done) {
         SDL_Event event;
@@ -233,6 +245,8 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
+
+        rendering = true;
 
         // New frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -266,6 +280,7 @@ int main(int argc, char* argv[]) {
         }
 
         SDL_GL_SwapWindow(window);
+        rendering = false;
 
         if (ui.close_requested) done = true;
 
@@ -275,9 +290,12 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    SDL_DelEventWatch(resize_event_watch, &rctx);
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
+    platform_window_shutdown(window);
     SDL_GL_DeleteContext(gl_ctx);
     SDL_DestroyWindow(window);
     SDL_Quit();

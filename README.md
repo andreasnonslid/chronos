@@ -48,8 +48,13 @@ Minimizing sends the window to the tray. Right-click the tray icon to show or ex
 Requires [MSYS2](https://www.msys2.org/) with the LLVM/MinGW64 toolchain:
 
 ```
-pacman -S mingw-w64-x86_64-clang mingw-w64-x86_64-lld mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+pacman -S mingw-w64-x86_64-clang mingw-w64-x86_64-lld mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-SDL2
 ```
+
+SDL2 is discovered with CMake first. If no installed SDL2 package is found,
+CMake fetches and builds a pinned SDL2 release automatically. Disable this
+fallback with `-DCHRONOS_FETCH_SDL2=OFF` if you want package-manager-only
+dependency resolution.
 
 Build with [Just](https://github.com/casey/just):
 
