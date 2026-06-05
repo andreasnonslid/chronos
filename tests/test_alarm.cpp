@@ -344,3 +344,77 @@ TEST_CASE("actions-alarm: alarm dispatch actions do not request blink", "[action
     REQUIRE_FALSE(wants_blink(A_ALARM_DEL + i));
     REQUIRE_FALSE(wants_blink(A_ALARM_TOGGLE + i));
 }
+
+// ─── alarm_matches(): pure fire-decision function ─────────────────────────────
+// POSIX dow: 0=Sunday, 1=Monday, ..., 6=Saturday
+// Bitmask: bit 0=Monday, bit 1=Tuesday, ..., bit 6=Sunday
+
+TEST_CASE("alarm_matches: wrong hour or minute returns false", "[alarm]") {
+    auto a = make_alarm_days("X", 8, 30, ALARM_ALL_DAYS);
+    REQUIRE_FALSE(alarm_matches(a, 7, 30, 1, 2026, 6, 5));  // hour off
+    REQUIRE_FALSE(alarm_matches(a, 8, 29, 1, 2026, 6, 5));  // minute off
+    REQUIRE_FALSE(alarm_matches(a, 9, 30, 1, 2026, 6, 5));  // both off
+}
+
+TEST_CASE("alarm_matches: days-schedule fires on correct day", "[alarm]") {
+    auto a = make_alarm_days("Weekday", 8, 0, ALARM_WEEKDAYS);
+    // Monday..Friday (POSIX dow 1..5) → bits 0..4 → match
+    REQUIRE(alarm_matches(a, 8, 0, 1, 2026, 6, 1));  // Monday
+    REQUIRE(alarm_matches(a, 8, 0, 2, 2026, 6, 2));  // Tuesday
+    REQUIRE(alarm_matches(a, 8, 0, 5, 2026, 6, 5));  // Friday
+    // Saturday (POSIX 6) → bit 5, weekend bit → no match
+    REQUIRE_FALSE(alarm_matches(a, 8, 0, 6, 2026, 6, 6));
+    // Sunday (POSIX 0) → bit 6, no match
+    REQUIRE_FALSE(alarm_matches(a, 8, 0, 0, 2026, 6, 7));
+}
+
+TEST_CASE("alarm_matches: days-schedule POSIX Sunday (0) maps to bit 6", "[alarm]") {
+    auto a = make_alarm_days("Weekend", 10, 0, ALARM_WEEKEND); // bits 5+6 = Sat+Sun
+    REQUIRE(alarm_matches(a, 10, 0, 0, 2026, 6, 7));  // Sunday POSIX=0 → bit 6
+    REQUIRE(alarm_matches(a, 10, 0, 6, 2026, 6, 6));  // Saturday POSIX=6 → bit 5
+    REQUIRE_FALSE(alarm_matches(a, 10, 0, 1, 2026, 6, 1)); // Monday → bit 0, not set
+}
+
+TEST_CASE("alarm_matches: days-schedule all-days fires on every day", "[alarm]") {
+    auto a = make_alarm_days("Daily", 6, 0, ALARM_ALL_DAYS);
+    // All 7 POSIX dow values (0=Sun through 6=Sat)
+    for (int dow = 0; dow <= 6; ++dow)
+        REQUIRE(alarm_matches(a, 6, 0, dow, 2026, 1, 1));
+}
+
+TEST_CASE("alarm_matches: days-schedule with empty mask never fires", "[alarm]") {
+    auto a = make_alarm_days("None", 8, 0, 0);
+    for (int dow = 0; dow <= 6; ++dow)
+        REQUIRE_FALSE(alarm_matches(a, 8, 0, dow, 2026, 1, 1));
+}
+
+TEST_CASE("alarm_matches: date-schedule fires only on exact date", "[alarm]") {
+    auto a = make_alarm_date("Meeting", 2026, 6, 15, 14, 30);
+    REQUIRE(alarm_matches(a, 14, 30, 1, 2026, 6, 15));        // exact
+    REQUIRE_FALSE(alarm_matches(a, 14, 30, 1, 2026, 6, 14));  // day off
+    REQUIRE_FALSE(alarm_matches(a, 14, 30, 1, 2026, 5, 15));  // month off
+    REQUIRE_FALSE(alarm_matches(a, 14, 30, 1, 2025, 6, 15));  // year off
+    REQUIRE_FALSE(alarm_matches(a, 14, 30, 1, 2026, 6, 16));  // day after
+}
+
+TEST_CASE("alarm_matches: date-schedule ignores days_mask", "[alarm]") {
+    // A date-schedule alarm should not check days_mask.
+    auto a = make_alarm_date("Ignore", 2026, 12, 25, 9, 0);
+    a.days_mask = 0; // would block all days if checked
+    REQUIRE(alarm_matches(a, 9, 0, 5, 2026, 12, 25)); // fires regardless
+}
+
+TEST_CASE("alarm_matches: days-schedule ignores date fields", "[alarm]") {
+    // Days-schedule: correct time + correct dow = fire, even if date fields differ
+    auto a = make_alarm_days("Daily", 9, 0, ALARM_ALL_DAYS);
+    a.date_year = 1900; a.date_month = 1; a.date_day = 1; // obviously wrong date
+    REQUIRE(alarm_matches(a, 9, 0, 3, 2026, 6, 15)); // should still fire
+}
+
+TEST_CASE("alarm_matches: single-day mask fires only on that day", "[alarm]") {
+    // Wednesday only: bit 2
+    auto a = make_alarm_days("Wed", 12, 0, ALARM_DAY_WED);
+    REQUIRE(alarm_matches(a, 12, 0, 3, 2026, 6, 3));  // Wednesday POSIX=3 → bit 2
+    REQUIRE_FALSE(alarm_matches(a, 12, 0, 2, 2026, 6, 2));  // Tuesday
+    REQUIRE_FALSE(alarm_matches(a, 12, 0, 4, 2026, 6, 4));  // Thursday
+}

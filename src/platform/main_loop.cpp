@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <string>
 #include <vector>
 #include "actions.hpp"
@@ -53,11 +54,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
 #else
 int main(int argc, char* argv[]) {
     const char* screenshot_path = nullptr;
+    const char* config_override = nullptr;
     std::vector<int> replay_actions;
     int forced_settings_tab = -1;
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--screenshot") == 0 && i + 1 < argc)
             screenshot_path = argv[i + 1];
+        if (strcmp(argv[i], "--config") == 0 && i + 1 < argc)
+            config_override = argv[i + 1];
         if (strcmp(argv[i], "--settings-tab") == 0 && i + 1 < argc)
             forced_settings_tab = (int)strtol(argv[i + 1], nullptr, 10);
         if (strcmp(argv[i], "--actions") == 0 && i + 1 < argc) {
@@ -118,7 +122,7 @@ int main(int argc, char* argv[]) {
 
     App app;
     UiState ui;
-    ui.cfg_path = config_path();
+    ui.cfg_path = config_override ? std::filesystem::path{config_override} : config_path();
     load_config(app, ui.cfg_path);
     if (screenshot_path) ui.screenshot_path = screenshot_path;
 
