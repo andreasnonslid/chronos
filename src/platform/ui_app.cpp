@@ -353,8 +353,8 @@ static void render_clock(App& app, UiState& ui, const ThemePalette& pal, float p
     }
 #endif
     if (clock_clicked) {
-        dispatch_action(app, A_CLK_CYCLE, now, {});
-        ui.dirty = true;
+        auto r = dispatch_action(app, A_CLK_CYCLE, now, {});
+        if (r.save_config) ui.dirty = true;
     }
     ImGui::SetCursorScreenPos({clock_min.x, clock_max.y});
 }
@@ -618,8 +618,8 @@ static void render_alarms(App& app, UiState& ui) {
             ImGui::TableSetColumnIndex(0);
             bool en = a.enabled;
             if (ImGui::Checkbox("##en", &en)) {
-                dispatch_action(app, A_ALARM_TOGGLE + i, steady_clock::now(), {});
-                ui.dirty = true;
+                auto r = dispatch_action(app, A_ALARM_TOGGLE + i, steady_clock::now(), {});
+                if (r.save_config) ui.dirty = true;
             }
             CHRONOS_DEBUG_ITEM("alarm enabled", IM_COL32(180, 120, 255, 255));
             ImGui::TableSetColumnIndex(1);
@@ -628,8 +628,8 @@ static void render_alarms(App& app, UiState& ui) {
             ImGui::Text("%02d:%02d", a.hour, a.minute);
             ImGui::TableSetColumnIndex(3);
             if (ImGui::SmallButton("Del")) {
-                dispatch_action(app, A_ALARM_DEL + i, steady_clock::now(), {});
-                ui.dirty = true;
+                auto r = dispatch_action(app, A_ALARM_DEL + i, steady_clock::now(), {});
+                if (r.save_config) ui.dirty = true;
                 ImGui::PopID();
                 break;
             }
