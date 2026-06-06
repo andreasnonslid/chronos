@@ -211,6 +211,26 @@ TEST_CASE("Config clock_view invalid value clamped", "[config]") {
     REQUIRE((int)c.clock_view < CLOCK_VIEW_COUNT);
 }
 
+TEST_CASE("Config clock split settings round-trip and clamp", "[config]") {
+    Config orig;
+    orig.clock_split_mode = ClockSplitMode::Vertical;
+    orig.clock_split_pct = 65;
+    std::ostringstream os;
+    config_write(orig, os);
+
+    Config back;
+    std::istringstream is(os.str());
+    config_read(back, is);
+    REQUIRE(back.clock_split_mode == ClockSplitMode::Vertical);
+    REQUIRE(back.clock_split_pct == 65);
+
+    Config clamped;
+    std::istringstream bad("clock_split_mode=99\nclock_split_pct=5\n");
+    config_read(clamped, bad);
+    REQUIRE(clamped.clock_split_mode == ClockSplitMode::Vertical);
+    REQUIRE(clamped.clock_split_pct == 20);
+}
+
 TEST_CASE("Config stopwatch runtime state round-trip", "[config]") {
     Config orig;
     orig.sw_running = true;

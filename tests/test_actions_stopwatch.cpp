@@ -6,6 +6,7 @@
 #include <string>
 #include "actions.hpp"
 #include "app.hpp"
+#include "formatting.hpp"
 #include "test_helpers.hpp"
 
 using namespace std::chrono;
@@ -151,4 +152,118 @@ TEST_CASE("actions-stopwatch: given writable lap-file path when A_SW_LAP dispatc
     dispatch_action(app, A_SW_LAP, at_ms(1000), {});
     REQUIRE_FALSE(app.lap_write_failed);
     std::filesystem::remove(tmp);
+}
+
+// ─── lap file content validation ─────────────────────────────────────────────
+
+TEST_CASE("actions-stopwatch: lap file contains correct format for first lap",
+          "[actions][actions-stopwatch]") {
+    auto tmp = unique_tmp("lap-content.txt");
+    std::filesystem::remove(tmp);
+
+    App app;
+    dispatch_action(app, A_SW_START, t0(), {});
+    app.sw_lap_file = tmp;
+    dispatch_action(app, A_SW_LAP, at_ms(1234), {});
+
+    REQUIRE(std::filesystem::exists(tmp));
+    std::ifstream f(tmp);
+    REQUIRE(f.good());
+    std::string line;
+    REQUIRE(std::getline(f, line));
+
+    // format: "Lap 1     split MM:SS.mmm    total MM:SS.mmm"
+    REQUIRE(line.find("Lap 1") != std::string::npos);
+    REQUIRE(line.find("split") != std::string::npos);
+    REQUIRE(line.find("total") != std::string::npos);
+    // split and total should both be "00:01.234" (1234ms)
+    REQUIRE(line.find("00:01.234") != std::string::npos);
+
+    f.close();
+    std::filesystem::remove(tmp);
+}
+
+TEST_CASE("actions-stopwatch: each A_SW_LAP appends a new line to lap file",
+          "[actions][actions-stopwatch]") {
+    auto tmp = unique_tmp("lap-multi.txt");
+    std::filesystem::remove(tmp);
+
+    App app;
+    dispatch_action(app, A_SW_START, t0(), {});
+    app.sw_lap_file = tmp;
+    dispatch_action(app, A_SW_LAP, at_ms(1000), {});
+    dispatch_action(app, A_SW_LAP, at_ms(3000), {});
+    dispatch_action(app, A_SW_LAP, at_ms(6000), {});
+
+    std::ifstream f(tmp);
+    REQUIRE(f.good());
+    int line_count = 0;
+    std::string line;
+    while (std::getline(f, line)) ++line_count;
+    REQUIRE(line_count == 3);
+
+    f.close();
+    std::filesystem::remove(tmp);
+}
+
+TEST_CASE("actions-stopwatch: lap file lines have correct lap numbers",
+          "[actions][actions-stopwatch]") {
+    auto tmp = unique_tmp("lap-numbers.txt");
+    std::filesystem::remove(tmp);
+
+    App app;
+    dispatch_action(app, A_SW_START, t0(), {});
+    app.sw_lap_file = tmp;
+    dispatch_action(app, A_SW_LAP, at_ms(500), {});
+    dispatch_action(app, A_SW_LAP, at_ms(1000), {});
+
+    std::ifstream f(tmp);
+    std::string line1, line2;
+    REQUIRE(std::getline(f, line1));
+    REQUIRE(std::getline(f, line2));
+    REQUIRE(line1.find("Lap 1") != std::string::npos);
+    REQUIRE(line2.find("Lap 2") != std::string::npos);
+
+    f.close();
+    std::filesystem::remove(tmp);
+}
+
+TEST_CASE("actions-stopwatch: lap file split time equals interval between laps",
+          "[actions][actions-stopwatch]") {
+    auto tmp = unique_tmp("lap-split.txt");
+    std::filesystem::remove(tmp);
+
+    App app;
+    dispatch_action(app, A_SW_START, t0(), {});
+    app.sw_lap_file = tmp;
+    dispatch_action(app, A_SW_LAP, at_ms(2000), {});  // lap 1: split=2s, total=2s
+    dispatch_action(app, A_SW_LAP, at_ms(5000), {});  // lap 2: split=3s, total=5s
+
+    std::ifstream f(tmp);
+    std::string line1, line2;
+    REQUIRE(std::getline(f, line1));
+    REQUIRE(std::getline(f, line2));
+
+    // Lap 1: split and total both 2s = "00:02.000"
+    REQUIRE(line1.find("00:02.000") != std::string::npos);
+
+    // Lap 2: split=3s="00:03.000", total=5s="00:05.000"
+    REQUIRE(line2.find("00:03.000") != std::string::npos);
+    REQUIRE(line2.find("00:05.000") != std::string::npos);
+
+    f.close();
+    std::filesystem::remove(tmp);
+}
+
+TEST_CASE("actions-stopwatch: lap file format_lap_row matches format_stopwatch_short for sub-hour",
+          "[actions][actions-stopwatch]") {
+    using namespace std::chrono;
+    auto split = milliseconds{1500};
+    auto total = milliseconds{4500};
+    auto row = format_lap_row(1, split, total);
+    // Row must contain both formatted times
+    REQUIRE(row.find(format_stopwatch_short(split)) != std::string::npos);
+    REQUIRE(row.find(format_stopwatch_short(total)) != std::string::npos);
+    // Row must contain lap number prefix
+    REQUIRE(row.find("Lap 1") != std::string::npos);
 }

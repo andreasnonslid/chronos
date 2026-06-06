@@ -32,19 +32,6 @@ FORBIDDEN_BY_LAYER: dict[str, tuple[str, ...]] = {
 # Format: (<repo-relative path>, <included header>)
 BASELINE_ALLOW: set[tuple[str, str]] = {
     ("src/core/encoding.cpp", "windows.h"),
-    ("src/ui/icon.hpp", "windows.h"),
-    ("src/ui/paint_ctx.hpp", "windows.h"),
-    ("src/ui/theme.hpp", "windows.h"),
-    ("src/input/input.hpp", "windows.h"),
-    ("src/input/input_core.cpp", "windows.h"),
-    ("src/input/input_keyboard.cpp", "windows.h"),
-    ("src/input/input_label_edit.cpp", "windows.h"),
-    ("src/input/input_label_edit.hpp", "windows.h"),
-    ("src/input/input_mouse.cpp", "windows.h"),
-    ("src/painting/painting_analog.cpp", "windows.h"),
-    ("src/painting/painting_analog.hpp", "windows.h"),
-    ("src/painting/painting_scene.cpp", "windows.h"),
-    ("src/painting/painting_scene.hpp", "windows.h"),
 }
 
 

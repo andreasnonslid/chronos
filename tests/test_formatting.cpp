@@ -15,24 +15,24 @@ static steady_duration dur_s(long long s) { return duration_cast<steady_duration
 
 TEST_CASE("format_stopwatch_short renders MM:SS.mmm across the supported range",
           "[formatting]") {
-    struct Row { long long ms; std::wstring expected; };
+    struct Row { long long ms; std::string expected; };
     auto row = GENERATE(values<Row>({
-        {0,                                  L"00:00.000"},
-        {456,                                L"00:00.456"},
-        {60'000,                             L"01:00.000"},
-        {59 * 60'000 + 59'000 + 999,         L"59:59.999"}, // upper end of short range
+        {0,                                  "00:00.000"},
+        {456,                                "00:00.456"},
+        {60'000,                             "01:00.000"},
+        {59 * 60'000 + 59'000 + 999,         "59:59.999"}, // upper end of short range
     }));
     REQUIRE(format_stopwatch_short(dur_ms(row.ms)) == row.expected);
 }
 
 TEST_CASE("format_stopwatch_long renders HH:MM:SS.mmm across the supported range",
           "[formatting]") {
-    struct Row { long long ms; std::wstring expected; };
+    struct Row { long long ms; std::string expected; };
     auto row = GENERATE(values<Row>({
-        {0,                                  L"00:00:00.000"},
-        {3'600'000,                          L"01:00:00.000"}, // 1h boundary
-        {3'600'000 + 1'000 + 250,            L"01:00:01.250"}, // ms preserved
-        {(3 * 3600 + 15 * 60 + 42) * 1'000,  L"03:15:42.000"}, // multi-hour
+        {0,                                  "00:00:00.000"},
+        {3'600'000,                          "01:00:00.000"}, // 1h boundary
+        {3'600'000 + 1'000 + 250,            "01:00:01.250"}, // ms preserved
+        {(3 * 3600 + 15 * 60 + 42) * 1'000,  "03:15:42.000"}, // multi-hour
     }));
     REQUIRE(format_stopwatch_long(dur_ms(row.ms)) == row.expected);
 }
@@ -41,11 +41,11 @@ TEST_CASE("format_stopwatch_long renders HH:MM:SS.mmm across the supported range
 
 TEST_CASE("format_stopwatch_display switches short/long at the 1h boundary",
           "[formatting]") {
-    struct Row { long long ms; std::wstring expected; };
+    struct Row { long long ms; std::string expected; };
     auto row = GENERATE(values<Row>({
-        {59 * 60'000 + 59'000 + 999, L"59:59.999"},     // just under 1h ⇒ short
-        {3'600'000,                  L"01:00:00.000"},  // boundary       ⇒ long
-        {3601'000 + 250,             L"01:00:01.250"},  // past 1h, ms kept
+        {59 * 60'000 + 59'000 + 999, "59:59.999"},     // just under 1h ⇒ short
+        {3'600'000,                  "01:00:00.000"},  // boundary       ⇒ long
+        {3601'000 + 250,             "01:00:01.250"},  // past 1h, ms kept
     }));
     REQUIRE(format_stopwatch_display(dur_ms(row.ms)) == row.expected);
 }
@@ -80,13 +80,13 @@ TEST_CASE("format_timer_edit renders single-digit hour h:mm:ss", "[formatting]")
 
 TEST_CASE("format_lap_row: lap 1", "[formatting]") {
     auto result = format_lap_row(1, dur_ms(5123), dur_ms(5123));
-    REQUIRE(result.find(L"Lap 1") != std::wstring::npos);
-    REQUIRE(result.find(L"00:05.123") != std::wstring::npos);
+    REQUIRE(result.find("Lap 1") != std::string::npos);
+    REQUIRE(result.find("00:05.123") != std::string::npos);
 }
 
 TEST_CASE("format_lap_row: large lap number", "[formatting]") {
     auto result = format_lap_row(100, dur_ms(3456), dur_ms(80000));
-    REQUIRE(result.find(L"Lap 100") != std::wstring::npos);
+    REQUIRE(result.find("Lap 100") != std::string::npos);
 }
 
 // ── format_worked_time ─────────────────────────────────────────────────────
@@ -123,8 +123,8 @@ TEST_CASE("formatting: given negative duration when any duration formatter is ca
           " then output equals the formatter's zero string",
           "[formatting]") {
     auto neg_ms = GENERATE(-1, -500, -3600 * 1000, -86400 * 1000);
-    REQUIRE(format_stopwatch_short(dur_ms(neg_ms)) == L"00:00.000");
-    REQUIRE(format_stopwatch_long(dur_ms(neg_ms))  == L"00:00:00.000");
+    REQUIRE(format_stopwatch_short(dur_ms(neg_ms)) == "00:00.000");
+    REQUIRE(format_stopwatch_long(dur_ms(neg_ms))  == "00:00:00.000");
     REQUIRE(format_timer_display(dur_ms(neg_ms))   == L"00:00");
     REQUIRE(format_timer_edit(dur_ms(neg_ms))      == L"0:00:00");
 }

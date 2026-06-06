@@ -26,3 +26,18 @@ struct Alarm {
     bool enabled = true;
     bool notified = false;  // runtime-only, not persisted; reset each minute by check_alarms
 };
+
+// Pure decision: should alarm a fire at the given wall-clock moment?
+// dow_posix: POSIX tm_wday (0=Sunday, 1=Monday, …, 6=Saturday)
+inline bool alarm_matches(const Alarm& a,
+                          int h, int m,
+                          int dow_posix,
+                          int year, int month, int day) {
+    if (a.hour != h || a.minute != m) return false;
+    if (a.schedule == AlarmSchedule::Days) {
+        // Convert POSIX dow to bitmask index (Mon=0 … Sun=6)
+        int bit = (dow_posix == 0) ? 6 : (dow_posix - 1);
+        return (a.days_mask & (1 << bit)) != 0;
+    }
+    return a.date_year == year && a.date_month == month && a.date_day == day;
+}

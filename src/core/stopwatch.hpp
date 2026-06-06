@@ -38,6 +38,16 @@ struct Stopwatch {
         laps_.clear();
     }
 
+    // Restore persisted state: set elapsed time and optionally resume running from `now`.
+    void restore(dur elapsed_acc, bool running, tp now) {
+        reset();
+        accumulated_ = elapsed_acc;
+        if (running) {
+            start_time_ = now;
+            running_ = true;
+        }
+    }
+
     bool is_running() const { return running_; }
     bool touched() const { return running_ || accumulated_.count() != 0 || !laps_.empty(); }
 

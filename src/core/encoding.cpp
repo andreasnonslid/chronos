@@ -63,8 +63,8 @@ std::wstring utf8_to_wide(const std::string& s) {
     size_t i = 0;
     while (i < s.size()) {
         const unsigned char c = us[i++];
-        uint32_t cp;
-        int extra;
+        uint32_t cp = 0;
+        int extra = 0;
         if (c < 0x80)      { cp = c;        extra = 0; }
         else if (c < 0xC0) continue; // invalid continuation byte, skip
         else if (c < 0xE0) { cp = c & 0x1F; extra = 1; }

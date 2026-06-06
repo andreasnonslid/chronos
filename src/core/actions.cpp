@@ -21,8 +21,10 @@ int cycle(int v, int max_inclusive, bool up) {
     else    return v <= 0             ? max_inclusive : v - 1;
 }
 
+} // namespace
+
 // Advance a running pomodoro timer to the next phase (work → break → work …),
-// crediting the elapsed-time bucket if leaving a work phase.
+// crediting actual elapsed time if leaving a work phase.
 void advance_pomodoro_phase(TimerSlot& ts, const App& app,
                             std::chrono::steady_clock::time_point now) {
     using namespace std::chrono;
@@ -36,11 +38,9 @@ void advance_pomodoro_phase(TimerSlot& ts, const App& app,
     ts.notified = false;
     ts.t.reset();
     ts.t.set(secs);
-    ts.t.start(now);
+    if (app.pomodoro_auto_start) ts.t.start(now);
     ts.label = pomodoro_phase_label(ts.pomodoro_phase, app.pomodoro_cadence);
 }
-
-} // namespace
 
 /// Resets @p ts to its initial state, restoring pomodoro phase 0 if applicable.
 void reset_timer_slot(TimerSlot& ts, const App& app) {
@@ -132,13 +132,11 @@ HandleResult dispatch_timer_action(App& app, int idx, int off,
             TimerSlot ns;
             ns.t.set(ns.dur);
             app.timers.insert(app.timers.begin() + idx + 1, ns);
-            r.resize = true;
             r.save_config = true;
         }
     } else if (off == A_TMR_DEL) {
         if ((int)app.timers.size() > 1) {
             app.timers.erase(app.timers.begin() + idx);
-            r.resize = true;
             r.save_config = true;
         }
     } else if (off == A_TMR_POMO) {
@@ -176,17 +174,14 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
         break;
     case A_SHOW_CLK:
         app.show_clk = !app.show_clk;
-        r.resize = true;
         r.save_config = true;
         break;
     case A_SHOW_SW:
         app.show_sw = !app.show_sw;
-        r.resize = true;
         r.save_config = true;
         break;
     case A_SHOW_TMR:
         app.show_tmr = !app.show_tmr;
-        r.resize = true;
         r.save_config = true;
         break;
     case A_SW_START:
@@ -196,35 +191,38 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
                 auto days = std::chrono::floor<std::chrono::days>(tp);
                 const std::chrono::year_month_day ymd{days};
                 const std::chrono::hh_mm_ss hms{std::chrono::floor<std::chrono::milliseconds>(tp - days)};
-                auto lap_name = std::format(L"stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt", (int)ymd.year(),
-                                            (unsigned)ymd.month(), (unsigned)ymd.day(), hms.hours().count(),
-                                            hms.minutes().count(), hms.seconds().count(), hms.subseconds().count());
+                auto lap_name = std::format("stopwatch-{:04}{:02}{:02}-{:02}{:02}{:02}-{:03}.txt", (int)ymd.year(),
+                                           (unsigned)ymd.month(), (unsigned)ymd.day(), hms.hours().count(),
+                                           hms.minutes().count(), hms.seconds().count(), hms.subseconds().count());
                 app.sw_lap_file = config_dir / lap_name;
             }
             app.sw.start(now);
         } else {
             app.sw.stop(now);
         }
+        r.save_config = true;
         break;
     case A_SW_LAP:
         if (app.sw.is_running()) {
             app.sw.lap(now);
             if (!app.sw_lap_file.empty()) {
-                std::wofstream f(app.sw_lap_file, std::ios::app);
+                std::ofstream f(app.sw_lap_file, std::ios::app);
                 if (f) {
                     const auto& laps = app.sw.laps();
                     auto n = laps.size();
-                    f << format_lap_row(n, laps.back(), app.sw.cumulative()) << L'\n';
+                    f << format_lap_row(n, laps.back(), app.sw.cumulative()) << '\n';
                     app.lap_write_failed = !f.good();
                 } else {
                     app.lap_write_failed = true;
                 }
             }
+            r.save_config = true;
         }
         break;
     case A_SW_RESET:
         app.sw.reset();
         app.sw_lap_file.clear();
+        r.save_config = true;
         break;
     case A_SW_GET:
         if (!app.sw_lap_file.empty()) {
@@ -243,26 +241,15 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
         r.apply_theme = true;
         r.save_config = true;
         break;
-    case A_CLK_CYCLE: {
-        auto old_view = app.clock_view;
+    case A_CLK_CYCLE:
         app.clock_view = (ClockView)(((int)app.clock_view + 1) % CLOCK_VIEW_COUNT);
-        // Any view change that affects clock height (analog presence, stacked
-        // digital) needs a window resize. Compare effective heights at a
-        // baseline radius — the actual height also depends on analog_style,
-        // but width-changes here are dominated by view kind.
-        const Layout probe;
-        if (effective_clk_h(probe, old_view, app.analog_style.radius_pct) !=
-            effective_clk_h(probe, app.clock_view, app.analog_style.radius_pct))
-            r.resize = true;
         r.save_config = true;
         break;
-    }
     case A_SETTINGS:
         r.open_settings = true;
         break;
     case A_SHOW_ALARMS:
         app.show_alarms = !app.show_alarms;
-        r.resize = true;
         r.save_config = true;
         break;
     case A_ALARM_ADD:
@@ -276,14 +263,13 @@ HandleResult dispatch_action(App& app, int act, std::chrono::steady_clock::time_
     default:
         if (act >= A_ALARM_DEL && act < A_ALARM_DEL + ALARM_MAX_COUNT) {
             const int i = act - A_ALARM_DEL;
-            if (i >= 0 && i < (int)app.alarms.size()) {
+            if (i < (int)app.alarms.size()) {
                 app.alarms.erase(app.alarms.begin() + i);
-                r.resize = true;
                 r.save_config = true;
             }
         } else if (act >= A_ALARM_TOGGLE && act < A_ALARM_TOGGLE + ALARM_MAX_COUNT) {
             const int i = act - A_ALARM_TOGGLE;
-            if (i >= 0 && i < (int)app.alarms.size()) {
+            if (i < (int)app.alarms.size()) {
                 app.alarms[i].enabled = !app.alarms[i].enabled;
                 r.save_config = true;
             }

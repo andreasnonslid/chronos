@@ -18,20 +18,6 @@ struct TimerSlot {
     std::chrono::seconds pomodoro_work_elapsed{};
 };
 
-inline void advance_pomodoro_phase(TimerSlot& ts, int work_secs, int short_secs, int long_secs,
-                                    int cadence, bool auto_start,
-                                    std::chrono::steady_clock::time_point now) {
-    if (pomodoro_is_work(ts.pomodoro_phase))
-        ts.pomodoro_work_elapsed += ts.dur;
-    ts.pomodoro_phase = pomodoro_next_phase(ts.pomodoro_phase, cadence);
-    auto secs = std::chrono::seconds{pomodoro_phase_secs(ts.pomodoro_phase, work_secs, short_secs, long_secs, cadence)};
-    ts.dur = secs;
-    ts.t.reset();
-    ts.t.set(secs);
-    if (auto_start) ts.t.start(now);
-    ts.notified = false;
-    ts.label = pomodoro_phase_label(ts.pomodoro_phase, cadence);
-}
 
 struct App {
     Stopwatch sw;
@@ -44,6 +30,8 @@ struct App {
     bool sound_on_expiry = true;
     ThemeMode theme_mode = ThemeMode::Auto;
     ClockView clock_view = ClockView::H24_HMS;
+    ClockSplitMode clock_split_mode = ClockSplitMode::Auto;
+    int clock_split_pct = 50;
     AnalogClockStyle analog_style;
     int pomodoro_work_secs = 25 * 60;
     int pomodoro_short_secs = 5 * 60;

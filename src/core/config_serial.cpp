@@ -28,7 +28,7 @@ struct AnalogInt {
     int lo, hi;
 };
 
-constexpr std::array<AnalogInt, 25> kAnalogInts = {{
+constexpr std::array<AnalogInt, 25> analog_ints = {{
     {"analog_hour_color",         &AnalogClockStyle::hour_color,         NO_CLAMP_LO, NO_CLAMP_HI},
     {"analog_minute_color",       &AnalogClockStyle::minute_color,       NO_CLAMP_LO, NO_CLAMP_HI},
     {"analog_second_color",       &AnalogClockStyle::second_color,       NO_CLAMP_LO, NO_CLAMP_HI},
@@ -62,12 +62,12 @@ constexpr std::array<AnalogInt, 25> kAnalogInts = {{
 struct TimerSlotI64  { std::string_view suffix; std::array<long long, Config::MAX_TIMERS> Config::*field; };
 struct TimerSlotBool { std::string_view suffix; std::array<bool,      Config::MAX_TIMERS> Config::*field; };
 
-constexpr std::array<TimerSlotI64, 3> kTimerI64 = {{
+constexpr std::array<TimerSlotI64, 3> timer_i64 = {{
     {"_elapsed_ms",         &Config::timer_elapsed_ms},
     {"_start_epoch_ms",     &Config::timer_start_epoch_ms},
     {"_pomodoro_work_secs", &Config::timer_pomodoro_work_secs},
 }};
-constexpr std::array<TimerSlotBool, 3> kTimerBool = {{
+constexpr std::array<TimerSlotBool, 3> timer_bool = {{
     {"_running",  &Config::timer_running},
     {"_notified", &Config::timer_notified},
     {"_pomodoro", &Config::timer_pomodoro},
@@ -78,7 +78,7 @@ constexpr std::array<TimerSlotBool, 3> kTimerBool = {{
 struct BoolField { std::string_view key; bool Config::*field; };
 struct IntField  { std::string_view key; int  Config::*field; int lo, hi; };
 
-constexpr std::array<BoolField, 5> kAlwaysBools = {{
+constexpr std::array<BoolField, 5> always_bools = {{
     {"show_clk",         &Config::show_clk},
     {"show_sw",          &Config::show_sw},
     {"show_tmr",         &Config::show_tmr},
@@ -86,13 +86,13 @@ constexpr std::array<BoolField, 5> kAlwaysBools = {{
     {"sound_on_expiry",  &Config::sound_on_expiry},
 }};
 
-constexpr std::array<IntField, 1> kAlwaysInts = {{
+constexpr std::array<IntField, 1> always_ints = {{
     {"num_timers", &Config::num_timers, 1, Config::MAX_TIMERS},
 }};
 
 // Per-alarm int fields with clamp range.
 struct AlarmIntField { std::string_view suffix; int Alarm::*field; int lo, hi; };
-constexpr std::array<AlarmIntField, 6> kAlarmInts = {{
+constexpr std::array<AlarmIntField, 6> alarm_ints = {{
     {"_days",   &Alarm::days_mask,  0, ALARM_ALL_DAYS},
     {"_hour",   &Alarm::hour,       0, 23},
     {"_min",    &Alarm::minute,     0, 59},
@@ -118,11 +118,15 @@ bool config_write(const Config& c, std::ostream& f) {
     const char* theme_str = c.theme_mode == ThemeMode::Dark    ? "dark"
                             : c.theme_mode == ThemeMode::Light ? "light"
                                                                : "auto";
-    for (const auto& fld : kAlwaysBools)
+    for (const auto& fld : always_bools)
         f << std::format("{}={}\n", fld.key, c.*fld.field ? 1 : 0);
-    for (const auto& fld : kAlwaysInts)
+    for (const auto& fld : always_ints)
         f << std::format("{}={}\n", fld.key, c.*fld.field);
     f << std::format("theme={}\nclock_view={}\n", theme_str, (int)c.clock_view);
+    if (c.clock_split_mode != Config{}.clock_split_mode)
+        f << std::format("clock_split_mode={}\n", (int)c.clock_split_mode);
+    if (c.clock_split_pct != Config{}.clock_split_pct)
+        f << std::format("clock_split_pct={}\n", c.clock_split_pct);
     if (c.show_alarms) f << "show_alarms=1\n";
     if (!c.alarms.empty()) {
         f << std::format("num_alarms={}\n", (int)c.alarms.size());
@@ -150,7 +154,7 @@ bool config_write(const Config& c, std::ostream& f) {
 
     const AnalogClockStyle& a = c.analog_style;
     const AnalogClockStyle adef;
-    for (const auto& fld : kAnalogInts)
+    for (const auto& fld : analog_ints)
         if (a.*fld.field != adef.*fld.field)
             f << std::format("{}={}\n", fld.key, a.*fld.field);
     if (a.show_minute_ticks != adef.show_minute_ticks) f << std::format("analog_show_min_ticks={}\n", a.show_minute_ticks ? 1 : 0);
@@ -217,7 +221,7 @@ bool read_string_key(Config& c, std::string_view key, std::string_view rest) {
 }
 
 bool read_analog_key(AnalogClockStyle& a, std::string_view key, long long val) {
-    for (const auto& fld : kAnalogInts) {
+    for (const auto& fld : analog_ints) {
         if (key == fld.key) {
             a.*fld.field = (fld.lo == NO_CLAMP_LO && fld.hi == NO_CLAMP_HI) ? (int)val : clamp_int(val, fld.lo, fld.hi);
             return true;
@@ -235,7 +239,7 @@ bool read_alarm_key(Config& c, std::string_view key, long long val) {
     Alarm& a = c.alarms[k.idx];
     if (k.suffix == "_schedule") { a.schedule = (AlarmSchedule)clamp_int(val, 0, 1); return true; }
     if (k.suffix == "_enabled")  { a.enabled = val != 0; return true; }
-    for (const auto& fld : kAlarmInts)
+    for (const auto& fld : alarm_ints)
         if (k.suffix == fld.suffix) { a.*fld.field = clamp_int(val, fld.lo, fld.hi); return true; }
     return false;
 }
@@ -251,9 +255,9 @@ bool read_timer_key(Config& c, std::string_view key, long long val) {
         c.timer_pomodoro_phase[k.idx] = clamp_int(val, 0, pomodoro_phase_count(POMODORO_MAX_CADENCE) - 1);
         return true;
     }
-    for (const auto& fld : kTimerI64)
+    for (const auto& fld : timer_i64)
         if (k.suffix == fld.suffix) { (c.*fld.field)[k.idx] = std::max(val, 0LL); return true; }
-    for (const auto& fld : kTimerBool)
+    for (const auto& fld : timer_bool)
         if (k.suffix == fld.suffix) { (c.*fld.field)[k.idx] = val != 0; return true; }
     return false;
 }
@@ -289,10 +293,10 @@ bool config_read(Config& c, std::istream& f) {
         if (read_alarm_key(c, key, val)) continue;
 
         bool matched_table = false;
-        for (const auto& fld : kAlwaysBools)
+        for (const auto& fld : always_bools)
             if (key == fld.key) { c.*fld.field = val != 0; matched_table = true; break; }
         if (matched_table) continue;
-        for (const auto& fld : kAlwaysInts)
+        for (const auto& fld : always_ints)
             if (key == fld.key) { c.*fld.field = clamp_int(val, fld.lo, fld.hi); matched_table = true; break; }
         if (matched_table) continue;
 
@@ -302,6 +306,8 @@ bool config_read(Config& c, std::istream& f) {
             if (n > (int)c.alarms.size()) c.alarms.resize(n);
         }
         else if (key == "clock_view")          c.clock_view = (ClockView)clamp_int(val, 0, CLOCK_VIEW_COUNT - 1);
+        else if (key == "clock_split_mode")    c.clock_split_mode = (ClockSplitMode)clamp_int(val, 0, CLOCK_SPLIT_MODE_COUNT - 1);
+        else if (key == "clock_split_pct")     c.clock_split_pct = clamp_int(val, 20, 80);
         else if (key == "win_x")               { c.win_x = clamp_int(val, INT_MIN, INT_MAX); has_x = true; }
         else if (key == "win_y")               { c.win_y = clamp_int(val, INT_MIN, INT_MAX); has_y = true; }
         else if (key == "win_w")               { c.win_w = clamp_int(val, Config::MIN_WINDOW_W, INT_MAX); has_w = true; }
