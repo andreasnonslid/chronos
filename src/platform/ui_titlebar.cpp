@@ -12,7 +12,8 @@ static ImVec2 titlebar_btn_size() {
 static void render_toggle_btn(const char* label, bool active, int action,
                                const ImVec2& size, const ThemePalette& pal,
                                App& app, UiState& ui) {
-    if (active) {
+    bool was_active = active;  // snapshot before any potential state change
+    if (was_active) {
         ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
     }
@@ -21,9 +22,10 @@ static void render_toggle_btn(const char* label, bool active, int action,
         if (r.save_config) ui.dirty = true;
         if (r.set_topmost) platform_set_always_on_top(ui.sdl_window, app.topmost);
         if (r.apply_theme) apply_imgui_theme(app.theme_mode, false);
+        ui.toolbar_strip_open = false;  // dismiss strip after any action
     }
     CHRONOS_DEBUG_ITEM(label, IM_COL32(255, 255, 255, 240));
-    if (active) ImGui::PopStyleColor(2);
+    if (was_active) ImGui::PopStyleColor(2);
 }
 
 // ─── UI scale (Ctrl+/-) ───────────────────────────────────────────────────────
@@ -65,25 +67,23 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
         ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableNextRow();
 
-        // Left: hamburger button — click toggles strip, hover also opens it
+        // Left: hamburger — click toggles the overflow strip
         ImGui::TableSetColumnIndex(0);
-        if (ui.toolbar_strip_open) {
-            ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
+        {
+            // Snapshot state BEFORE the button so push/pop counts always balance,
+            // regardless of whether the click flips toolbar_strip_open this frame.
+            bool strip_was_open = ui.toolbar_strip_open;
+            if (strip_was_open) {
+                ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
+            }
+            if (ImGui::Button(ICON_MENU, btn_size))
+                ui.toolbar_strip_open = !ui.toolbar_strip_open;
+            CHRONOS_DEBUG_ITEM("hamburger", IM_COL32(255, 255, 255, 240));
+            if (strip_was_open) ImGui::PopStyleColor(2);
         }
-        if (ImGui::Button(ICON_MENU, btn_size))
-            ui.toolbar_strip_open = !ui.toolbar_strip_open;
-        CHRONOS_DEBUG_ITEM("hamburger", IM_COL32(255, 255, 255, 240));
-        if (ui.toolbar_strip_open)
-            ImGui::PopStyleColor(2);
-        // Store screen rect so render_toolbar_strip can open on hover via IsMouseHoveringRect
-        // (IsItemHovered is unreliable across the nested table / child-window hierarchy)
-        ui.hamburger_rect_min_x = ImGui::GetItemRectMin().x;
-        ui.hamburger_rect_min_y = ImGui::GetItemRectMin().y;
-        ui.hamburger_rect_max_x = ImGui::GetItemRectMax().x;
-        ui.hamburger_rect_max_y = ImGui::GetItemRectMax().y;
 
-        // Right: minimize / settings / close
+        // Right: settings / minimize / close
         ImGui::TableSetColumnIndex(1);
         if (ImGui::Button(ICON_SETTINGS_GEAR, btn_size)) {
             if (!ui.show_settings) ui.settings_initialized = false;
@@ -120,21 +120,9 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
     ImGui::PopStyleColor();
 }
 
-// ─── Toolbar strip (hover overflow) ──────────────────────────────────────────
+// ─── Toolbar strip ────────────────────────────────────────────────────────────
 
 void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
-    float dt = ImGui::GetIO().DeltaTime;
-
-    // Open on hover over the hamburger button (use stored screen rect — reliable across
-    // any nesting depth, unlike IsItemHovered which requires the correct hovered-window)
-    bool hamburger_hovered = ImGui::IsMouseHoveringRect(
-        {ui.hamburger_rect_min_x, ui.hamburger_rect_min_y},
-        {ui.hamburger_rect_max_x, ui.hamburger_rect_max_y}, false);
-    if (hamburger_hovered) {
-        ui.toolbar_strip_open = true;
-        ui.toolbar_strip_close_timer = 0.25f;
-    }
-
     if (!ui.toolbar_strip_open) return;
 
     ImGui::SetNextWindowPos({ui.toolbar_strip_screen_x, ui.toolbar_strip_screen_y});
@@ -152,38 +140,28 @@ void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
 
     ImVec2 btn_size = titlebar_btn_size();
 
-    render_toggle_btn(ICON_PIN,      app.topmost,     A_TOPMOST,     btn_size, pal, app, ui); ImGui::SameLine();
-    render_toggle_btn(ICON_CLOCKFACE,app.show_clk,    A_SHOW_CLK,    btn_size, pal, app, ui); ImGui::SameLine();
-    render_toggle_btn(ICON_HISTORY,  app.show_sw,     A_SHOW_SW,     btn_size, pal, app, ui); ImGui::SameLine();
-    render_toggle_btn(ICON_WATCH,    app.show_tmr,    A_SHOW_TMR,    btn_size, pal, app, ui); ImGui::SameLine();
-    render_toggle_btn(ICON_BELL,     app.show_alarms, A_SHOW_ALARMS, btn_size, pal, app, ui);
+    render_toggle_btn(ICON_PIN,       app.topmost,     A_TOPMOST,     btn_size, pal, app, ui); ImGui::SameLine();
+    render_toggle_btn(ICON_CLOCKFACE, app.show_clk,    A_SHOW_CLK,    btn_size, pal, app, ui); ImGui::SameLine();
+    render_toggle_btn(ICON_HISTORY,   app.show_sw,     A_SHOW_SW,     btn_size, pal, app, ui); ImGui::SameLine();
+    render_toggle_btn(ICON_WATCH,     app.show_tmr,    A_SHOW_TMR,    btn_size, pal, app, ui); ImGui::SameLine();
+    render_toggle_btn(ICON_BELL,      app.show_alarms, A_SHOW_ALARMS, btn_size, pal, app, ui);
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
     ImGui::SameLine();
-    bool dbg = ui.debug_overlay_visible;
-    if (dbg) {
+    bool dbg_was = ui.debug_overlay_visible;
+    if (dbg_was) {
         ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
     }
-    if (ImGui::Button(ICON_BUG, btn_size)) ui.debug_overlay_visible = !ui.debug_overlay_visible;
+    if (ImGui::Button(ICON_BUG, btn_size)) {
+        ui.debug_overlay_visible = !ui.debug_overlay_visible;
+        ui.toolbar_strip_open = false;
+    }
     CHRONOS_DEBUG_ITEM("debug toggle", IM_COL32(255, 255, 255, 240));
-    if (dbg) ImGui::PopStyleColor(2);
+    if (dbg_was) ImGui::PopStyleColor(2);
 #endif
-
-    // Keep strip open while mouse is over it
-    ImVec2 smin = ImGui::GetWindowPos();
-    ImVec2 smax = {smin.x + ImGui::GetWindowWidth(), smin.y + ImGui::GetWindowHeight()};
-    bool strip_hovered = ImGui::IsMouseHoveringRect(smin, smax, false);
 
     ImGui::End();
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(2);
-
-    if (strip_hovered) {
-        ui.toolbar_strip_close_timer = 0.25f;
-    } else {
-        ui.toolbar_strip_close_timer -= dt;
-        if (ui.toolbar_strip_close_timer <= 0.f)
-            ui.toolbar_strip_open = false;
-    }
 }
