@@ -1,13 +1,12 @@
 #include "ui_render.hpp"
+#include "codicons/codicons.h"
 using namespace std::chrono;
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 static ImVec2 titlebar_btn_size() {
-    const ImGuiStyle& s = ImGui::GetStyle();
-    float w = std::max(ImGui::CalcTextSize("Alrm").x, ImGui::CalcTextSize("Dbg").x)
-              + s.FramePadding.x * 2.f;
-    return {w, ImGui::GetFrameHeight()};
+    float h = ImGui::GetFrameHeight();
+    return {h, h};  // square — icons are fixed-width glyphs
 }
 
 static void render_toggle_btn(const char* label, bool active, int action,
@@ -74,7 +73,7 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
             ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
         }
-        ImGui::Button("=", btn_size);  // hamburger placeholder
+        ImGui::Button(ICON_MENU, btn_size);
         CHRONOS_DEBUG_ITEM("hamburger", IM_COL32(255, 255, 255, 240));
         if (ui.toolbar_strip_open)
             ImGui::PopStyleColor(2);
@@ -83,19 +82,19 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
 
         // Right: minimize / settings / close
         ImGui::TableSetColumnIndex(1);
-        if (ImGui::Button("Cfg", btn_size)) {
+        if (ImGui::Button(ICON_SETTINGS_GEAR, btn_size)) {
             if (!ui.show_settings) ui.settings_initialized = false;
             ui.show_settings = true;
             ui.settings_tab  = 0;
         }
         CHRONOS_DEBUG_ITEM("settings", IM_COL32(80, 220, 255, 255));
         ImGui::SameLine();
-        if (ImGui::Button("_##min", btn_size))
+        if (ImGui::Button(ICON_CHROME_MINIMIZE, btn_size))
             ui.minimize_to_tray_requested = true;
         CHRONOS_DEBUG_ITEM("tray minimize", IM_COL32(80, 220, 255, 255));
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{0.8f, 0.2f, 0.2f, 1.f});
-        if (ImGui::Button("X", btn_size)) ui.close_requested = true;
+        if (ImGui::Button(ICON_CHROME_CLOSE, btn_size)) ui.close_requested = true;
         CHRONOS_DEBUG_ITEM("close", IM_COL32(255, 80, 80, 255));
         ImGui::PopStyleColor();
 
@@ -145,11 +144,11 @@ void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
 
     ImVec2 btn_size = titlebar_btn_size();
 
-    render_toggle_btn("Pin",  app.topmost,     A_TOPMOST,     btn_size, pal, app, ui); ImGui::SameLine();
-    render_toggle_btn("Clk",  app.show_clk,    A_SHOW_CLK,    btn_size, pal, app, ui); ImGui::SameLine();
-    render_toggle_btn("SW",   app.show_sw,     A_SHOW_SW,     btn_size, pal, app, ui); ImGui::SameLine();
-    render_toggle_btn("Tmr",  app.show_tmr,    A_SHOW_TMR,    btn_size, pal, app, ui); ImGui::SameLine();
-    render_toggle_btn("Alrm", app.show_alarms, A_SHOW_ALARMS, btn_size, pal, app, ui);
+    render_toggle_btn(ICON_PIN,      app.topmost,     A_TOPMOST,     btn_size, pal, app, ui); ImGui::SameLine();
+    render_toggle_btn(ICON_CLOCKFACE,app.show_clk,    A_SHOW_CLK,    btn_size, pal, app, ui); ImGui::SameLine();
+    render_toggle_btn(ICON_HISTORY,  app.show_sw,     A_SHOW_SW,     btn_size, pal, app, ui); ImGui::SameLine();
+    render_toggle_btn(ICON_WATCH,    app.show_tmr,    A_SHOW_TMR,    btn_size, pal, app, ui); ImGui::SameLine();
+    render_toggle_btn(ICON_BELL,     app.show_alarms, A_SHOW_ALARMS, btn_size, pal, app, ui);
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
     ImGui::SameLine();
@@ -158,7 +157,7 @@ void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
         ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
     }
-    if (ImGui::Button("Dbg", btn_size)) ui.debug_overlay_visible = !ui.debug_overlay_visible;
+    if (ImGui::Button(ICON_BUG, btn_size)) ui.debug_overlay_visible = !ui.debug_overlay_visible;
     CHRONOS_DEBUG_ITEM("debug toggle", IM_COL32(255, 255, 255, 240));
     if (dbg) ImGui::PopStyleColor(2);
 #endif

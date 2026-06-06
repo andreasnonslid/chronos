@@ -196,6 +196,16 @@ int main(int argc, char* argv[]) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
+    // Load ProggyClean as the base font (explicit size so codicons can merge into it)
+    io.Fonts->AddFontFromFileTTF(CHRONOS_PROGGYCLEAN_TTF, 13.f);
+    {
+        ImFontConfig cfg;
+        cfg.MergeMode   = true;
+        cfg.GlyphOffset = {0.f, 1.f};  // slight drop to optically centre icons
+        static const ImWchar icon_ranges[] = { 0xEA00, 0xEC00, 0 };
+        io.Fonts->AddFontFromFileTTF(CHRONOS_CODICON_TTF, 13.f, &cfg, icon_ranges);
+    }
+
     ImGui_ImplSDL2_InitForOpenGL(window, gl_ctx);
     ImGui_ImplOpenGL3_Init("#version 330 core");
 
