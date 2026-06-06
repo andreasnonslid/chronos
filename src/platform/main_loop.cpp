@@ -23,6 +23,7 @@
 
 static bool save_screenshot(const char* path, int w, int h) {
     glFinish();
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);  // prevent row padding when w*3 isn't 4-byte aligned
     std::vector<uint8_t> pixels(w * h * 3);
     glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
     // Flip vertically (OpenGL origin is bottom-left)
@@ -132,8 +133,8 @@ int main(int argc, char* argv[]) {
             while (*s) {
                 char* end;
                 int code = (int)strtol(s, &end, 10);
-                if (end != s) replay_actions.push_back(code);
-                s = end;
+                if (end != s) { replay_actions.push_back(code); s = end; }
+                else ++s;  // no digit found — skip the bad char to avoid infinite loop
                 if (*s == ',') ++s;
             }
         }
@@ -280,11 +281,17 @@ int main(int argc, char* argv[]) {
             // Keyboard shortcuts
             if (event.type == SDL_KEYDOWN && !io.WantCaptureKeyboard) {
                 auto now = std::chrono::steady_clock::now();
+                auto kb_action = [&](int action) {
+                    auto r = dispatch_action(app, action, now, {});
+                    if (r.save_config)  ui.dirty = true;
+                    if (r.apply_theme)  apply_imgui_theme(app.theme_mode, false);
+                    if (r.set_topmost)  platform_set_always_on_top(window, app.topmost);
+                };
                 switch (event.key.keysym.sym) {
-                case SDLK_SPACE: dispatch_action(app, A_SW_START, now, {}); break;
-                case SDLK_l:     dispatch_action(app, A_SW_LAP,   now, {}); break;
-                case SDLK_r:     dispatch_action(app, A_SW_RESET, now, {}); break;
-                case SDLK_d:     dispatch_action(app, A_THEME,    now, {}); break;
+                case SDLK_SPACE: kb_action(A_SW_START); break;
+                case SDLK_l:     kb_action(A_SW_LAP);   break;
+                case SDLK_r:     kb_action(A_SW_RESET); break;
+                case SDLK_d:     kb_action(A_THEME);    break;
                 case SDLK_EQUALS: case SDLK_KP_PLUS:
                     if (event.key.keysym.mod & KMOD_CTRL) adjust_ui_scale(ui, +0.1f);
                     break;
@@ -345,9 +352,12 @@ int main(int argc, char* argv[]) {
             if (frame_count >= 2 && !screenshot_done) {
 #ifdef CHRONOS_SCREENSHOT
                 save_screenshot(ui.screenshot_path.c_str(), display_w, display_h);
-#endif
                 screenshot_done = true;
                 done = true;
+#else
+                fprintf(stderr, "--screenshot requires a CHRONOS_SCREENSHOT build\n");
+                done = true;
+#endif
             }
         }
 

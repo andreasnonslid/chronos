@@ -153,7 +153,7 @@ bool load_config(App& app, const std::filesystem::path& path) {
 
     for (int i = 0; i < nt; ++i) {
         auto& ts = app.timers[i];
-        ts.dur    = seconds{std::max(1, cfg.timer_secs[i])};
+        ts.dur    = seconds{std::max(0, cfg.timer_secs[i])};
         ts.t.set(ts.dur);
         ts.notified             = cfg.timer_notified[i];
         ts.label                = utf8_to_wide(cfg.timer_labels[i]);
