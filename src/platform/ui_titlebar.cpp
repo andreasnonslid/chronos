@@ -68,7 +68,9 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
         ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableNextRow();
 
-        // Left: hamburger — opens on hover, toggles on click
+        // Left: hamburger — opens on hover, toggles on click.
+        // Close-on-mouse-leave is handled inside render_toolbar_strip() where the
+        // strip's own IsWindowHovered() and this frame's btn_hovered are both current.
         ImGui::TableSetColumnIndex(0);
         {
             // Snapshot state BEFORE the button so push/pop counts always balance,
@@ -80,8 +82,9 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
             }
             bool btn_clicked = ImGui::Button(ICON_MENU, btn_size);
             bool btn_hovered = ImGui::IsItemHovered();
-            ui.toolbar_strip_open = toolbar_strip_next_state(
-                strip_was_open, btn_clicked, btn_hovered, ui.toolbar_strip_hovered);
+            ui.hamburger_btn_hovered = btn_hovered;
+            ui.toolbar_strip_open = toolbar_strip_btn_update(
+                strip_was_open, btn_clicked, btn_hovered);
             CHRONOS_DEBUG_ITEM("hamburger", IM_COL32(255, 255, 255, 240));
             if (strip_was_open) ImGui::PopStyleColor(2);
         }
@@ -126,10 +129,7 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
 // ─── Toolbar strip ────────────────────────────────────────────────────────────
 
 void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
-    if (!ui.toolbar_strip_open) {
-        ui.toolbar_strip_hovered = false;
-        return;
-    }
+    if (!ui.toolbar_strip_open) return;
 
     ImGui::SetNextWindowPos({ui.toolbar_strip_screen_x, ui.toolbar_strip_screen_y});
     ImGui::PushStyleColor(ImGuiCol_WindowBg, to_v4(pal.bar));
@@ -144,9 +144,13 @@ void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing |
         ImGuiWindowFlags_NoNav             | ImGuiWindowFlags_AlwaysAutoResize);
 
-    ui.toolbar_strip_hovered = ImGui::IsWindowHovered(
+    // Both hover queries are current-frame here: hamburger_btn_hovered was written
+    // by render_titlebar() earlier this frame, and IsWindowHovered() is live now.
+    bool strip_hovered = ImGui::IsWindowHovered(
         ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
         ImGuiHoveredFlags_AllowWhenBlockedByPopup);
+    if (!toolbar_strip_should_stay_open(ui.hamburger_btn_hovered, strip_hovered))
+        ui.toolbar_strip_open = false;
 
     ImVec2 btn_size = titlebar_btn_size();
 

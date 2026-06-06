@@ -1,23 +1,32 @@
 #pragma once
 
-// Pure function: given current state and this-frame input signals,
-// returns the next value of toolbar_strip_open.
+// Two pure functions that together implement the hover-open / mouse-leave-close
+// behaviour for the toolbar strip, split across the two render sites so that
+// every ImGui hover query is read in the same frame it is used.
 //
-//   btn_clicked   – Button() returned true (hamburger clicked)
-//   btn_hovered   – IsItemHovered() true immediately after the button
-//   strip_hovered – IsWindowHovered() true inside the strip window last frame
+// render_titlebar()  calls toolbar_strip_btn_update()  — handles click + hover-open.
+// render_toolbar_strip() calls toolbar_strip_should_stay_open() — handles close.
 //
-// Rule priority:
-//   1. click  → toggle (always wins)
-//   2. button hover → open
-//   3. strip open + nothing hovered → close
-//   4. no change
-inline bool toolbar_strip_next_state(bool currently_open,
+// Splitting at the render-site boundary is what makes both queries current-frame:
+// render_titlebar stores ui.hamburger_btn_hovered, then render_toolbar_strip reads
+// that value alongside its own IsWindowHovered() in the same frame.
+
+// Applied in render_titlebar() after Button() + IsItemHovered().
+// Handles click-toggle and hover-open; never closes (that is handled where
+// current-frame strip hover is available).
+inline bool toolbar_strip_btn_update(bool currently_open,
                                      bool btn_clicked,
-                                     bool btn_hovered,
-                                     bool strip_hovered) noexcept {
-    if (btn_clicked)                      return !currently_open;
-    if (btn_hovered)                      return true;
-    if (currently_open && !strip_hovered) return false;
+                                     bool btn_hovered) noexcept {
+    if (btn_clicked) return !currently_open;
+    if (btn_hovered) return true;
     return currently_open;
+}
+
+// Applied inside render_toolbar_strip()'s Begin/End block, where both
+// ui.hamburger_btn_hovered (written this frame by render_titlebar) and
+// ImGui::IsWindowHovered() are current for the same frame.
+// Returns false → caller should set toolbar_strip_open = false.
+inline bool toolbar_strip_should_stay_open(bool btn_hovered,
+                                           bool strip_hovered) noexcept {
+    return btn_hovered || strip_hovered;
 }
