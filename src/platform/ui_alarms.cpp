@@ -1,6 +1,14 @@
 #include "ui_render.hpp"
 using namespace std::chrono;
 
+static int days_in_month(int year, int month) {
+    if (month < 1 || month > 12) return 31;
+    static const int dim[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    int d = dim[month - 1];
+    if (month == 2 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)) d = 29;
+    return d;
+}
+
 // ─── Alarms ──────────────────────────────────────────────────────────────────
 
 void render_alarms(App& app, UiState& ui) {
@@ -130,7 +138,7 @@ void render_add_alarm_window(App& app, UiState& ui) {
         ImGui::SetNextItemWidth(50); ImGui::InputInt("Day",   &ui.alarm_day,   1);
         CHRONOS_DEBUG_ITEM("alarm day", IM_COL32(180, 120, 255, 255));
         ui.alarm_month = std::clamp(ui.alarm_month, 1, 12);
-        ui.alarm_day   = std::clamp(ui.alarm_day,   1, 31);
+        ui.alarm_day   = std::clamp(ui.alarm_day,   1, days_in_month(ui.alarm_year, ui.alarm_month));
     }
 
     ImGui::Separator();
