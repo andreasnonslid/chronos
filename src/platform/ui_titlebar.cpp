@@ -74,7 +74,7 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
             ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
         }
-        ImGui::Button("\xe2\x98\xb0", btn_size);  // ☰  U+2630
+        ImGui::Button("=", btn_size);  // hamburger placeholder
         CHRONOS_DEBUG_ITEM("hamburger", IM_COL32(255, 255, 255, 240));
         if (ui.toolbar_strip_open)
             ImGui::PopStyleColor(2);
@@ -87,7 +87,7 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
             ui.minimize_to_tray_requested = true;
         CHRONOS_DEBUG_ITEM("tray minimize", IM_COL32(80, 220, 255, 255));
         ImGui::SameLine();
-        if (ImGui::Button("\xe2\x9a\x99", btn_size)) {  // ⚙  U+2699
+        if (ImGui::Button("Cfg", btn_size)) {
             if (!ui.show_settings) ui.settings_initialized = false;
             ui.show_settings = true;
             ui.settings_tab  = 0;
@@ -95,7 +95,7 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
         CHRONOS_DEBUG_ITEM("settings", IM_COL32(80, 220, 255, 255));
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{0.8f, 0.2f, 0.2f, 1.f});
-        if (ImGui::Button("\xc3\x97", btn_size)) ui.close_requested = true;  // ×  U+00D7
+        if (ImGui::Button("X", btn_size)) ui.close_requested = true;
         CHRONOS_DEBUG_ITEM("close", IM_COL32(255, 80, 80, 255));
         ImGui::PopStyleColor();
 
