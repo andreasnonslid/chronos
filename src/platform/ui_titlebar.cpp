@@ -83,16 +83,16 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
 
         // Right: minimize / settings / close
         ImGui::TableSetColumnIndex(1);
-        if (ImGui::Button("_##min", btn_size))
-            ui.minimize_to_tray_requested = true;
-        CHRONOS_DEBUG_ITEM("tray minimize", IM_COL32(80, 220, 255, 255));
-        ImGui::SameLine();
         if (ImGui::Button("Cfg", btn_size)) {
             if (!ui.show_settings) ui.settings_initialized = false;
             ui.show_settings = true;
             ui.settings_tab  = 0;
         }
         CHRONOS_DEBUG_ITEM("settings", IM_COL32(80, 220, 255, 255));
+        ImGui::SameLine();
+        if (ImGui::Button("_##min", btn_size))
+            ui.minimize_to_tray_requested = true;
+        CHRONOS_DEBUG_ITEM("tray minimize", IM_COL32(80, 220, 255, 255));
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{0.8f, 0.2f, 0.2f, 1.f});
         if (ImGui::Button("X", btn_size)) ui.close_requested = true;
