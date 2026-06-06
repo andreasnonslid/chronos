@@ -99,7 +99,7 @@ void render_clock(App& app, UiState& ui, const ThemePalette& pal, float preferre
             }
         }
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-        if (g_debug_flag && *g_debug_flag) {
+        if (debug_flag && *debug_flag) {
             ImGui::GetForegroundDrawList()->AddLine(
                 split_horizontal ? ImVec2{a_max.x, clock_min.y} : ImVec2{clock_min.x, a_max.y},
                 split_horizontal ? ImVec2{a_max.x, clock_max.y} : ImVec2{clock_max.x, a_max.y},
@@ -113,7 +113,7 @@ void render_clock(App& app, UiState& ui, const ThemePalette& pal, float preferre
         draw_centered_clock_text(clock_min, clock_max, format_clock_text(app.clock_view, h, m, s), 3.2f);
     }
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-    if (g_debug_flag && *g_debug_flag) {
+    if (debug_flag && *debug_flag) {
         ImGui::GetForegroundDrawList()->AddRect(clock_min, clock_max, IM_COL32(255, 210, 0, 255), 0.f, 0, 2.f);
     }
 #endif

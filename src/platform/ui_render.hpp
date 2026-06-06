@@ -50,7 +50,7 @@ inline std::string ws(const std::wstring& w) { return wide_to_utf8(w); }
 // ─── Debug overlay ────────────────────────────────────────────────────────────
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-extern const bool* g_debug_flag;  // defined in ui_app.cpp
+extern const bool* debug_flag;  // defined in ui_app.cpp
 void debug_last_item(const char* label, ImU32 color = IM_COL32(255, 255, 255, 230));
 #define CHRONOS_DEBUG_ITEM(label, color) debug_last_item(label, color)
 #else

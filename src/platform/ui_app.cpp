@@ -4,11 +4,11 @@ using namespace std::chrono;
 // ─── Theme ───────────────────────────────────────────────────────────────────
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-const bool* g_debug_flag = nullptr;
+const bool* debug_flag = nullptr;
 
 void debug_last_item(const char* label, ImU32 color) {
     (void)label;
-    if (!g_debug_flag || !*g_debug_flag) return;
+    if (!debug_flag || !*debug_flag) return;
     if (!ImGui::IsItemVisible()) return;
     ImDrawList* dl = ImGui::GetForegroundDrawList();
     ImVec2 min = ImGui::GetItemRectMin();
@@ -141,7 +141,7 @@ void render_app(App& app, UiState& ui) {
         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-    g_debug_flag = &ui.debug_overlay_visible;
+    debug_flag = &ui.debug_overlay_visible;
     ImDrawList* debug_dl = ImGui::GetForegroundDrawList();
     if (ui.debug_overlay_visible) debug_edge_overlay(debug_dl, io.DisplaySize);
     ImVec2 dbg_before = ImGui::GetCursorScreenPos();
