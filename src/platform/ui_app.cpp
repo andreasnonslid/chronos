@@ -127,11 +127,7 @@ void render_app(App& app, UiState& ui) {
 
     // Full-screen borderless window
     ImGuiIO& io = ImGui::GetIO();
-#ifdef CHRONOS_DEBUG_UI_OVERLAY
-    io.FontGlobalScale = ui.debug_ui_scale;
-#else
-    io.FontGlobalScale = 1.f;
-#endif
+    io.FontGlobalScale = ui.ui_scale;
     ImGui::SetNextWindowPos({0, 0});
     ImGui::SetNextWindowSize(io.DisplaySize);
     ImGui::SetNextWindowBgAlpha(1.f);
@@ -152,7 +148,7 @@ void render_app(App& app, UiState& ui) {
 #else
     auto dbg_section = [](const char*, ImU32) {};
 #endif
-    render_titlebar(app, ui, pal);
+    render_titlebar(ui, pal);
     dbg_section("titlebar", IM_COL32(80, 160, 255, 255));
     if (ui.show_add_alarm) {
         render_add_alarm_window(app, ui);
@@ -175,4 +171,6 @@ void render_app(App& app, UiState& ui) {
     }
 
     ImGui::End();
+
+    render_toolbar_strip(app, ui, pal);
 }

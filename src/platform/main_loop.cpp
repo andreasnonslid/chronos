@@ -275,6 +275,15 @@ int main(int argc, char* argv[]) {
                 case SDLK_l:     dispatch_action(app, A_SW_LAP,   now, {}); break;
                 case SDLK_r:     dispatch_action(app, A_SW_RESET, now, {}); break;
                 case SDLK_d:     dispatch_action(app, A_THEME,    now, {}); break;
+                case SDLK_EQUALS: case SDLK_KP_PLUS:
+                    if (event.key.keysym.mod & KMOD_CTRL) adjust_ui_scale(ui, +0.1f);
+                    break;
+                case SDLK_MINUS: case SDLK_KP_MINUS:
+                    if (event.key.keysym.mod & KMOD_CTRL) adjust_ui_scale(ui, -0.1f);
+                    break;
+                case SDLK_0: case SDLK_KP_0:
+                    if (event.key.keysym.mod & KMOD_CTRL) adjust_ui_scale(ui, 1.f - ui.ui_scale);
+                    break;
                 default: break;
                 }
             }

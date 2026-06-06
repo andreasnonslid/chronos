@@ -59,7 +59,9 @@ void debug_last_item(const char* label, ImU32 color = IM_COL32(255, 255, 255, 23
 
 // ─── Render function declarations ─────────────────────────────────────────────
 
-void render_titlebar(App& app, UiState& ui, const ThemePalette& pal);
+void adjust_ui_scale(UiState& ui, float delta);
+void render_titlebar(UiState& ui, const ThemePalette& pal);
+void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal);
 void render_clock(App& app, UiState& ui, const ThemePalette& pal, float preferred_height);
 void render_stopwatch(App& app, UiState& ui, const ThemePalette& pal);
 void render_timers(App& app, UiState& ui, const ThemePalette& pal);

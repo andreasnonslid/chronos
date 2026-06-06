@@ -41,9 +41,19 @@ struct UiState {
 
     std::filesystem::path cfg_path;
 
+    // Toolbar strip (hamburger overflow menu)
+    bool  toolbar_strip_open        = false;
+    float toolbar_strip_close_timer = 0.f;
+    bool  toolbar_hamburger_hovered = false;
+    float toolbar_strip_screen_x    = 0.f;
+    float toolbar_strip_screen_y    = 0.f;
+
+    // UI scale — session-only zoom, adjusted via Ctrl+/-
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
-    float debug_ui_scale = 1.65f;
+    float ui_scale              = 1.65f;
     bool  debug_overlay_visible = true;
+#else
+    float ui_scale              = 1.f;
 #endif
 };
 
