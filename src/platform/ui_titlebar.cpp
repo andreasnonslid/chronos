@@ -65,20 +65,23 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
         ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableNextRow();
 
-        // Left: hamburger button
+        // Left: hamburger button — click toggles strip, hover also opens it
         ImGui::TableSetColumnIndex(0);
-        ImGui::BeginChild("##titlebar_left_clip", {0, bar_h}, ImGuiChildFlags_None,
-                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         if (ui.toolbar_strip_open) {
             ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
         }
-        ImGui::Button(ICON_MENU, btn_size);
+        if (ImGui::Button(ICON_MENU, btn_size))
+            ui.toolbar_strip_open = !ui.toolbar_strip_open;
         CHRONOS_DEBUG_ITEM("hamburger", IM_COL32(255, 255, 255, 240));
         if (ui.toolbar_strip_open)
             ImGui::PopStyleColor(2);
-        ui.toolbar_hamburger_hovered = ImGui::IsItemHovered();
-        ImGui::EndChild();
+        // Store screen rect so render_toolbar_strip can open on hover via IsMouseHoveringRect
+        // (IsItemHovered is unreliable across the nested table / child-window hierarchy)
+        ui.hamburger_rect_min_x = ImGui::GetItemRectMin().x;
+        ui.hamburger_rect_min_y = ImGui::GetItemRectMin().y;
+        ui.hamburger_rect_max_x = ImGui::GetItemRectMax().x;
+        ui.hamburger_rect_max_y = ImGui::GetItemRectMax().y;
 
         // Right: minimize / settings / close
         ImGui::TableSetColumnIndex(1);
@@ -122,7 +125,12 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
 void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
     float dt = ImGui::GetIO().DeltaTime;
 
-    if (ui.toolbar_hamburger_hovered) {
+    // Open on hover over the hamburger button (use stored screen rect — reliable across
+    // any nesting depth, unlike IsItemHovered which requires the correct hovered-window)
+    bool hamburger_hovered = ImGui::IsMouseHoveringRect(
+        {ui.hamburger_rect_min_x, ui.hamburger_rect_min_y},
+        {ui.hamburger_rect_max_x, ui.hamburger_rect_max_y}, false);
+    if (hamburger_hovered) {
         ui.toolbar_strip_open = true;
         ui.toolbar_strip_close_timer = 0.25f;
     }

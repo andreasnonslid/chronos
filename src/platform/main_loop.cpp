@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
         ImFontConfig cfg;
         cfg.MergeMode   = true;
         cfg.GlyphOffset = {0.f, 1.f};  // slight drop to optically centre icons
-        static const ImWchar icon_ranges[] = { 0xEA00, 0xEC00, 0 };
+        static const ImWchar icon_ranges[] = { 0xEA00, 0xECFF, 0 };
         io.Fonts->AddFontFromFileTTF(CHRONOS_CODICON_TTF, 13.f, &cfg, icon_ranges);
     }
 

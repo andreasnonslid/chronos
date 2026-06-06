@@ -44,9 +44,10 @@ struct UiState {
     // Toolbar strip (hamburger overflow menu)
     bool  toolbar_strip_open        = false;
     float toolbar_strip_close_timer = 0.f;
-    bool  toolbar_hamburger_hovered = false;
     float toolbar_strip_screen_x    = 0.f;
     float toolbar_strip_screen_y    = 0.f;
+    float hamburger_rect_min_x = 0.f, hamburger_rect_min_y = 0.f;
+    float hamburger_rect_max_x = 0.f, hamburger_rect_max_y = 0.f;
 
     // UI scale — session-only zoom, adjusted via Ctrl+/-
 #ifdef CHRONOS_DEBUG_UI_OVERLAY
