@@ -1,5 +1,6 @@
 #include "ui_render.hpp"
 #include "codicons/codicons.h"
+#include "toolbar_strip.hpp"
 using namespace std::chrono;
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -67,18 +68,20 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
         ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableNextRow();
 
-        // Left: hamburger — click toggles the overflow strip
+        // Left: hamburger — opens on hover, toggles on click
         ImGui::TableSetColumnIndex(0);
         {
             // Snapshot state BEFORE the button so push/pop counts always balance,
-            // regardless of whether the click flips toolbar_strip_open this frame.
+            // regardless of whether click/hover flips toolbar_strip_open this frame.
             bool strip_was_open = ui.toolbar_strip_open;
             if (strip_was_open) {
                 ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
             }
-            if (ImGui::Button(ICON_MENU, btn_size))
-                ui.toolbar_strip_open = !ui.toolbar_strip_open;
+            bool btn_clicked = ImGui::Button(ICON_MENU, btn_size);
+            bool btn_hovered = ImGui::IsItemHovered();
+            ui.toolbar_strip_open = toolbar_strip_next_state(
+                strip_was_open, btn_clicked, btn_hovered, ui.toolbar_strip_hovered);
             CHRONOS_DEBUG_ITEM("hamburger", IM_COL32(255, 255, 255, 240));
             if (strip_was_open) ImGui::PopStyleColor(2);
         }
@@ -123,7 +126,10 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
 // ─── Toolbar strip ────────────────────────────────────────────────────────────
 
 void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
-    if (!ui.toolbar_strip_open) return;
+    if (!ui.toolbar_strip_open) {
+        ui.toolbar_strip_hovered = false;
+        return;
+    }
 
     ImGui::SetNextWindowPos({ui.toolbar_strip_screen_x, ui.toolbar_strip_screen_y});
     ImGui::PushStyleColor(ImGuiCol_WindowBg, to_v4(pal.bar));
@@ -137,6 +143,10 @@ void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings  |
         ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing |
         ImGuiWindowFlags_NoNav             | ImGuiWindowFlags_AlwaysAutoResize);
+
+    ui.toolbar_strip_hovered = ImGui::IsWindowHovered(
+        ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
+        ImGuiHoveredFlags_AllowWhenBlockedByPopup);
 
     ImVec2 btn_size = titlebar_btn_size();
 

@@ -41,8 +41,9 @@ struct UiState {
 
     std::filesystem::path cfg_path;
 
-    // Toolbar strip (hamburger overflow menu) — toggled by clicking the hamburger button
+    // Toolbar strip (hamburger overflow menu) — opened by hover or click.
     bool  toolbar_strip_open     = false;
+    bool  toolbar_strip_hovered  = false;  // IsWindowHovered() from the previous frame
     float toolbar_strip_screen_x = 0.f;
     float toolbar_strip_screen_y = 0.f;
 
