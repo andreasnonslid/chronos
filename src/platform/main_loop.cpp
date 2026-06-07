@@ -109,6 +109,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
     const char* config_override = nullptr;
     std::vector<int> replay_actions;
     int forced_settings_tab = -1;
+    bool strip_open_on_start = false;
     if (lpCmdLine && strstr(lpCmdLine, "--screenshot")) {
         const char* p = strstr(lpCmdLine, "--screenshot");
         p += strlen("--screenshot");
