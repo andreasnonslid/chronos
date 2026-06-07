@@ -69,8 +69,8 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
         ImGui::TableNextRow();
 
         // Left: hamburger — opens on hover, toggles on click.
-        // Close-on-mouse-leave is handled inside render_toolbar_strip() where the
-        // strip's own IsWindowHovered() and this frame's btn_hovered are both current.
+        // Close-on-click-outside is handled inside render_toolbar_strip(), using
+        // strip IsWindowHovered() + this frame's hamburger hover signal.
         ImGui::TableSetColumnIndex(0);
         {
             // Snapshot state BEFORE the button so push/pop counts always balance,
