@@ -117,6 +117,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
         while (*p == ' ') ++p;
         screenshot_path = p;
     }
+    if (lpCmdLine && strstr(lpCmdLine, "--strip-open"))
+        strip_open_on_start = true;
 #else
 int main(int argc, char* argv[]) {
     const char* screenshot_path = nullptr;
