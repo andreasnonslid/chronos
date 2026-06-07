@@ -106,6 +106,7 @@ if(CHRONOS_BUILD_APP)
     # ─── Platform app sources (cross-platform ImGui layer) ────────────────────
 
     set(CHRONOS_APP_SOURCES
+        src/platform/codicon_ttf_embed.cpp
         src/platform/config_io.cpp
         src/platform/analog_clock_imgui.cpp
         src/platform/ui_app.cpp
@@ -160,10 +161,6 @@ if(CHRONOS_BUILD_APP)
         third_party
     )
 
-    target_compile_definitions(chronos PRIVATE
-        CHRONOS_CODICON_TTF="${CMAKE_SOURCE_DIR}/third_party/codicons/codicon.ttf"
-        CHRONOS_PROGGYCLEAN_TTF="${CMAKE_SOURCE_DIR}/third_party/imgui/misc/fonts/ProggyClean.ttf"
-    )
     if(CHRONOS_SCREENSHOT)
         target_compile_definitions(chronos PRIVATE CHRONOS_SCREENSHOT)
     endif()
@@ -224,8 +221,11 @@ if(BUILD_TESTS)
         tests/test_actions_adjust.cpp
         tests/test_pomodoro.cpp
         tests/test_alarm.cpp
+        tests/test_toolbar_strip.cpp
+        tests/test_codicon_range.cpp
     )
     set_target_properties(chronos_tests PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+    target_include_directories(chronos_tests PRIVATE third_party)
     target_link_libraries(chronos_tests PRIVATE chronos_core Catch2::Catch2WithMain)
     chronos_use_lld(chronos_tests)
     if(WIN32)

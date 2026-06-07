@@ -41,10 +41,13 @@ struct UiState {
 
     std::filesystem::path cfg_path;
 
-    // Toolbar strip (hamburger overflow menu) — toggled by clicking the hamburger button
-    bool  toolbar_strip_open     = false;
-    float toolbar_strip_screen_x = 0.f;
-    float toolbar_strip_screen_y = 0.f;
+    // Toolbar strip (hamburger overflow menu) — opened by hover or click.
+    bool  toolbar_strip_open        = false;
+    bool  toolbar_strip_pinned      = false;  // bypasses click-outside close; used by --strip-open screenshot mode
+    bool  hamburger_btn_hovered     = false;  // IsItemHovered() written by render_titlebar,
+                                              // read by render_toolbar_strip in the same frame
+    float toolbar_strip_screen_x    = 0.f;
+    float toolbar_strip_screen_y    = 0.f;
 
     // UI scale — session-only zoom, adjusted via Ctrl+/-
 #ifdef CHRONOS_DEBUG_UI_OVERLAY

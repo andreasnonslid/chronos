@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include "codicon_ttf_embed.hpp"
 #include "config_io.hpp"
 #include "ui_render.hpp"
 
@@ -109,18 +110,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
     const char* config_override = nullptr;
     std::vector<int> replay_actions;
     int forced_settings_tab = -1;
+    bool strip_open_on_start = false;
     if (lpCmdLine && strstr(lpCmdLine, "--screenshot")) {
         const char* p = strstr(lpCmdLine, "--screenshot");
         p += strlen("--screenshot");
         while (*p == ' ') ++p;
         screenshot_path = p;
     }
+    if (lpCmdLine && strstr(lpCmdLine, "--strip-open"))
+        strip_open_on_start = true;
 #else
 int main(int argc, char* argv[]) {
     const char* screenshot_path = nullptr;
     const char* config_override = nullptr;
     std::vector<int> replay_actions;
     int forced_settings_tab = -1;
+    bool strip_open_on_start = false;
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--screenshot") == 0 && i + 1 < argc)
             screenshot_path = argv[i + 1];
@@ -128,6 +133,8 @@ int main(int argc, char* argv[]) {
             config_override = argv[i + 1];
         if (strcmp(argv[i], "--settings-tab") == 0 && i + 1 < argc)
             forced_settings_tab = (int)strtol(argv[i + 1], nullptr, 10);
+        if (strcmp(argv[i], "--strip-open") == 0)
+            strip_open_on_start = true;
         if (strcmp(argv[i], "--actions") == 0 && i + 1 < argc) {
             const char* s = argv[i + 1];
             while (*s) {
@@ -197,14 +204,17 @@ int main(int argc, char* argv[]) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    // Load ProggyClean as the base font (explicit size so codicons can merge into it)
-    io.Fonts->AddFontFromFileTTF(CHRONOS_PROGGYCLEAN_TTF, 13.f);
+    // Base font: ImGui's embedded ProggyClean (no external file needed)
+    io.Fonts->AddFontDefault();
     {
         ImFontConfig cfg;
-        cfg.MergeMode   = true;
-        cfg.GlyphOffset = {0.f, 1.f};  // slight drop to optically centre icons
+        cfg.MergeMode            = true;
+        cfg.GlyphOffset          = {0.f, 1.f};  // slight drop to optically centre icons
+        cfg.FontDataOwnedByAtlas = false;        // data is a static array
         static const ImWchar icon_ranges[] = { 0xEA00, 0xECFF, 0 };
-        io.Fonts->AddFontFromFileTTF(CHRONOS_CODICON_TTF, 13.f, &cfg, icon_ranges);
+        io.Fonts->AddFontFromMemoryTTF(
+            const_cast<void*>(codicon_ttf_data()), codicon_ttf_size(),
+            13.f, &cfg, icon_ranges);
     }
 
     ImGui_ImplSDL2_InitForOpenGL(window, gl_ctx);
@@ -243,6 +253,14 @@ int main(int argc, char* argv[]) {
             ui.show_settings  = true;
             ui.settings_tab   = forced_settings_tab;
         }
+    }
+    if (strip_open_on_start) {
+        // Force the strip open and pin it so click_outside cannot dismiss it.
+        // Used by --strip-open screenshot mode to verify the strip renders correctly.
+        // The toolbar_strip_btn_update / toolbar_strip_click_outside logic is
+        // covered by the unit tests in tests/test_toolbar_strip.cpp.
+        ui.toolbar_strip_open   = true;
+        ui.toolbar_strip_pinned = true;
     }
 
     bool done = false;

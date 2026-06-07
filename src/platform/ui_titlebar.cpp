@@ -1,5 +1,6 @@
 #include "ui_render.hpp"
 #include "codicons/codicons.h"
+#include "toolbar_strip.hpp"
 using namespace std::chrono;
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -67,18 +68,23 @@ void render_titlebar(UiState& ui, const ThemePalette& pal) {
         ImGui::TableSetupColumn("right", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableNextRow();
 
-        // Left: hamburger — click toggles the overflow strip
+        // Left: hamburger — opens on hover, toggles on click.
+        // Close-on-click-outside is handled inside render_toolbar_strip(), using
+        // strip IsWindowHovered() + this frame's hamburger hover signal.
         ImGui::TableSetColumnIndex(0);
         {
             // Snapshot state BEFORE the button so push/pop counts always balance,
-            // regardless of whether the click flips toolbar_strip_open this frame.
+            // regardless of whether click/hover flips toolbar_strip_open this frame.
             bool strip_was_open = ui.toolbar_strip_open;
             if (strip_was_open) {
                 ImGui::PushStyleColor(ImGuiCol_Button,        to_v4(pal.active));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, to_v4(pal.active));
             }
-            if (ImGui::Button(ICON_MENU, btn_size))
-                ui.toolbar_strip_open = !ui.toolbar_strip_open;
+            bool btn_clicked = ImGui::Button(ICON_MENU, btn_size);
+            bool btn_hovered = ImGui::IsItemHovered();
+            ui.hamburger_btn_hovered = btn_hovered;
+            ui.toolbar_strip_open = toolbar_strip_btn_update(
+                strip_was_open, btn_clicked, btn_hovered);
             CHRONOS_DEBUG_ITEM("hamburger", IM_COL32(255, 255, 255, 240));
             if (strip_was_open) ImGui::PopStyleColor(2);
         }
@@ -135,8 +141,20 @@ void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
         ImGuiWindowFlags_NoTitleBar        | ImGuiWindowFlags_NoResize         |
         ImGuiWindowFlags_NoMove            | ImGuiWindowFlags_NoScrollbar      |
         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings  |
-        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing |
+        ImGuiWindowFlags_NoFocusOnAppearing |
         ImGuiWindowFlags_NoNav             | ImGuiWindowFlags_AlwaysAutoResize);
+
+    // Close on click-outside: a left-click that lands neither on the strip window
+    // nor on the hamburger button should dismiss the strip.
+    // toolbar_strip_pinned bypasses this for screenshot/test mode.
+    if (!ui.toolbar_strip_pinned) {
+        bool window_hovered = ImGui::IsWindowHovered(
+            ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
+            ImGuiHoveredFlags_AllowWhenBlockedByPopup);
+        bool left_click = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        if (toolbar_strip_click_outside(left_click, window_hovered || ui.hamburger_btn_hovered))
+            ui.toolbar_strip_open = false;
+    }
 
     ImVec2 btn_size = titlebar_btn_size();
 
