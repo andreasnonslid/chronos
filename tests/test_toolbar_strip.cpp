@@ -2,8 +2,7 @@
 #include "toolbar_strip.hpp"
 
 // ── toolbar_strip_btn_update (render_titlebar site) ──────────────────────────
-// Handles click-toggle and hover-open. Never closes the strip — that is the
-// responsibility of toolbar_strip_should_stay_open at the strip render site.
+// Handles click-toggle and hover-open. Never closes the strip.
 
 TEST_CASE("btn_update: button hover opens closed strip", "[toolbar_strip]") {
     REQUIRE(toolbar_strip_btn_update(false, false, true) == true);
@@ -33,23 +32,19 @@ TEST_CASE("btn_update: click takes priority over hover when strip is open", "[to
     REQUIRE(toolbar_strip_btn_update(true, true, true) == false);
 }
 
-// ── toolbar_strip_should_stay_open (render_toolbar_strip site) ───────────────
-// Called inside the strip's Begin/End with current-frame values for both
-// the button hover (from UiState, written earlier this same frame) and the
-// strip's own IsWindowHovered(). Returns false → caller sets strip_open=false.
+// ── toolbar_strip_click_outside (render_toolbar_strip site) ──────────────────
+// Detects a click that landed outside both the strip and the hamburger button.
+// That is the only hover-independent signal that closes the strip.
 
-TEST_CASE("should_stay_open: returns true when button is hovered", "[toolbar_strip]") {
-    REQUIRE(toolbar_strip_should_stay_open(true, false) == true);
+TEST_CASE("click_outside: left click outside window and button closes strip", "[toolbar_strip]") {
+    REQUIRE(toolbar_strip_click_outside(true, false) == true);
 }
 
-TEST_CASE("should_stay_open: returns true when strip is hovered", "[toolbar_strip]") {
-    REQUIRE(toolbar_strip_should_stay_open(false, true) == true);
+TEST_CASE("click_outside: left click inside strip window does not close", "[toolbar_strip]") {
+    REQUIRE(toolbar_strip_click_outside(true, true) == false);
 }
 
-TEST_CASE("should_stay_open: returns true when both hovered", "[toolbar_strip]") {
-    REQUIRE(toolbar_strip_should_stay_open(true, true) == true);
-}
-
-TEST_CASE("should_stay_open: returns false when neither hovered", "[toolbar_strip]") {
-    REQUIRE(toolbar_strip_should_stay_open(false, false) == false);
+TEST_CASE("click_outside: no click does not close", "[toolbar_strip]") {
+    REQUIRE(toolbar_strip_click_outside(false, false) == false);
+    REQUIRE(toolbar_strip_click_outside(false, true) == false);
 }

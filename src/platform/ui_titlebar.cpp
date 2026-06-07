@@ -141,16 +141,20 @@ void render_toolbar_strip(App& app, UiState& ui, const ThemePalette& pal) {
         ImGuiWindowFlags_NoTitleBar        | ImGuiWindowFlags_NoResize         |
         ImGuiWindowFlags_NoMove            | ImGuiWindowFlags_NoScrollbar      |
         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings  |
-        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing |
+        ImGuiWindowFlags_NoFocusOnAppearing |
         ImGuiWindowFlags_NoNav             | ImGuiWindowFlags_AlwaysAutoResize);
 
-    // Both hover queries are current-frame here: hamburger_btn_hovered was written
-    // by render_titlebar() earlier this frame, and IsWindowHovered() is live now.
-    bool strip_hovered = ImGui::IsWindowHovered(
-        ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
-        ImGuiHoveredFlags_AllowWhenBlockedByPopup);
-    if (!toolbar_strip_should_stay_open(ui.hamburger_btn_hovered, strip_hovered))
-        ui.toolbar_strip_open = false;
+    // Close on click-outside: a left-click that lands neither on the strip window
+    // nor on the hamburger button should dismiss the strip.
+    // toolbar_strip_pinned bypasses this for screenshot/test mode.
+    if (!ui.toolbar_strip_pinned) {
+        bool window_hovered = ImGui::IsWindowHovered(
+            ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
+            ImGuiHoveredFlags_AllowWhenBlockedByPopup);
+        bool left_click = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        if (toolbar_strip_click_outside(left_click, window_hovered || ui.hamburger_btn_hovered))
+            ui.toolbar_strip_open = false;
+    }
 
     ImVec2 btn_size = titlebar_btn_size();
 

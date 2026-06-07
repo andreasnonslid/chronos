@@ -43,6 +43,7 @@ struct UiState {
 
     // Toolbar strip (hamburger overflow menu) — opened by hover or click.
     bool  toolbar_strip_open        = false;
+    bool  toolbar_strip_pinned      = false;  // bypasses hover-close; used by --strip-open screenshot mode
     bool  hamburger_btn_hovered     = false;  // IsItemHovered() written by render_titlebar,
                                               // read by render_toolbar_strip in the same frame
     float toolbar_strip_screen_x    = 0.f;

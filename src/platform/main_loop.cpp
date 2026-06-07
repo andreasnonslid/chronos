@@ -121,6 +121,7 @@ int main(int argc, char* argv[]) {
     const char* config_override = nullptr;
     std::vector<int> replay_actions;
     int forced_settings_tab = -1;
+    bool strip_open_on_start = false;
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--screenshot") == 0 && i + 1 < argc)
             screenshot_path = argv[i + 1];
@@ -128,6 +129,8 @@ int main(int argc, char* argv[]) {
             config_override = argv[i + 1];
         if (strcmp(argv[i], "--settings-tab") == 0 && i + 1 < argc)
             forced_settings_tab = (int)strtol(argv[i + 1], nullptr, 10);
+        if (strcmp(argv[i], "--strip-open") == 0)
+            strip_open_on_start = true;
         if (strcmp(argv[i], "--actions") == 0 && i + 1 < argc) {
             const char* s = argv[i + 1];
             while (*s) {
@@ -243,6 +246,14 @@ int main(int argc, char* argv[]) {
             ui.show_settings  = true;
             ui.settings_tab   = forced_settings_tab;
         }
+    }
+    if (strip_open_on_start) {
+        // Force the strip open and pin it so click_outside cannot dismiss it.
+        // Used by --strip-open screenshot mode to verify the strip renders correctly.
+        // The toolbar_strip_btn_update / toolbar_strip_click_outside logic is
+        // covered by the unit tests in tests/test_toolbar_strip.cpp.
+        ui.toolbar_strip_open   = true;
+        ui.toolbar_strip_pinned = true;
     }
 
     bool done = false;
