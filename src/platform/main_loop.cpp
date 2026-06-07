@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include "codicon_ttf_embed.hpp"
 #include "config_io.hpp"
 #include "ui_render.hpp"
 
@@ -201,14 +202,17 @@ int main(int argc, char* argv[]) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    // Load ProggyClean as the base font (explicit size so codicons can merge into it)
-    io.Fonts->AddFontFromFileTTF(CHRONOS_PROGGYCLEAN_TTF, 13.f);
+    // Base font: ImGui's embedded ProggyClean (no external file needed)
+    io.Fonts->AddFontDefault();
     {
         ImFontConfig cfg;
-        cfg.MergeMode   = true;
-        cfg.GlyphOffset = {0.f, 1.f};  // slight drop to optically centre icons
+        cfg.MergeMode            = true;
+        cfg.GlyphOffset          = {0.f, 1.f};  // slight drop to optically centre icons
+        cfg.FontDataOwnedByAtlas = false;        // data is a static array
         static const ImWchar icon_ranges[] = { 0xEA00, 0xECFF, 0 };
-        io.Fonts->AddFontFromFileTTF(CHRONOS_CODICON_TTF, 13.f, &cfg, icon_ranges);
+        io.Fonts->AddFontFromMemoryTTF(
+            const_cast<void*>(codicon_ttf_data()), codicon_ttf_size(),
+            13.f, &cfg, icon_ranges);
     }
 
     ImGui_ImplSDL2_InitForOpenGL(window, gl_ctx);
